@@ -9,4 +9,4 @@ COPY acars_router/ /opt/acars_router
 
 ENTRYPOINT [ "python3" ]
 
-CMD [ "/opt/acars_router/acars_router.py" ]
+CMD [ "/opt/acars_router/acars_router2.py" ]
