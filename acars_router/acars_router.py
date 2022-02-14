@@ -28,7 +28,9 @@ def log_counters(trigger_in: int):
     global COUNTER_ACARS_MSGS_RX_TOTAL
     global COUNTER_VDLM2_MSGS_RX_LAST
     global COUNTER_VDLM2_MSGS_RX_TOTAL
-    log = logging.getLogger('stats')
+
+    log = log.getChild('statistics')
+
     log.info("ACARS messages received (last {n} mins / lifetime): {last5m}/{life}".format(
         n = int(trigger_in/60),
         last5m = COUNTER_ACARS_MSGS_RX_LAST,
