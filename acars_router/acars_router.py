@@ -243,7 +243,7 @@ if __name__ == "__main__":
         acars_mb.add_udp_client(c.split(':')[0], int(c.split(':')[1]))
 
     # Handle `--send-udp-vdlm2` (set up VDLM2 UDP senders)
-    for c in args.send_udp_acars:
+    for c in args.send_udp_vdlm2:
         log.info("Forwarding VDLM2 UDP datagrams to: {client}".format(
             client=c,
         ))
