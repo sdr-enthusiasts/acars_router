@@ -137,12 +137,15 @@ class InboundTCPACARSMessageHandler(socketserver.BaseRequestHandler):
     def handle(self):
         global COUNTER_ACARS_TCP_RECEIVED_TOTAL
         global COUNTER_ACARS_TCP_RECEIVED_LAST
+        self.logger = baselogger.getChild(f'input.tcp.acars.{self.client_address[0]}.{self.client_address[1]}')
+        self.logger.info("client connected")
         while True:
             data = self.request.recv(1024).strip()
             if not data: break
             self.inbound_message_queue.put(data)
             COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
             COUNTER_ACARS_TCP_RECEIVED_LAST += 1
+        self.logger.info("client disconnected")
 
 class InboundTCPVDLM2MessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded TCP server to receive VDLM2 messages """
