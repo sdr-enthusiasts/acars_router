@@ -135,6 +135,7 @@ class InboundTCPACARSMessageHandler(socketserver.BaseRequestHandler):
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
+        print(type(self.request), repr(self.request))
         data = self.request[0].strip()
         socket = self.request[1]
         self.inbound_message_queue.put(data)
