@@ -408,7 +408,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--stats-every',
-        help='Print statistics every N minutes (default: 5)',
+        help='Log statistics every N minutes (default: 5)',
         type=int,
         nargs='?',
         default=int(os.getenv('AR_STATS_EVERY', "5")),
@@ -486,7 +486,6 @@ if __name__ == "__main__":
 
     # acars udp output (sender)
     for c in args.send_udp_acars:
-        print(repr(c))
         host = c.split(':')[0]
         port = int(c.split(':')[1])
         logger.info(f'sending ACARS via UDP to {host}:{port}')
@@ -499,7 +498,6 @@ if __name__ == "__main__":
 
     # acars tcp output (sender)
     for c in args.send_tcp_acars:
-        print(repr(c))
         host = c.split(':')[0]
         port = int(c.split(':')[1])
         logger.info(f'sending ACARS via TCP to {host}:{port}')
@@ -512,7 +510,6 @@ if __name__ == "__main__":
 
     # vdlm2 udp output (sender)
     for c in args.send_udp_vdlm2:
-        print(repr(c))
         host = c.split(':')[0]
         port = int(c.split(':')[1])
         logger.info(f'sending VDLM2 via UDP to {host}:{port}')
@@ -525,7 +522,6 @@ if __name__ == "__main__":
 
     # vdlm2 tcp output (sender)
     for c in args.send_tcp_vdlm2:
-        print(repr(c))
         host = c.split(':')[0]
         port = int(c.split(':')[1])
         logger.info(f'sending VDLM2 via TCP to {host}:{port}')
