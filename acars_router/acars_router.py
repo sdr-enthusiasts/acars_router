@@ -216,7 +216,6 @@ def TCPServerAcceptor(port: int, output_queues: list, protoname: str):
             threading.Thread(
                 target=TCPServer,
                 daemon=True,
-                name=f"TCPServer.{addr[0]}.{addr[1]}",
                 args=(conn, addr, output_queues, protoname),
             ).start()
 
@@ -288,7 +287,35 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                         connected = False
                         logger.info("disconnected from server")
                     q.task_done()
-                
+
+def TCPReceiver(host: str, port: int, inbound_message_queue: queue.Queue(), protoname: str):
+    """
+    Process to receive ACARS/VDLM2 messages from a TCP server.
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+    logger = baselogger.getChild(f'input.tcpclient.{protoname}.{host}.{port}')
+    logger.debug("spawned")
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            # attempt connection
+            try:
+                sock.connect((host, port))
+            except ConnectionRefusedError:
+                logger.error("connection to server refused")
+                time.sleep(10)
+            else:
+                logger.info("connected to server")
+                while True:
+                    data = self.request.recv(1024).strip()
+                    if not data: break
+                    logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
+                    self.inbound_message_queue.put(data)
+                    COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
+                    COUNTER_ACARS_TCP_RECEIVED_LAST += 1
+                self.logger.info("client disconnected")
+
 def message_processor(in_queue, out_queues, protoname):
     """
     Puts incoming ACARS/VDLM2 messages into each output queue.
@@ -354,6 +381,20 @@ if __name__ == "__main__":
         type=str,
         nargs='*',
         default=os.getenv('AR_LISTEN_TCP_ACARS', "5550").split(';'),
+    )
+    parser.add_argument(
+        '--receive-tcp-acars',
+        help='Connect to "host:port" (over TCP) and receive ACARS messages. Can be specified multiple times to receive from multiple sources.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_RECV_TCP_ACARS'),
+    )
+    parser.add_argument(
+        '--receive-tcp-vdlm2',
+        help='Connect to "host:port" (over TCP) and receive VDLM2 messages. Can be specified multiple times to receive from multiple sources.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_RECV_TCP_VDLM2'),
     )
     parser.add_argument(
         '--listen-udp-vdlm2',
@@ -445,7 +486,6 @@ if __name__ == "__main__":
     threading.Thread(
         target=display_stats,
         daemon=True,
-        name="display_stats",
         args=(args.stats_every,),
     ).start()
 
@@ -458,7 +498,6 @@ if __name__ == "__main__":
         target=log_on_first_message,
         args=(output_acars_queues, "ACARS"),
         daemon=True,
-        name="log_on_first_message.ACARS",
     ).start()
 
     # Configure "log on first message" for VDLM2
@@ -466,7 +505,6 @@ if __name__ == "__main__":
         target=log_on_first_message,
         args=(output_vdlm2_queues, "VDLM2"),
         daemon=True,
-        name="log_on_first_message.VDLM2",
     ).start()
 
     # acars tcp output (server)
@@ -475,7 +513,6 @@ if __name__ == "__main__":
         threading.Thread(
             target=TCPServerAcceptor,
             daemon=True,
-            name="ACARS.TCPServerAcceptor",
             args=(int(port), output_acars_queues, "ACARS"),
         ).start()
 
@@ -485,7 +522,6 @@ if __name__ == "__main__":
         threading.Thread(
             target=TCPServerAcceptor,
             daemon=True,
-            name="VDLM2.TCPServerAcceptor",
             args=(int(port), output_vdlm2_queues, "VDLM2"),
         ).start()
 
@@ -497,7 +533,6 @@ if __name__ == "__main__":
         threading.Thread(
             target=UDPSender,
             daemon=True,
-            name="ACARS.UDPSender",
             args=(host, port, output_acars_queues, "ACARS"),
         ).start()
 
@@ -509,7 +544,6 @@ if __name__ == "__main__":
         threading.Thread(
             target=TCPSender,
             daemon=True,
-            name="ACARS.TCPSender",
             args=(host, port, output_acars_queues, "ACARS"),
         ).start()
 
@@ -521,7 +555,6 @@ if __name__ == "__main__":
         threading.Thread(
             target=UDPSender,
             daemon=True,
-            name="VDLM2.UDPSender",
             args=(host, port, output_vdlm2_queues, "VDLM2"),
         ).start()
 
@@ -533,7 +566,6 @@ if __name__ == "__main__":
         threading.Thread(
             target=TCPSender,
             daemon=True,
-            name="VDLM2.TCPSender",
             args=(host, port, output_vdlm2_queues, "VDLM2"),
         ).start()
 
@@ -542,7 +574,6 @@ if __name__ == "__main__":
     threading.Thread(
         target=message_processor,
         daemon=True,
-        name='acars.message_processor',
         args=(inbound_acars_message_queue, output_acars_queues, "ACARS",),
     ).start()
 
@@ -552,7 +583,6 @@ if __name__ == "__main__":
     threading.Thread(
         target=message_processor,
         daemon=True,
-        name='vdlm2.message_processor',
         args=(inbound_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
     ).start()
 
@@ -566,7 +596,6 @@ if __name__ == "__main__":
                 inbound_message_queue=inbound_acars_message_queue,
             ).serve_forever,
             daemon=True,
-            name="ThreadedUDPServer.InboundUDPACARSMessageHandler",
         ).start()
 
     # Prepare inbound TCP receiver threads for ACARS
@@ -579,7 +608,6 @@ if __name__ == "__main__":
                 inbound_message_queue=inbound_acars_message_queue,
             ).serve_forever,
             daemon=True,
-            name="ThreadedTCPServer.InboundTCPACARSMessageHandler",
         ).start()
 
     # Prepare inbound UDP receiver threads for VDLM2
@@ -592,7 +620,6 @@ if __name__ == "__main__":
                 inbound_message_queue=inbound_vdlm2_message_queue,
             ).serve_forever,
             daemon=True,
-            name="ThreadedUDPServer.InboundUDPVDLM2MessageHandler",
         ).start()
 
     # Prepare inbound TCP receiver threads for VDLM2
@@ -605,7 +632,24 @@ if __name__ == "__main__":
                 inbound_message_queue=inbound_vdlm2_message_queue,
             ).serve_forever,
             daemon=True,
-            name="ThreadedTCPServer.InboundTCPVDLM2MessageHandler",
+        ).start()
+
+    # Prepare inbound TCP client receiver threads for ACARS
+    for s in args.receive_tcp_acars:
+        logger.info(f"Receiving ACARS TCP from {s.split(':')[0]}:{s.split(':')[1]}")
+        threading.Thread(
+            target=TCPReceiver,
+            args=(s.split(':')[0], s.split(':')[1], inbound_acars_message_queue, "ACARS"),
+            daemon=True,
+        ).start()
+
+    # Prepare inbound TCP client receiver threads for VDLM2
+    for s in args.receive_tcp_vdlm2:
+        logger.info(f"Receiving VDLM2 TCP from {s.split(':')[0]}:{s.split(':')[1]}")
+        threading.Thread(
+            target=TCPReceiver,
+            args=(s.split(':')[0], s.split(':')[1], inbound_vdlm2_message_queue, "VDLM2"),
+            daemon=True,
         ).start()
     
     # Main loop
