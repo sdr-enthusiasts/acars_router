@@ -309,6 +309,23 @@ def split_env_safely(
         return list()
     return list()
 
+def log_on_first_message(out_queues: list, protoname: str):
+    """
+    Logs when the first message is received.
+    Intended to be run in a thread.
+    """
+    logger = baselogger.getChild(f'first_message.{protoname}')
+    logger.debug("spawned")
+    # Create an output queue for this instance of the function & add to output queue
+    q = queue.Queue(100)
+    output_queues.append(q)
+    data = q.get()
+    q.task_done()
+    logger.info(f"Receiving {protoname} messages!")
+    output_queues.remove(q)
+    del(q)
+
+
 if __name__ == "__main__":
 
     # Command line / OS Env
@@ -426,6 +443,22 @@ if __name__ == "__main__":
     # Prepare queues
     output_acars_queues = list()
     output_vdlm2_queues = list()
+
+    # Configure "log on first message" for ACARS
+    threading.Thread(
+        target=log_on_first_message,
+        args=(output_acars_queues, "ACARS"),
+        daemon=True,
+        name="log_on_first_message.ACARS",
+    ).start()
+
+    # Configure "log on first message" for VDLM2
+    threading.Thread(
+        target=log_on_first_message,
+        args=(output_vdlm2_queues, "VDLM2"),
+        daemon=True,
+        name="log_on_first_message.VDLM2",
+    ).start()
 
     # acars tcp output (server)
     for port in args.serve_tcp_acars:
