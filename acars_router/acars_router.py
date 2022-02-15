@@ -195,7 +195,7 @@ def UDPSender(host, port, output_queues: list, protoname: str):
 
 def TCPServerAcceptor(port: int, output_queues: list, protoname: str):
     """
-    Accepts incoming TCP connections to serve ACARS / VDLM2 messages, and spawns a TCPServer for each connection
+    Accepts incoming TCP connections to serve ACARS / VDLM2 messages, and spawns a TCPServer for each connection.
     Intended to be run in a thread.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -282,7 +282,8 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                 
 def message_processor(in_queue, out_queues, protoname):
     """
-    Puts incoming ACARS/VDLM2 messages into each output queue
+    Puts incoming ACARS/VDLM2 messages into each output queue.
+    Intended to be run in a thread.
     """
     protoname = protoname.lower()
     logger = baselogger.getChild(f'message_processor.{protoname}')
