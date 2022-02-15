@@ -135,10 +135,7 @@ class InboundTCPACARSMessageHandler(socketserver.BaseRequestHandler):
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
-        # acars_router  | <class 'socket.socket'> <socket.socket fd=13, family=AddressFamily.AF_INET, type=SocketKind.SOCK_STREAM, proto=0, laddr=('127.0.0.1', 5550), raddr=('127.0.0.1', 43824)>
-        #print(type(self.request), repr(self.request))
-        #print(dir(self.request))
-        self.data = self.request.recv(1024).strip()
+        data = self.request.recv(1024).strip()
         self.inbound_message_queue.put(data)
         global COUNTER_ACARS_TCP_RECEIVED_TOTAL
         COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
