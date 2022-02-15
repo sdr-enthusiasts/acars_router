@@ -135,12 +135,13 @@ class InboundTCPACARSMessageHandler(socketserver.BaseRequestHandler):
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
-        data = self.request.recv(1024).strip()
-        self.inbound_message_queue.put(data)
         global COUNTER_ACARS_TCP_RECEIVED_TOTAL
-        COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
         global COUNTER_ACARS_TCP_RECEIVED_LAST
-        COUNTER_ACARS_TCP_RECEIVED_LAST += 1
+        while True:
+            data = self.request.recv(1024).strip()
+            self.inbound_message_queue.put(data)
+            COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
+            COUNTER_ACARS_TCP_RECEIVED_LAST += 1
 
 class InboundTCPVDLM2MessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded TCP server to receive VDLM2 messages """
