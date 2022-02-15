@@ -37,16 +37,17 @@ def display_stats(
     logger = baselogger.getChild(f'statistics')
     logger.debug("spawned")
 
-    global COUNTER_ACARS_UDP_RECEIVED_TOTAL
-    global COUNTER_ACARS_UDP_RECEIVED_LAST
-    global COUNTER_VDLM2_UDP_RECEIVED_TOTAL
-    global COUNTER_VDLM2_UDP_RECEIVED_LAST
-    global COUNTER_ACARS_TCP_RECEIVED_TOTAL
-    global COUNTER_ACARS_TCP_RECEIVED_LAST
-    global COUNTER_VDLM2_TCP_RECEIVED_TOTAL
-    global COUNTER_VDLM2_TCP_RECEIVED_LAST
-
     while True:
+
+        global COUNTER_ACARS_UDP_RECEIVED_TOTAL
+        global COUNTER_ACARS_UDP_RECEIVED_LAST
+        global COUNTER_VDLM2_UDP_RECEIVED_TOTAL
+        global COUNTER_VDLM2_UDP_RECEIVED_LAST
+        global COUNTER_ACARS_TCP_RECEIVED_TOTAL
+        global COUNTER_ACARS_TCP_RECEIVED_LAST
+        global COUNTER_VDLM2_TCP_RECEIVED_TOTAL
+        global COUNTER_VDLM2_TCP_RECEIVED_LAST
+
 
         time.sleep(mins * 60)
 
