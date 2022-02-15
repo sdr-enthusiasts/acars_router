@@ -178,9 +178,9 @@ def UDPSender(host, port, output_queues: list, protoname: str):
     # Loop to send messages from output queue
     while True:
         data = q.get()
-        logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
         try:
             sock.sendto(data, (host, port))
+            logger.log(logging.DEBUG - 5, f"sent {data} to {host}:{port} OK")
         except:
             logger.error("Error sending to {host}:{port}/udp".format(
                 host=host,
