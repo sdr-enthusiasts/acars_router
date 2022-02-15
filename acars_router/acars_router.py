@@ -318,11 +318,11 @@ def log_on_first_message(out_queues: list, protoname: str):
     logger.debug("spawned")
     # Create an output queue for this instance of the function & add to output queue
     q = queue.Queue(100)
-    output_queues.append(q)
+    out_queues.append(q)
     data = q.get()
     q.task_done()
     logger.info(f"Receiving {protoname} messages!")
-    output_queues.remove(q)
+    out_queues.remove(q)
     del(q)
 
 
