@@ -558,7 +558,7 @@ if __name__ == "__main__":
 
     # Prepare inbound UDP receiver threads for ACARS
     for port in args.listen_udp_acars:
-        logger.info(f"Listening for ACARS UDP on port: {port}")
+        logger.info(f"Listening for ACARS UDP on port {port}")
         threading.Thread(
             target=ThreadedUDPServer(
                 ("0.0.0.0", int(port)),
@@ -571,7 +571,7 @@ if __name__ == "__main__":
 
     # Prepare inbound TCP receiver threads for ACARS
     for port in args.listen_tcp_acars:
-        logger.info(f"Listening for ACARS TCP on port: {port}")
+        logger.info(f"Listening for ACARS TCP on port {port}")
         threading.Thread(
             target=ThreadedTCPServer(
                 ("0.0.0.0", int(port)),
@@ -584,7 +584,7 @@ if __name__ == "__main__":
 
     # Prepare inbound UDP receiver threads for VDLM2
     for port in args.listen_udp_vdlm2:
-        logger.info(f"Listening for VDLM2 UDP on port: {port}")
+        logger.info(f"Listening for VDLM2 UDP on port {port}")
         threading.Thread(
             target=ThreadedUDPServer(
                 ("0.0.0.0", int(port)),
@@ -597,7 +597,7 @@ if __name__ == "__main__":
 
     # Prepare inbound TCP receiver threads for VDLM2
     for port in args.listen_tcp_vdlm2:
-        logger.info(f"Listening for VDLM2 TCP on port: {port}")
+        logger.info(f"Listening for VDLM2 TCP on port {port}")
         threading.Thread(
             target=ThreadedTCPServer(
                 ("0.0.0.0", int(port)),
