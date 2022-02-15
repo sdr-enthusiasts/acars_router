@@ -307,9 +307,11 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: queue.Queue(), prot
             else:
                 logger.info("connected to server")
                 while True:
-                    data = sock.recv(1024).strip()
-                    if not data: break
+                    logger.log(logging.DEBUG - 5, f"about to receive")
+                    data = sock.recv(1024)
                     logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
+                    if not data: break
+                    logger.log(logging.DEBUG - 5, f"putting data in queue")
                     inbound_message_queue.put(data)
                     # TODO counters. change to a dict possibly so we can go COUNTER_TCP_RECEIVER[protoname] etc
                     # COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
