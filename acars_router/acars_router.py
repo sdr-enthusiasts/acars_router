@@ -415,7 +415,6 @@ if __name__ == "__main__":
         log_format = '%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
         logging.basicConfig(level=logging.INFO, format=log_format)
     
-
     # Start stats thread
     threading.Thread(
         target=display_stats,
@@ -517,6 +516,7 @@ if __name__ == "__main__":
 
     # Prepare inbound UDP receiver threads for ACARS
     for port in args.listen_udp_acars:
+        logger.info("Listening for ACARS UDP on port: f{port}")
         threading.Thread(
             target=ThreadedUDPServer(
                 ("0.0.0.0", int(port)),
@@ -529,6 +529,7 @@ if __name__ == "__main__":
 
     # Prepare inbound TCP receiver threads for ACARS
     for port in args.listen_tcp_acars:
+        logger.info("Listening for ACARS TCP on port: f{port}")
         threading.Thread(
             target=ThreadedTCPServer(
                 ("0.0.0.0", int(port)),
@@ -541,6 +542,7 @@ if __name__ == "__main__":
 
     # Prepare inbound UDP receiver threads for VDLM2
     for port in args.listen_udp_vdlm2:
+        logger.info("Listening for VDLM2 UDP on port: f{port}")
         threading.Thread(
             target=ThreadedUDPServer(
                 ("0.0.0.0", int(port)),
@@ -553,6 +555,7 @@ if __name__ == "__main__":
 
     # Prepare inbound TCP receiver threads for VDLM2
     for port in args.listen_tcp_vdlm2:
+        logger.info("Listening for VDLM2 TCP on port: f{port}")
         threading.Thread(
             target=ThreadedTCPServer(
                 ("0.0.0.0", int(port)),
