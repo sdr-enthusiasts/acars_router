@@ -22,7 +22,18 @@ COUNTER_ACARS_TCP_RECEIVED_LAST = 0
 COUNTER_VDLM2_TCP_RECEIVED_TOTAL = 0
 COUNTER_VDLM2_TCP_RECEIVED_LAST = 0
 
-def display_stats(mins: int):
+def display_stats(
+    mins: int=5,
+    loglevel: int=logging.INFO
+):
+    """
+    Displays the status of the global counters.
+    Intended to be run in a thread, as this function will run forever.
+
+    Arguments:
+    mins -- the number of minutes between logging stats
+    loglevel -- 
+    """
     logger = baselogger.getChild(f'statistics')
     logger.debug("spawned")
 
@@ -39,44 +50,46 @@ def display_stats(mins: int):
 
         time.sleep(mins * 60)
 
-        logger.info("ACARS messages received UDP last {mins}min / total: {last} / {total}".format(
-            mins=mins,
-            total=COUNTER_ACARS_UDP_RECEIVED_TOTAL,
-            last=COUNTER_ACARS_UDP_RECEIVED_LAST,
-        ))
+        if COUNTER_ACARS_UDP_RECEIVED_TOTAL > 0 or COUNTER_ACARS_UDP_RECEIVED_LAST > 0:
+            logger.log(loglevel, "ACARS messages received UDP last {mins}min / total: {last} / {total}".format(
+                mins=mins,
+                total=COUNTER_ACARS_UDP_RECEIVED_TOTAL,
+                last=COUNTER_ACARS_UDP_RECEIVED_LAST,
+            ))
         COUNTER_ACARS_UDP_RECEIVED_LAST = 0
 
-        logger.info("VDLM2 messages received UDP last {mins}min / total: {last} / {total}".format(
-            mins=mins,
-            total=COUNTER_VDLM2_UDP_RECEIVED_TOTAL,
-            last=COUNTER_VDLM2_UDP_RECEIVED_LAST,
-        ))
+        if COUNTER_VDLM2_UDP_RECEIVED_TOTAL > 0 or COUNTER_VDLM2_UDP_RECEIVED_LAST > 0:
+            logger.log(loglevel, "VDLM2 messages received UDP last {mins}min / total: {last} / {total}".format(
+                mins=mins,
+                total=COUNTER_VDLM2_UDP_RECEIVED_TOTAL,
+                last=COUNTER_VDLM2_UDP_RECEIVED_LAST,
+            ))
         COUNTER_VDLM2_UDP_RECEIVED_LAST = 0
 
-        logger.info("ACARS messages received TCP last {mins}min / total: {last} / {total}".format(
-            mins=mins,
-            total=COUNTER_ACARS_TCP_RECEIVED_TOTAL,
-            last=COUNTER_ACARS_TCP_RECEIVED_LAST,
-        ))
+        if COUNTER_ACARS_TCP_RECEIVED_TOTAL > 0 or COUNTER_ACARS_TCP_RECEIVED_LAST > 0:
+            logger.log(loglevel, "ACARS messages received TCP last {mins}min / total: {last} / {total}".format(
+                mins=mins,
+                total=COUNTER_ACARS_TCP_RECEIVED_TOTAL,
+                last=COUNTER_ACARS_TCP_RECEIVED_LAST,
+            ))
         COUNTER_ACARS_UDP_RECEIVED_LAST = 0
 
-        logger.info("VDLM2 messages received TCP last {mins}min / total: {last} / {total}".format(
-            mins=mins,
-            total=COUNTER_VDLM2_TCP_RECEIVED_TOTAL,
-            last=COUNTER_VDLM2_TCP_RECEIVED_LAST,
-        ))
+        if COUNTER_VDLM2_TCP_RECEIVED_TOTAL > 0 or COUNTER_VDLM2_TCP_RECEIVED_LAST > 0:
+            logger.log(loglevel, "VDLM2 messages received TCP last {mins}min / total: {last} / {total}".format(
+                mins=mins,
+                total=COUNTER_VDLM2_TCP_RECEIVED_TOTAL,
+                last=COUNTER_VDLM2_TCP_RECEIVED_LAST,
+            ))
         COUNTER_VDLM2_UDP_RECEIVED_LAST = 0
-
-        
-
-
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
+    """ Mix-in for multi-threaded UDP server """
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, inbound_message_queue=None):
         self.inbound_message_queue = inbound_message_queue
         socketserver.UDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=bind_and_activate)
 
 class InboundUDPACARSMessageHandler(socketserver.BaseRequestHandler):
+    """ Multi-threaded UDP server to receive ACARS messages """
     def __init__(self, request, client_address, server):
         self.logger = baselogger.getChild(f'input.udp.acars')
         self.inbound_message_queue = server.inbound_message_queue
@@ -92,6 +105,7 @@ class InboundUDPACARSMessageHandler(socketserver.BaseRequestHandler):
         COUNTER_ACARS_UDP_RECEIVED_LAST += 1
 
 class InboundUDPVDLM2MessageHandler(socketserver.BaseRequestHandler):
+    """ Multi-threaded UDP server to receive VDLM2 messages """
     def __init__(self, request, client_address, server):
         self.logger = baselogger.getChild(f'input.udp.vdlm2')
         self.inbound_message_queue = server.inbound_message_queue
@@ -107,11 +121,13 @@ class InboundUDPVDLM2MessageHandler(socketserver.BaseRequestHandler):
         COUNTER_VDLM2_UDP_RECEIVED_LAST += 1
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    """ Mix-in for multi-threaded UDP server """
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, inbound_message_queue=None):
         self.inbound_message_queue = inbound_message_queue
         socketserver.UDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=bind_and_activate)
 
 class InboundTCPACARSMessageHandler(socketserver.BaseRequestHandler):
+    """ Multi-threaded TCP server to receive ACARS messages """
     def __init__(self, request, client_address, server):
         self.logger = baselogger.getChild(f'input.tcp.acars')
         self.logger.debug("spawned")
@@ -128,6 +144,7 @@ class InboundTCPACARSMessageHandler(socketserver.BaseRequestHandler):
         COUNTER_ACARS_TCP_RECEIVED_LAST += 1
 
 class InboundTCPVDLM2MessageHandler(socketserver.BaseRequestHandler):
+    """ Multi-threaded TCP server to receive VDLM2 messages """
     def __init__(self, request, client_address, server):
         self.logger = baselogger.getChild(f'input.tcp.vdlm2')
         self.logger.debug("spawned")
@@ -143,71 +160,106 @@ class InboundTCPVDLM2MessageHandler(socketserver.BaseRequestHandler):
         global COUNTER_VDLM2_TCP_RECEIVED_LAST
         COUNTER_VDLM2_TCP_RECEIVED_LAST += 1
 
-def UDPSender(host, port, output_queue: queue.Queue, protoname: str):
+def UDPSender(host, port, output_queues: list, protoname: str):
+    """
+    Threaded function to send ACARS / VDLM2 messages via UDP
+    Intended to be run in a thread.
+    """
     protoname = protoname.lower()
     logger = baselogger.getChild(f'output.udp.{protoname}.{host}.{port}')
     logger.debug("spawned")
+    # Create an output queue for this instance of the function & add to output queue
+    q = queue.Queue(100)
+    output_queues.append(q)
+    # Set up socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(1)
+    # Loop to send messages from output queue
     while True:
-        data = output_queue.get()
-        logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
+        data = q.get()
         try:
             sock.sendto(data, (host, port))
+            logger.log(logging.DEBUG - 5, f"sent {data} to {host}:{port} OK")
         except:
             logger.error("Error sending to {host}:{port}/udp".format(
                 host=host,
                 port=port,
             ))
-        output_queue.task_done()
+        q.task_done()
+    # clean up
+    # remove this instance's queue from the output queue
+    output_queues.remove(q)
+    # delete our queue
+    del(q)
 
 def TCPServerAcceptor(port: int, output_queues: list, protoname: str):
+    """
+    Accepts incoming TCP connections to serve ACARS / VDLM2 messages, and spawns a TCPServer for each connection.
+    Intended to be run in a thread.
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("0.0.0.0", port))
         s.listen()
         while True:
             conn, addr = s.accept()
-            # create a new queue for this connection
-            output_queues.append(queue.Queue())
             # create new TCPServer for this connection, and pass queue
             threading.Thread(
                 target=TCPServer,
                 daemon=True,
                 name=f"TCPServer.{addr[0]}.{addr[1]}",
-                args=(conn, addr, output_queues[-1], output_queues, protoname),
+                args=(conn, addr, output_queues, protoname),
             ).start()
 
-def TCPServer(conn: socket.socket, addr: tuple, out_queue: queue.Queue, queue_list: list, protoname: str):
+def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: str):
+    """
+    Process to send ACARS/VDLM2 messages to TCP clients.
+    Intended to be run in a thread.
+    """
     host = addr[0]
     port = addr[1]
     protoname = protoname.lower()
     logger = baselogger.getChild(f'output.tcpserver.{protoname}.{host}.{port}')
     logger.info("client connected")
+    # Create an output queue for this instance of the function & add to output queue
+    q = queue.Queue(100)
+    output_queues.append(q)
+    # Set up socket
     conn.settimeout(1)
     connected = True
+    # Loop to send messages from output queue
     while connected:
-        data = out_queue.get()
+        data = q.get()
         logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
         try:
             conn.sendall(data)
         except:
             connected = False
-        out_queue.task_done()
+        q.task_done()
     # clean up
-    queue_list.remove(out_queue)
-    del(out_queue)
+    # remove this instance's queue from the output queue
+    output_queues.remove(q)
+    # delete our queue
+    del(q)
+    # finally, let the user know client has disconnected
     logger.info("client disconnected")
 
-def TCPSender(host: str, port: int, out_queue, protoname: str):
+def TCPSender(host: str, port: int, output_queues: list, protoname: str):
+    """
+    Process to send ACARS/VDLM2 messages to a TCP server.
+    Intended to be run in a thread.
+    """
     protoname = protoname.lower()
     logger = baselogger.getChild(f'output.tcpclient.{protoname}.{host}.{port}')
     logger.debug("spawned")
+    # Create an output queue for this instance of the function & add to output queue
+    q = queue.Queue(100)
+    output_queues.append(q)
     while True:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            # clear queue
-            with out_queue.mutex:
-                out_queue.queue.clear()
+            # clear queue before connecting
+            with q.mutex:
+                q.queue.clear()
             sock.settimeout(1)
             # attempt connection
             try:
@@ -219,16 +271,20 @@ def TCPSender(host: str, port: int, out_queue, protoname: str):
                 logger.info("connected to server")
                 connected = True
                 while connected:
-                    data = out_queue.get()
+                    data = q.get()
                     logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
                     try:
                         sock.sendall(data)
                     except:
                         connected = False
                         logger.info("disconnected from server")
-                    out_queue.task_done()
+                    q.task_done()
                 
 def message_processor(in_queue, out_queues, protoname):
+    """
+    Puts incoming ACARS/VDLM2 messages into each output queue.
+    Intended to be run in a thread.
+    """
     protoname = protoname.lower()
     logger = baselogger.getChild(f'message_processor.{protoname}')
     logger.debug("spawned")
@@ -252,6 +308,23 @@ def split_env_safely(
     except:
         return list()
     return list()
+
+def log_on_first_message(out_queues: list, protoname: str):
+    """
+    Logs when the first message is received.
+    Intended to be run in a thread.
+    """
+    logger = baselogger.getChild(f'first_message.{protoname}')
+    logger.debug("spawned")
+    # Create an output queue for this instance of the function & add to output queue
+    q = queue.Queue(100)
+    out_queues.append(q)
+    data = q.get()
+    q.task_done()
+    logger.info(f"Receiving {protoname} messages!")
+    out_queues.remove(q)
+    del(q)
+
 
 if __name__ == "__main__":
 
@@ -359,7 +432,6 @@ if __name__ == "__main__":
         log_format = '%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
         logging.basicConfig(level=logging.INFO, format=log_format)
     
-
     # Start stats thread
     threading.Thread(
         target=display_stats,
@@ -371,6 +443,22 @@ if __name__ == "__main__":
     # Prepare queues
     output_acars_queues = list()
     output_vdlm2_queues = list()
+
+    # Configure "log on first message" for ACARS
+    threading.Thread(
+        target=log_on_first_message,
+        args=(output_acars_queues, "ACARS"),
+        daemon=True,
+        name="log_on_first_message.ACARS",
+    ).start()
+
+    # Configure "log on first message" for VDLM2
+    threading.Thread(
+        target=log_on_first_message,
+        args=(output_vdlm2_queues, "VDLM2"),
+        daemon=True,
+        name="log_on_first_message.VDLM2",
+    ).start()
 
     # acars tcp output (server)
     for port in args.serve_tcp_acars:
@@ -397,12 +485,11 @@ if __name__ == "__main__":
         host = c.split(':')[0]
         port = int(c.split(':')[1])
         logger.info(f'sending ACARS via UDP to {host}:{port}')
-        output_acars_queues.append(queue.Queue())
         threading.Thread(
             target=UDPSender,
             daemon=True,
             name="ACARS.UDPSender",
-            args=(host, port, output_acars_queues[-1], "ACARS"),
+            args=(host, port, output_acars_queues, "ACARS"),
         ).start()
 
     # acars tcp output (sender)
@@ -410,12 +497,11 @@ if __name__ == "__main__":
         host = c.split(':')[0]
         port = int(c.split(':')[1])
         logger.info(f'sending ACARS via TCP to {host}:{port}')
-        output_acars_queues.append(queue.Queue())
         threading.Thread(
             target=TCPSender,
             daemon=True,
             name="ACARS.TCPSender",
-            args=(host, port, output_acars_queues[-1], "ACARS"),
+            args=(host, port, output_acars_queues, "ACARS"),
         ).start()
 
     # vdlm2 udp output (sender)
@@ -423,12 +509,11 @@ if __name__ == "__main__":
         host = c.split(':')[0]
         port = int(c.split(':')[1])
         logger.info(f'sending VDLM2 via UDP to {host}:{port}')
-        output_vdlm2_queues.append(queue.Queue())
         threading.Thread(
             target=UDPSender,
             daemon=True,
             name="VDLM2.UDPSender",
-            args=(host, port, output_vdlm2_queues[-1], "VDLM2"),
+            args=(host, port, output_vdlm2_queues, "VDLM2"),
         ).start()
 
     # vdlm2 tcp output (sender)
@@ -436,16 +521,15 @@ if __name__ == "__main__":
         host = c.split(':')[0]
         port = int(c.split(':')[1])
         logger.info(f'sending VDLM2 via TCP to {host}:{port}')
-        output_vdlm2_queues.append(queue.Queue())
         threading.Thread(
             target=TCPSender,
             daemon=True,
             name="VDLM2.TCPSender",
-            args=(host, port, output_vdlm2_queues[-1], "VDLM2"),
+            args=(host, port, output_vdlm2_queues, "VDLM2"),
         ).start()
 
     # inbound acars queue & processor
-    inbound_acars_message_queue = queue.Queue()
+    inbound_acars_message_queue = queue.Queue(100)
     threading.Thread(
         target=message_processor,
         daemon=True,
@@ -455,7 +539,7 @@ if __name__ == "__main__":
 
 
     # inbound vdlm2 queue & processor
-    inbound_vdlm2_message_queue = queue.Queue()
+    inbound_vdlm2_message_queue = queue.Queue(100)
     threading.Thread(
         target=message_processor,
         daemon=True,
@@ -465,6 +549,7 @@ if __name__ == "__main__":
 
     # Prepare inbound UDP receiver threads for ACARS
     for port in args.listen_udp_acars:
+        logger.info(f"Listening for ACARS UDP on port: {port}")
         threading.Thread(
             target=ThreadedUDPServer(
                 ("0.0.0.0", int(port)),
@@ -477,6 +562,7 @@ if __name__ == "__main__":
 
     # Prepare inbound TCP receiver threads for ACARS
     for port in args.listen_tcp_acars:
+        logger.info(f"Listening for ACARS TCP on port: {port}")
         threading.Thread(
             target=ThreadedTCPServer(
                 ("0.0.0.0", int(port)),
@@ -489,6 +575,7 @@ if __name__ == "__main__":
 
     # Prepare inbound UDP receiver threads for VDLM2
     for port in args.listen_udp_vdlm2:
+        logger.info(f"Listening for VDLM2 UDP on port: {port}")
         threading.Thread(
             target=ThreadedUDPServer(
                 ("0.0.0.0", int(port)),
@@ -501,6 +588,7 @@ if __name__ == "__main__":
 
     # Prepare inbound TCP receiver threads for VDLM2
     for port in args.listen_tcp_vdlm2:
+        logger.info(f"Listening for VDLM2 TCP on port: {port}")
         threading.Thread(
             target=ThreadedTCPServer(
                 ("0.0.0.0", int(port)),
