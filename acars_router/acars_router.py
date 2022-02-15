@@ -639,7 +639,7 @@ if __name__ == "__main__":
         logger.info(f"Receiving ACARS TCP from {s.split(':')[0]}:{s.split(':')[1]}")
         threading.Thread(
             target=TCPReceiver,
-            args=(s.split(':')[0], s.split(':')[1], inbound_acars_message_queue, "ACARS"),
+            args=(s.split(':')[0], int(s.split(':')[1]), inbound_acars_message_queue, "ACARS"),
             daemon=True,
         ).start()
 
@@ -648,7 +648,7 @@ if __name__ == "__main__":
         logger.info(f"Receiving VDLM2 TCP from {s.split(':')[0]}:{s.split(':')[1]}")
         threading.Thread(
             target=TCPReceiver,
-            args=(s.split(':')[0], s.split(':')[1], inbound_vdlm2_message_queue, "VDLM2"),
+            args=(s.split(':')[0], int(s.split(':')[1]), inbound_vdlm2_message_queue, "VDLM2"),
             daemon=True,
         ).start()
     
