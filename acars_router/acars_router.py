@@ -139,6 +139,7 @@ class InboundTCPACARSMessageHandler(socketserver.BaseRequestHandler):
         global COUNTER_ACARS_TCP_RECEIVED_LAST
         while True:
             data = self.request.recv(1024).strip()
+            if not data: break
             self.inbound_message_queue.put(data)
             COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
             COUNTER_ACARS_TCP_RECEIVED_LAST += 1
