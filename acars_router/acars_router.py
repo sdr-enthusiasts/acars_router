@@ -298,7 +298,6 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: queue.Queue(), prot
     logger.debug("spawned")
     while True:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)
             # attempt connection
             try:
                 sock.connect((host, port))
