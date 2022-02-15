@@ -156,13 +156,17 @@ class InboundTCPVDLM2MessageHandler(socketserver.BaseRequestHandler):
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
-        data = self.request[0].strip()
-        socket = self.request[1]
-        self.inbound_message_queue.put(data)
         global COUNTER_VDLM2_TCP_RECEIVED_TOTAL
-        COUNTER_VDLM2_TCP_RECEIVED_TOTAL += 1
         global COUNTER_VDLM2_TCP_RECEIVED_LAST
-        COUNTER_VDLM2_TCP_RECEIVED_LAST += 1
+        self.logger = baselogger.getChild(f'input.tcp.vdlm2.{self.client_address[0]}.{self.client_address[1]}')
+        self.logger.info("client connected")
+        while True:
+            data = self.request.recv(1024).strip()
+            if not data: break
+            self.inbound_message_queue.put(data)
+            COUNTER_VDLM2_TCP_RECEIVED_TOTAL += 1
+            COUNTER_VDLM2_TCP_RECEIVED_LAST += 1
+        self.logger.info("client disconnected")
 
 def UDPSender(host, port, output_queues: list, protoname: str):
     """
