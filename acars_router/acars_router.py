@@ -481,19 +481,27 @@ if __name__ == "__main__":
 
     # configure logging
     logger = baselogger.getChild('core')
+    logger_console_handler = logging.StreamHandler()
+    logger.addHandler(logger_console_handler)
     if args.verbose == 1:
-        log_format = '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s'
-        logging.basicConfig(level=logging.DEBUG, format=log_format)
+        log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s')
+        logger.setlevel(logging.DEBUG)
+        logger_console_handler.setlevel(logging.DEBUG)
+        logger_console_handler.setFormatter(log_formatter)
         logger.debug(f"Command line arguments: {args}")
         logger.debug("DEBUG logging enabled")
     elif args.verbose >= 2:
-        log_format = '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s'
-        logging.basicConfig(level=logging.DEBUG - 5, format=log_format)
+        log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
+        logger.setlevel(logging.DEBUG - 5)
+        logger_console_handler.setlevel(logging.DEBUG - 5)
+        logger_console_handler.setFormatter(log_formatter)
         logger.debug(f"Command line arguments: {args}")
         logger.debug("TRACE logging enabled")
     else:
-        log_format = '%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
-        logging.basicConfig(level=logging.INFO, format=log_format)
+        log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s')
+        logger.setlevel(logging.INFO)
+        logger_console_handler.setlevel(logging.INFO)
+        logger_console_handler.setFormatter(log_formatter)
     
     # Start stats thread
     threading.Thread(
