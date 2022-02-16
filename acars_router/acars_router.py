@@ -2,6 +2,7 @@
 import os
 import sys
 import json
+import copy
 import argparse
 import socket
 import socketserver
@@ -340,7 +341,7 @@ def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
         m = bytes(json.dumps(data[0]), 'utf-8')
         logger.log(logging.DEBUG - 5, f'{m}')
         for q in out_queues:
-            q.put(m)
+            q.put(copy.deepcopy(m))
         in_queue.task_done()
 
 def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
