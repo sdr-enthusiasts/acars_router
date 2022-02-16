@@ -338,7 +338,7 @@ def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
     while True:
         data = in_queue.get()
         m = json.dumps(data[0])
-        logger.log(logging.DEBUG - 5, f'{data}')
+        logger.log(logging.DEBUG - 5, f'{m}')
         for q in out_queues:
             q.put(m)
         in_queue.task_done()
@@ -376,7 +376,6 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             # regardless of exception or not, tell in_queue that task is done
             in_queue.task_done()
         
-
 def split_env_safely(
     env: str,
     sep: str=';',
