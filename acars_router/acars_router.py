@@ -57,7 +57,7 @@ class ARCounters():
         Increment a counter.
         eg: COUNTER.increment('receive_tcp_acars')
         """
-        with lock.acquire()
+        with lock.acquire():
             setattr(self, counter, getattr(self, counter)+1)
         return None
 
