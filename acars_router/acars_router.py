@@ -46,6 +46,10 @@ class ARCounters():
         # VDLM2 messages received via TCP (where we are the client)
         self.receive_tcp_vdlm2 = 0
 
+        # Invalid message counts
+        self.invalid_json_acars = 0
+        self.invalid_json_vdlm2 = 0
+
         self.queue_lists = list()
         self.standalone_queues = list()
 
@@ -62,6 +66,10 @@ class ARCounters():
             logger.log(level, f"VDLM2 messages via TCP listen: {self.listen_tcp_vdlm2}")
         if self.receive_tcp_vdlm2 > 0:
             logger.log(level, f"VDLM2 messages via TCP receive: {self.receive_tcp_vdlm2}")
+        if self.invalid_json_acars > 0:
+            logger.log(level, f"Invalid ACARS JSON messages: {self.invalid_json_acars}")
+        if self.invalid_json_vdlm2 > 0:
+            logger.log(level, f"Invalid VDLM2 JSON messages: {self.invalid_json_vdlm2}")
 
         # Log queue depths (TODO: should probably be debug level)
         for q in self.standalone_queues:
@@ -103,7 +111,9 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
     def handle(self):
         data = self.request[0].strip()
         socket = self.request[1]
-        self.inbound_message_queue.put(data)
+        host = self.client_address[0]
+        port = self.client_address[1]
+        self.inbound_message_queue.put((data, host, port, f'input.udp.{self.protoname}'))
         global COUNTERS
         COUNTERS.increment(f'listen_udp_{self.protoname}')
 
@@ -125,12 +135,14 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         global COUNTERS
-        self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{self.client_address[0]}:{self.client_address[1]}')
+        host = self.client_address[0]
+        port = self.client_address[1]
+        self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
         self.logger.info("connection established")
         while True:
             data = self.request.recv(8192).strip()
             if not data: break
-            self.inbound_message_queue.put(data)
+            self.inbound_message_queue.put((data, host, port, f'input.tcpserver.{self.protoname}.{host}:{port}',))
             COUNTERS.increment(f'listen_udp_{self.protoname}')
         self.logger.info("connection lost")
 
@@ -175,7 +187,7 @@ def UDPSender(host, port, output_queues: list, protoname: str):
             sock.sendto(data, (host, port))
             logger.log(logging.DEBUG - 5, f"sent {data} to {host}:{port} OK")
         except:
-            logger.error("Error sending to {host}:{port}/udp".format(
+            logger.error("Error sending to {host}:{port}".format(
                 host=host,
                 port=port,
             ))
@@ -311,11 +323,11 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                     data = sock.recv(8192)
                     logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
                     if not data: break
-                    inbound_message_queue.put(data)
+                    inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
                     COUNTERS.increment(f'receive_tcp_{protoname}')
                 logger.info("connection lost")
 
-def message_processor(in_queue, out_queues, protoname):
+def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
     """
     Puts incoming ACARS/VDLM2 messages into each output queue.
     Intended to be run in a thread.
@@ -325,10 +337,44 @@ def message_processor(in_queue, out_queues, protoname):
     logger.debug("spawned")
     while True:
         data = in_queue.get()
+        m = json.dumps(data[0])
         logger.log(logging.DEBUG - 5, f'{data}')
         for q in out_queues:
-            q.put(copy.deepcopy(data))
+            q.put(m)
         in_queue.task_done()
+
+def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
+    """
+    Deserialise JSON.
+
+    Reads JSON objects from in_queue.
+    Attempts to deserialise. If successful, puts deserialised object into out_queue.
+
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+    logger = baselogger.getChild(f'json_validator.{protoname}')
+    logger.debug("spawned")
+    # Set up counters
+    global COUNTERS
+    while True:
+        # pop data from queue
+        data = in_queue.get()
+        # attempt to deserialise
+        try:
+            j = json.loads(data[0])
+        except:
+            # if an exception, log and continue (after finally:)
+            logger.error(f"invalid JSON received from {data[1]}:{data[2]} (via {data[3]})")
+            COUNTERS.increment(f'invalid_json_{protoname}')
+            continue
+        else:
+            # if no exception, put deserialised data onto out_queue
+            out_queue.put((j, data[1], data[2], data[3]))
+        finally:
+            # regardless of exception or not, tell in_queue that task is done
+            in_queue.task_done()
+        
 
 def split_env_safely(
     env: str,
@@ -727,11 +773,66 @@ if __name__ == "__main__":
         args=(args.stats_every,),
     ).start()
 
-    # Prepare queues
+    # Prepare output queues
+    # populate with data (bytes) to send out
     output_acars_queues = list()
     output_vdlm2_queues = list()
     COUNTERS.register_queue_list(output_acars_queues)
     COUNTERS.register_queue_list(output_vdlm2_queues)
+
+    # define inbound message queues
+    # populate with tuples: (data, host, port, source,)
+    # where:
+    #   * data: acars/vdlm2 messages from socket (bytes)
+    #   * host: remote host (str)
+    #   * port: remote port (str)
+    #   * source: where the message was placed into the queue (str)
+    inbound_acars_message_queue = ARQueue('inbound_acars_message_queue', 100)
+    COUNTERS.register_queue(inbound_acars_message_queue)
+    inbound_vdlm2_message_queue = ARQueue('inbound_vdlm2_message_queue', 100)
+    COUNTERS.register_queue(inbound_vdlm2_message_queue)
+
+    # define intermediate queue
+    # populate with tuples: (data, host, port, source,)
+    # where:
+    #   * data: deserialised acars/vdlm2 messages (dict)
+    #   * host: remote host (str)
+    #   * port: remote port (str)
+    #   * source: where the message was placed into the queue (str)
+    deserialised_acars_message_queue = ARQueue('deserialised_acars_message_queue', 100)
+    COUNTERS.register_queue(deserialised_acars_message_queue)
+    deserialised_vdlm2_message_queue = ARQueue('deserialised_vdlm2_message_queue', 100)
+    COUNTERS.register_queue(deserialised_vdlm2_message_queue)
+
+    # acars json deserialiser
+    # TODO: multi-thread this... for x in range(numthreads) do:...
+    threading.Thread(
+        target=json_validator,
+        args=(inbound_acars_message_queue, deserialised_acars_message_queue, 'acars',),
+        daemon=True,
+    ).start()
+
+    # vdlm2 json deserialiser
+    # TODO: multi-thread this... for x in range(numthreads) do:...
+    threading.Thread(
+        target=json_validator,
+        args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, 'vdlm2',),
+        daemon=True,
+    ).start()
+
+    # deserialised acars processor(s)
+    threading.Thread(
+        target=message_processor,
+        daemon=True,
+        args=(deserialised_acars_message_queue, output_acars_queues, "ACARS",),
+    ).start()
+
+    # deserialised vdlm2 processor(s)
+    threading.Thread(
+        target=message_processor,
+        daemon=True,
+        args=(deserialised_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+    ).start()
 
     # Configure "log on first message" for ACARS
     threading.Thread(
@@ -808,25 +909,6 @@ if __name__ == "__main__":
             daemon=True,
             args=(host, port, output_vdlm2_queues, "VDLM2"),
         ).start()
-
-    # inbound acars queue & processor
-    inbound_acars_message_queue = ARQueue('inbound_acars_message_queue', 100)
-    COUNTERS.register_queue(inbound_acars_message_queue)
-    threading.Thread(
-        target=message_processor,
-        daemon=True,
-        args=(inbound_acars_message_queue, output_acars_queues, "ACARS",),
-    ).start()
-
-
-    # inbound vdlm2 queue & processor
-    inbound_vdlm2_message_queue = ARQueue('inbound_vdlm2_message_queue', 100)
-    COUNTERS.register_queue(inbound_vdlm2_message_queue)
-    threading.Thread(
-        target=message_processor,
-        daemon=True,
-        args=(inbound_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
-    ).start()
 
     # Prepare inbound UDP receiver threads for ACARS
     for port in args.listen_udp_acars:
