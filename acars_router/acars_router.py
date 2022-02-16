@@ -338,7 +338,12 @@ def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
     logger.debug("spawned")
     while True:
         data = in_queue.get()
-        m = bytes(json.dumps(data[0], separators=(',', ':')), 'utf-8')
+        m = bytes(
+            json.dumps(
+                data[0],
+                separators=(',', ':'),
+                sort_keys=True,
+            ),'utf-8')
         logger.log(logging.DEBUG - 5, f'{m}')
         for q in out_queues:
             q.put(copy.deepcopy(m))
