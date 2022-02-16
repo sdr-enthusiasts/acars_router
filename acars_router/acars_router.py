@@ -254,7 +254,8 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
             # clear queue before connecting
             with q.mutex:
                 q.queue.clear()
-            sock.settimeout(1)
+            # set socket timeout to 5 seconds
+            sock.settimeout(5)
             # attempt connection
             try:
                 sock.connect((host, port))
@@ -266,6 +267,8 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                 time.sleep(10)
             else:
                 logger.info("connection established")
+                # put socket in blocking mode
+                sock.settimeout(None)
                 connected = True
                 while connected:
                     data = q.get()
@@ -292,6 +295,8 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             # attempt connection
             logger.log(logging.DEBUG - 5, f"attempting to connect")
+            # set socket timeout to 5 seconds
+            sock.settimeout(5)
             try:
                 sock.connect((host, port))
             except ConnectionRefusedError:
@@ -302,6 +307,8 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                 time.sleep(10)
             else:
                 logger.info("connection established")
+                # put socket in blocking mode
+                sock.settimeout(None)
                 while True:
                     data = sock.recv(8192)
                     logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
