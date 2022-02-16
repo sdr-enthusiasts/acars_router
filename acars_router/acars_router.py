@@ -149,7 +149,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{self.client_address[0]}:{self.client_address[1]}')
         self.logger.info("connection established")
         while True:
-            data = self.request.recv(1024).strip()
+            data = self.request.recv(8192).strip()
             if not data: break
             self.inbound_message_queue.put(data)
             COUNTERS.increment(f'listen_udp_{self.protoname}')
@@ -297,7 +297,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
             else:
                 logger.info("connection established")
                 while True:
-                    data = sock.recv(1024)
+                    data = sock.recv(8192)
                     logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
                     if not data: break
                     inbound_message_queue.put(data)
