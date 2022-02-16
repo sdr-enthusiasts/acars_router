@@ -819,21 +819,21 @@ if __name__ == "__main__":
     deserialised_vdlm2_message_queue = ARQueue('deserialised_vdlm2_message_queue', 100)
     COUNTERS.register_queue(deserialised_vdlm2_message_queue)
 
-    # acars json deserialiser
-    # TODO: multi-thread this... for x in range(numthreads) do:...
-    threading.Thread(
-        target=json_validator,
-        args=(inbound_acars_message_queue, deserialised_acars_message_queue, 'acars',),
-        daemon=True,
-    ).start()
+    # acars json deserialiser threads
+    for _ in range(args.threads_json_deserialiser):
+        threading.Thread(
+            target=json_validator,
+            args=(inbound_acars_message_queue, deserialised_acars_message_queue, 'acars',),
+            daemon=True,
+        ).start()
 
-    # vdlm2 json deserialiser
-    # TODO: multi-thread this... for x in range(numthreads) do:...
-    threading.Thread(
-        target=json_validator,
-        args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, 'vdlm2',),
-        daemon=True,
-    ).start()
+    # vdlm2 json deserialiser threads
+    for _ in range(args.threads_json_deserialiser):
+        threading.Thread(
+            target=json_validator,
+            args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, 'vdlm2',),
+            daemon=True,
+        ).start()
 
     # deserialised acars processor(s)
     threading.Thread(
