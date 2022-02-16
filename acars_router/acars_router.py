@@ -469,20 +469,19 @@ if __name__ == "__main__":
         action='count',
         default=int(os.getenv("AR_VERBOSITY", 0)),
     )
-
     args = parser.parse_args()
 
     # configure logging
     logger = baselogger.getChild('core')
     if args.verbose == 1:
-        logger.debug("Command line arguments: {args}")
         log_format = '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s'
         logging.basicConfig(level=logging.DEBUG, format=log_format)
+        logger.debug("Command line arguments: {args}")
         logger.debug("DEBUG logging enabled")
     elif args.verbose >= 2:
-        logger.debug("Command line arguments: {args}")
         log_format = '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s'
         logging.basicConfig(level=logging.DEBUG - 5, format=log_format)
+        logger.debug("Command line arguments: {args}")
         logger.debug("TRACE logging enabled")
     else:
         log_format = '%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
