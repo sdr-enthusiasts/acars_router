@@ -100,7 +100,7 @@ class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
 class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded UDP server to receive ACARS/VDLM2 messages """
     def __init__(self, request, client_address, server):
-        self.logger = baselogger.getChild(f'input.udp.{self.protoname}')
+        self.logger = baselogger.getChild(f'input.udp.{server.protoname}')
         self.inbound_message_queue = server.inbound_message_queue
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
@@ -109,7 +109,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         socket = self.request[1]
         self.inbound_message_queue.put(data)
         global COUNTERS
-        COUNTERS.increment('listen_udp_{self.protoname}')
+        COUNTERS.increment(f'listen_udp_{server.protoname}')
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     """ Mix-in for multi-threaded UDP server """
@@ -121,7 +121,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded TCP server to receive ACARS/VDLM2 messages """
     def __init__(self, request, client_address, server):
-        self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}')
+        self.logger = baselogger.getChild(f'input.tcpserver.{server.protoname}')
         self.logger.debug("spawned")
         self.inbound_message_queue = server.inbound_message_queue
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
@@ -134,7 +134,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             data = self.request.recv(1024).strip()
             if not data: break
             self.inbound_message_queue.put(data)
-            COUNTERS.increment('listen_udp_{self.protoname}')
+            COUNTERS.increment(f'listen_udp_{server.protoname}')
         self.logger.info("connection lost")
 
 def UDPSender(host, port, output_queues: list, protoname: str):
