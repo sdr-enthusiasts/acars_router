@@ -5,6 +5,7 @@ import argparse
 import socket
 import socketserver
 import threading
+lock = threading.Lock()
 import queue
 import time
 import logging
@@ -12,15 +13,55 @@ import logging
 logging.addLevelName(logging.DEBUG - 5, 'TRACE')
 baselogger = logging.getLogger('acars_router')
 
-# stats counters
-COUNTER_ACARS_UDP_RECEIVED_TOTAL = 0
-COUNTER_ACARS_UDP_RECEIVED_LAST = 0
-COUNTER_VDLM2_UDP_RECEIVED_TOTAL = 0
-COUNTER_VDLM2_UDP_RECEIVED_LAST = 0
-COUNTER_ACARS_TCP_RECEIVED_TOTAL = 0
-COUNTER_ACARS_TCP_RECEIVED_LAST = 0
-COUNTER_VDLM2_TCP_RECEIVED_TOTAL = 0
-COUNTER_VDLM2_TCP_RECEIVED_LAST = 0
+
+class ARCounters():
+    """
+    A class to be used for counters
+    """
+    def __init__(self):
+
+        # ACARS messages received via udp
+        self.listen_udp_acars = 0
+
+        # ACARS messages received via TCP (where we are the server)
+        self.listen_tcp_acars = 0
+
+        # ACARS messages received via TCP (where we are the client)
+        self.receive_tcp_acars = 0
+
+        # VDLM2 messages received via udp
+        self.listen_udp_vdlm2 = 0
+
+        # VDLM2 messages received via TCP (where we are the server)
+        self.listen_tcp_vdlm2 = 0
+
+        # VDLM2 messages received via TCP (where we are the client)
+        self.receive_tcp_vdlm2 = 0
+
+    def log(self, logger: logging.Logger, level: int):
+        if self.listen_udp_acars > 0:
+            logger.log(level, f"ACARS messages via UDP listen: {self.listen_udp_acars}")
+        if self.listen_tcp_acars > 0:
+            logger.log(level, f"ACARS messages via TCP listen: {self.listen_tcp_acars}")
+        if self.receive_tcp_acars > 0:
+            logger.log(level, f"ACARS messages via TCP receive: {self.receive_tcp_acars}")
+        if self.listen_udp_vdlm2 > 0:
+            logger.log(level, f"VDLM2 messages via UDP listen: {self.listen_udp_acars}")
+        if self.listen_tcp_vdlm2 > 0:
+            logger.log(level, f"VDLM2 messages via TCP listen: {self.listen_tcp_acars}")
+        if self.receive_tcp_vdlm2 > 0:
+            logger.log(level, f"VDLM2 messages via TCP receive: {self.receive_tcp_acars}")
+        
+    def increment(self, counter):
+        """
+        Increment a counter.
+        eg: COUNTER.increment('receive_tcp_acars')
+        """
+        with lock.acquire()
+            setattr(self, counter, getattr(self, counter)+1)
+        return None
+
+COUNTERS = ARCounters()
 
 class ARQueue(queue.Queue):
     """
@@ -40,67 +81,26 @@ def display_stats(
 
     Arguments:
     mins -- the number of minutes between logging stats
-    loglevel -- 
+    loglevel -- the log level to use when logging statistics
     """
     logger = baselogger.getChild(f'statistics')
     logger.debug("spawned")
-
+    global COUNTERS
     while True:
-
-        global COUNTER_ACARS_UDP_RECEIVED_TOTAL
-        global COUNTER_ACARS_UDP_RECEIVED_LAST
-        global COUNTER_VDLM2_UDP_RECEIVED_TOTAL
-        global COUNTER_VDLM2_UDP_RECEIVED_LAST
-        global COUNTER_ACARS_TCP_RECEIVED_TOTAL
-        global COUNTER_ACARS_TCP_RECEIVED_LAST
-        global COUNTER_VDLM2_TCP_RECEIVED_TOTAL
-        global COUNTER_VDLM2_TCP_RECEIVED_LAST
-
-
         time.sleep(mins * 60)
-
-        if COUNTER_ACARS_UDP_RECEIVED_TOTAL > 0 or COUNTER_ACARS_UDP_RECEIVED_LAST > 0:
-            logger.log(loglevel, "ACARS messages received UDP last {mins}min / total: {last} / {total}".format(
-                mins=mins,
-                total=COUNTER_ACARS_UDP_RECEIVED_TOTAL,
-                last=COUNTER_ACARS_UDP_RECEIVED_LAST,
-            ))
-        COUNTER_ACARS_UDP_RECEIVED_LAST = 0
-
-        if COUNTER_VDLM2_UDP_RECEIVED_TOTAL > 0 or COUNTER_VDLM2_UDP_RECEIVED_LAST > 0:
-            logger.log(loglevel, "VDLM2 messages received UDP last {mins}min / total: {last} / {total}".format(
-                mins=mins,
-                total=COUNTER_VDLM2_UDP_RECEIVED_TOTAL,
-                last=COUNTER_VDLM2_UDP_RECEIVED_LAST,
-            ))
-        COUNTER_VDLM2_UDP_RECEIVED_LAST = 0
-
-        if COUNTER_ACARS_TCP_RECEIVED_TOTAL > 0 or COUNTER_ACARS_TCP_RECEIVED_LAST > 0:
-            logger.log(loglevel, "ACARS messages received TCP last {mins}min / total: {last} / {total}".format(
-                mins=mins,
-                total=COUNTER_ACARS_TCP_RECEIVED_TOTAL,
-                last=COUNTER_ACARS_TCP_RECEIVED_LAST,
-            ))
-        COUNTER_ACARS_UDP_RECEIVED_LAST = 0
-
-        if COUNTER_VDLM2_TCP_RECEIVED_TOTAL > 0 or COUNTER_VDLM2_TCP_RECEIVED_LAST > 0:
-            logger.log(loglevel, "VDLM2 messages received TCP last {mins}min / total: {last} / {total}".format(
-                mins=mins,
-                total=COUNTER_VDLM2_TCP_RECEIVED_TOTAL,
-                last=COUNTER_VDLM2_TCP_RECEIVED_LAST,
-            ))
-        COUNTER_VDLM2_UDP_RECEIVED_LAST = 0
+        COUNTERS.log(logger, loglevel)
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """ Mix-in for multi-threaded UDP server """
-    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, inbound_message_queue=None):
+    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, inbound_message_queue=None, protoname=None):
         self.inbound_message_queue = inbound_message_queue
+        self.protoname = protoname.lower()
         socketserver.UDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=bind_and_activate)
 
-class InboundUDPACARSMessageHandler(socketserver.BaseRequestHandler):
-    """ Multi-threaded UDP server to receive ACARS messages """
+class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
+    """ Multi-threaded UDP server to receive ACARS/VDLM2 messages """
     def __init__(self, request, client_address, server):
-        self.logger = baselogger.getChild(f'input.udp.acars')
+        self.logger = baselogger.getChild(f'input.udp.{self.protoname}')
         self.inbound_message_queue = server.inbound_message_queue
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
@@ -108,73 +108,33 @@ class InboundUDPACARSMessageHandler(socketserver.BaseRequestHandler):
         data = self.request[0].strip()
         socket = self.request[1]
         self.inbound_message_queue.put(data)
-        global COUNTER_ACARS_UDP_RECEIVED_TOTAL
-        COUNTER_ACARS_UDP_RECEIVED_TOTAL += 1
-        global COUNTER_ACARS_UDP_RECEIVED_LAST
-        COUNTER_ACARS_UDP_RECEIVED_LAST += 1
-
-class InboundUDPVDLM2MessageHandler(socketserver.BaseRequestHandler):
-    """ Multi-threaded UDP server to receive VDLM2 messages """
-    def __init__(self, request, client_address, server):
-        self.logger = baselogger.getChild(f'input.udp.vdlm2')
-        self.inbound_message_queue = server.inbound_message_queue
-        socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
-
-    def handle(self):
-        data = self.request[0].strip()
-        socket = self.request[1]
-        self.inbound_message_queue.put(data)
-        global COUNTER_VDLM2_UDP_RECEIVED_TOTAL
-        COUNTER_VDLM2_UDP_RECEIVED_TOTAL += 1
-        global COUNTER_VDLM2_UDP_RECEIVED_LAST
-        COUNTER_VDLM2_UDP_RECEIVED_LAST += 1
+        global COUNTERS
+        COUNTERS.increment('listen_udp_{self.protoname}')
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     """ Mix-in for multi-threaded UDP server """
-    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, inbound_message_queue=None):
+    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, inbound_message_queue=None, protoname=None):
         self.inbound_message_queue = inbound_message_queue
+        self.protoname = protoname.lower()
         socketserver.UDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=bind_and_activate)
 
-class InboundTCPACARSMessageHandler(socketserver.BaseRequestHandler):
-    """ Multi-threaded TCP server to receive ACARS messages """
+class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
+    """ Multi-threaded TCP server to receive ACARS/VDLM2 messages """
     def __init__(self, request, client_address, server):
-        self.logger = baselogger.getChild(f'input.tcp.acars')
+        self.logger = baselogger.getChild(f'input.tcp.{self.protoname}')
         self.logger.debug("spawned")
         self.inbound_message_queue = server.inbound_message_queue
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
-        global COUNTER_ACARS_TCP_RECEIVED_TOTAL
-        global COUNTER_ACARS_TCP_RECEIVED_LAST
-        self.logger = baselogger.getChild(f'input.tcp.acars.{self.client_address[0]}.{self.client_address[1]}')
+        global COUNTERS
+        self.logger = baselogger.getChild(f'input.tcp.{self.protoname}.{self.client_address[0]}:{self.client_address[1]}')
         self.logger.info("client connected")
         while True:
             data = self.request.recv(1024).strip()
             if not data: break
             self.inbound_message_queue.put(data)
-            COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
-            COUNTER_ACARS_TCP_RECEIVED_LAST += 1
-        self.logger.info("client disconnected")
-
-class InboundTCPVDLM2MessageHandler(socketserver.BaseRequestHandler):
-    """ Multi-threaded TCP server to receive VDLM2 messages """
-    def __init__(self, request, client_address, server):
-        self.logger = baselogger.getChild(f'input.tcp.vdlm2')
-        self.logger.debug("spawned")
-        self.inbound_message_queue = server.inbound_message_queue
-        socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
-
-    def handle(self):
-        global COUNTER_VDLM2_TCP_RECEIVED_TOTAL
-        global COUNTER_VDLM2_TCP_RECEIVED_LAST
-        self.logger = baselogger.getChild(f'input.tcp.vdlm2.{self.client_address[0]}.{self.client_address[1]}')
-        self.logger.info("client connected")
-        while True:
-            data = self.request.recv(1024).strip()
-            if not data: break
-            self.inbound_message_queue.put(data)
-            COUNTER_VDLM2_TCP_RECEIVED_TOTAL += 1
-            COUNTER_VDLM2_TCP_RECEIVED_LAST += 1
+            COUNTERS.increment('listen_udp_{self.protoname}')
         self.logger.info("client disconnected")
 
 def UDPSender(host, port, output_queues: list, protoname: str):
@@ -616,8 +576,9 @@ if __name__ == "__main__":
         threading.Thread(
             target=ThreadedUDPServer(
                 ("0.0.0.0", int(port)),
-                InboundUDPACARSMessageHandler,
+                InboundUDPMessageHandler,
                 inbound_message_queue=inbound_acars_message_queue,
+                protoname="ACARS",
             ).serve_forever,
             daemon=True,
         ).start()
@@ -640,8 +601,9 @@ if __name__ == "__main__":
         threading.Thread(
             target=ThreadedUDPServer(
                 ("0.0.0.0", int(port)),
-                InboundUDPVDLM2MessageHandler,
+                InboundUDPMessageHandler,
                 inbound_message_queue=inbound_vdlm2_message_queue,
+                protoname="VDLM2",
             ).serve_forever,
             daemon=True,
         ).start()
