@@ -476,12 +476,12 @@ if __name__ == "__main__":
     if args.verbose == 1:
         log_format = '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s'
         logging.basicConfig(level=logging.DEBUG, format=log_format)
-        logger.debug("Command line arguments: {args}")
+        logger.debug(f"Command line arguments: {args}")
         logger.debug("DEBUG logging enabled")
     elif args.verbose >= 2:
         log_format = '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s'
         logging.basicConfig(level=logging.DEBUG - 5, format=log_format)
-        logger.debug("Command line arguments: {args}")
+        logger.debug(f"Command line arguments: {args}")
         logger.debug("TRACE logging enabled")
     else:
         log_format = '%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
