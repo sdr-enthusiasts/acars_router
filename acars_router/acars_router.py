@@ -1,7 +1,7 @@
 
 import os
+import copy
 import argparse
-from re import T
 import socket
 import socketserver
 import threading
@@ -21,6 +21,14 @@ COUNTER_ACARS_TCP_RECEIVED_TOTAL = 0
 COUNTER_ACARS_TCP_RECEIVED_LAST = 0
 COUNTER_VDLM2_TCP_RECEIVED_TOTAL = 0
 COUNTER_VDLM2_TCP_RECEIVED_LAST = 0
+
+def ARQueue(queue.Queue):
+    """
+    A subclass of queue.Queue, allowing us to name the queue.
+    """
+    def __init__(self, name: str, maxsize: int=0):
+        self.name = name
+        super().__init__(maxsize=maxsize)
 
 def display_stats(
     mins: int=5,
@@ -332,7 +340,7 @@ def message_processor(in_queue, out_queues, protoname):
         data = in_queue.get()
         logger.log(logging.DEBUG - 5, f'{data}')
         for q in out_queues:
-            q.put(data)
+            q.put(copy.deepcopy(data))
         in_queue.task_done()
 
 def split_env_safely(
