@@ -22,7 +22,7 @@ COUNTER_ACARS_TCP_RECEIVED_LAST = 0
 COUNTER_VDLM2_TCP_RECEIVED_TOTAL = 0
 COUNTER_VDLM2_TCP_RECEIVED_LAST = 0
 
-def ARQueue(queue.Queue):
+class ARQueue(queue.Queue):
     """
     A subclass of queue.Queue, allowing us to name the queue.
     """
