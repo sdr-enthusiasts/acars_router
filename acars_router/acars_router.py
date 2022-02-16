@@ -485,13 +485,15 @@ if __name__ == "__main__":
     baselogger.addHandler(logger_console_handler)
     if args.verbose == 1:
         log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s', r'%Y-%m-%d %H:%M:%S')
-        #logger.setLevel(logging.DEBUG)
+        baselogger.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
         logger_console_handler.setLevel(logging.DEBUG)
         logger_console_handler.setFormatter(log_formatter)
         logger.debug(f"Command line arguments: {args}")
         logger.debug("DEBUG logging enabled")
     elif args.verbose >= 2:
         log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] %(message)s', r'%Y-%m-%d %H:%M:%S')
+        baselogger.setLevel(logging.DEBUG - 5)
         logger.setLevel(logging.DEBUG - 5)
         logger_console_handler.setLevel(logging.DEBUG - 5)
         logger_console_handler.setFormatter(log_formatter)
@@ -499,6 +501,7 @@ if __name__ == "__main__":
         logger.debug("TRACE logging enabled")
     else:
         log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] %(message)s', r'%Y-%m-%d %H:%M:%S')
+        baselogger.setLevel(logging.INFO)
         logger.setLevel(logging.INFO)
         logger_console_handler.setLevel(logging.INFO)
         logger_console_handler.setFormatter(log_formatter)
