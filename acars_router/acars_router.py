@@ -482,10 +482,10 @@ if __name__ == "__main__":
     # configure logging
     logger = baselogger.getChild('core')
     logger_console_handler = logging.StreamHandler()
-    logger.addHandler(logger_console_handler)
+    baselogger.addHandler(logger_console_handler)
     if args.verbose == 1:
         log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s')
-        logger.setLevel(logging.DEBUG)
+        #logger.setLevel(logging.DEBUG)
         logger_console_handler.setLevel(logging.DEBUG)
         logger_console_handler.setFormatter(log_formatter)
         logger.debug(f"Command line arguments: {args}")
