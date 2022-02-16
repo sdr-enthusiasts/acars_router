@@ -1,5 +1,6 @@
 
 import os
+import sys
 import copy
 import argparse
 import socket
@@ -348,6 +349,227 @@ def log_on_first_message(out_queues: list, protoname: str):
     out_queues.remove(q)
     del(q)
 
+def valid_tcp_udp_port(num: int):
+    """
+    Returns True if num is a valid TCP/UDP port number, else return False.
+    """
+    if type(num) == int:
+        if 1 >= int(i) <= 65535:
+            return True
+    return False
+
+def valid_args(args):
+    """
+    Checks command line arguments are valid
+    """
+
+    # TODO: This function has a lot of repetition, and doesn't really conform with python's DRY principle. Fix.
+
+    logger = baselogger.getChild('sanity_check')
+
+    # Check listen_udp_acars, should be list of valid port numbers
+    for i in args.listen_udp_acars:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except:
+            logger.critical(f"listen_udp_acars: invalid port: {i}")
+            return False
+
+    # Check listen_tcp_acars, should be list of valid port numbers
+    for i in args.listen_tcp_acars:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except:
+            logger.critical(f"listen_tcp_acars: invalid port: {i}")
+            return False
+
+    # Check receive_tcp_acars, should be a list of host:port
+    for i in args.listen_tcp_acars:
+        # try to split host:port
+        try:
+            host = i.split(':')[0]
+            port = i.split(':')[1]
+        except:
+            logger.critical(f"listen_tcp_acars: host:port expected, got: {i}")
+            return False
+        # ensure port valid
+        try:
+            if not valid_tcp_udp_port(port):
+                raise ValueError
+        except:
+            logger.critical(f"listen_tcp_acars: invalid port: {port}")
+            return False
+        # warn if host appears wrong
+        try:
+            x = socket.gethostbyname(host)
+        except:
+            logger.warning(f"listen_tcp_acars: host appears invalid or unresolvable: {host}")
+
+    # Check listen_udp_vdlm2, should be list of valid port numbers
+    for i in args.listen_udp_vdlm2:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except:
+            logger.critical(f"listen_udp_vdlm2: invalid port: {i}")
+            return False
+
+    # Check listen_tcp_vdlm2, should be list of valid port numbers
+    for i in args.listen_tcp_vdlm2:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except:
+            logger.critical(f"listen_tcp_vdlm2: invalid port: {i}")
+            return False
+
+    # Check receive_tcp_vdlm2, should be a list of host:port
+    for i in args.receive_tcp_vdlm2:
+        # try to split host:port
+        try:
+            host = i.split(':')[0]
+            port = i.split(':')[1]
+        except:
+            logger.critical(f"receive_tcp_vdlm2: host:port expected, got: {i}")
+            return False
+        # ensure port valid
+        try:
+            if not valid_tcp_udp_port(port):
+                raise ValueError
+        except:
+            logger.critical(f"receive_tcp_vdlm2: invalid port: {port}")
+            return False
+        # warn if host appears wrong
+        try:
+            x = socket.gethostbyname(host)
+        except:
+            logger.warning(f"receive_tcp_vdlm2: host appears invalid or unresolvable: {host}")
+
+    # Check send_udp_acars, should be a list of host:port
+    for i in args.send_udp_acars:
+        # try to split host:port
+        try:
+            host = i.split(':')[0]
+            port = i.split(':')[1]
+        except:
+            logger.critical(f"send_udp_acars: host:port expected, got: {i}")
+            return False
+        # ensure port valid
+        try:
+            if not valid_tcp_udp_port(port):
+                raise ValueError
+        except:
+            logger.critical(f"send_udp_acars: invalid port: {port}")
+            return False
+        # warn if host appears wrong
+        try:
+            x = socket.gethostbyname(host)
+        except:
+            logger.warning(f"send_udp_acars: host appears invalid or unresolvable: {host}")
+
+    # Check send_tcp_acars, should be a list of host:port
+    for i in args.send_tcp_acars:
+        # try to split host:port
+        try:
+            host = i.split(':')[0]
+            port = i.split(':')[1]
+        except:
+            logger.critical(f"send_tcp_acars: host:port expected, got: {i}")
+            return False
+        # ensure port valid
+        try:
+            if not valid_tcp_udp_port(port):
+                raise ValueError
+        except:
+            logger.critical(f"send_tcp_acars: invalid port: {port}")
+            return False
+        # warn if host appears wrong
+        try:
+            x = socket.gethostbyname(host)
+        except:
+            logger.warning(f"send_tcp_acars: host appears invalid or unresolvable: {host}")
+
+    # Check send_udp_vdlm2, should be a list of host:port
+    for i in args.send_udp_vdlm2:
+        # try to split host:port
+        try:
+            host = i.split(':')[0]
+            port = i.split(':')[1]
+        except:
+            logger.critical(f"send_udp_vdlm2: host:port expected, got: {i}")
+            return False
+        # ensure port valid
+        try:
+            if not valid_tcp_udp_port(port):
+                raise ValueError
+        except:
+            logger.critical(f"send_udp_vdlm2: invalid port: {port}")
+            return False
+        # warn if host appears wrong
+        try:
+            x = socket.gethostbyname(host)
+        except:
+            logger.warning(f"send_udp_vdlm2: host appears invalid or unresolvable: {host}")
+
+    # Check send_tcp_vdlm2, should be a list of host:port
+    for i in args.send_tcp_vdlm2:
+        # try to split host:port
+        try:
+            host = i.split(':')[0]
+            port = i.split(':')[1]
+        except:
+            logger.critical(f"send_tcp_vdlm2: host:port expected, got: {i}")
+            return False
+        # ensure port valid
+        try:
+            if not valid_tcp_udp_port(port):
+                raise ValueError
+        except:
+            logger.critical(f"send_tcp_vdlm2: invalid port: {port}")
+            return False
+        # warn if host appears wrong
+        try:
+            x = socket.gethostbyname(host)
+        except:
+            logger.warning(f"send_tcp_vdlm2: host appears invalid or unresolvable: {host}")
+
+    # Check listen_tcp_acars, should be list of valid port numbers
+    for i in args.serve_tcp_acars:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except:
+            logger.critical(f"serve_tcp_acars: invalid port: {i}")
+            return False
+
+    # Check serve_tcp_vdlm2, should be list of valid port numbers
+    for i in args.serve_tcp_acars:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except:
+            logger.critical(f"serve_tcp_vdlm2: invalid port: {i}")
+            return False
+
+    # Check stats_every, should be an int
+    try:
+        int(args.stats_every)
+    except:
+        logger.critical(f"stats_every: invalid value: {args.stats_every}")
+        return False
+
+    # Check verbose, should be an int
+    try:
+        int(args.verbose)
+    except:
+        logger.critical(f"verbose: invalid value: {args.verbose}")
+        return False
+
+    # If we're here, all arguments are good
+    return True
+
 if __name__ == "__main__":
 
     # Command line / OS Env
@@ -479,6 +701,10 @@ if __name__ == "__main__":
         logger.setLevel(logging.INFO)
         logger_console_handler.setLevel(logging.INFO)
         logger_console_handler.setFormatter(log_formatter)
+
+    # sanity check input, if invalid then bail out
+    if not valid_args:
+        sys.exit(1)
     
     # Start stats thread
     threading.Thread(
