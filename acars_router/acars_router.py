@@ -13,6 +13,13 @@ import logging
 logging.addLevelName(logging.DEBUG - 5, 'TRACE')
 baselogger = logging.getLogger('acars_router')
 
+class ARQueue(queue.Queue):
+    """
+    A subclass of queue.Queue, allowing us to name the queue.
+    """
+    def __init__(self, name: str, maxsize: int=0):
+        self.name = name
+        super().__init__(maxsize=maxsize)
 
 class ARCounters():
     """
@@ -38,6 +45,9 @@ class ARCounters():
         # VDLM2 messages received via TCP (where we are the client)
         self.receive_tcp_vdlm2 = 0
 
+        self.queue_lists = list()
+        self.standalone_queues = list()
+
     def log(self, logger: logging.Logger, level: int):
         if self.listen_udp_acars > 0:
             logger.log(level, f"ACARS messages via UDP listen: {self.listen_udp_acars}")
@@ -51,7 +61,20 @@ class ARCounters():
             logger.log(level, f"VDLM2 messages via TCP listen: {self.listen_tcp_acars}")
         if self.receive_tcp_vdlm2 > 0:
             logger.log(level, f"VDLM2 messages via TCP receive: {self.receive_tcp_acars}")
-        
+
+        # Log queue depths (TODO: should probably be debug level)
+        for q in self.standalone_queues:
+            logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
+        for queue_list in self.queue_lists:
+            for q in queue_list:
+                logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
+    
+    def register_queue_list(self, qlist: list):
+        self.queue_lists.append(qlist)
+
+    def register_queue(self, q: ARQueue):
+        self.standalone_queues.append(q)
+
     def increment(self, counter):
         """
         Increment a counter.
@@ -62,14 +85,6 @@ class ARCounters():
         return None
 
 COUNTERS = ARCounters()
-
-class ARQueue(queue.Queue):
-    """
-    A subclass of queue.Queue, allowing us to name the queue.
-    """
-    def __init__(self, name: str, maxsize: int=0):
-        self.name = name
-        super().__init__(maxsize=maxsize)
 
 def display_stats(
     mins: int=5,
@@ -336,6 +351,8 @@ def log_on_first_message(out_queues: list, protoname: str):
 
 if __name__ == "__main__":
 
+    global COUNTERS
+
     # Command line / OS Env
     parser = argparse.ArgumentParser(
         description='Route ACARS/VDLM2 messages'
@@ -476,6 +493,8 @@ if __name__ == "__main__":
     # Prepare queues
     output_acars_queues = list()
     output_vdlm2_queues = list()
+    COUNTERS.register_queue_list(output_acars_queues)
+    COUNTERS.register_queue_list(output_vdlm2_queues)
 
     # Configure "log on first message" for ACARS
     threading.Thread(
@@ -555,6 +574,7 @@ if __name__ == "__main__":
 
     # inbound acars queue & processor
     inbound_acars_message_queue = ARQueue('inbound_acars_message_queue', 100)
+    COUNTERS.register_queue(inbound_acars_message_queue)
     threading.Thread(
         target=message_processor,
         daemon=True,
@@ -564,6 +584,7 @@ if __name__ == "__main__":
 
     # inbound vdlm2 queue & processor
     inbound_vdlm2_message_queue = ARQueue('inbound_vdlm2_message_queue', 100)
+    COUNTERS.register_queue(inbound_vdlm2_message_queue)
     threading.Thread(
         target=message_processor,
         daemon=True,
