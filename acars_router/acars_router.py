@@ -348,10 +348,7 @@ def log_on_first_message(out_queues: list, protoname: str):
     out_queues.remove(q)
     del(q)
 
-
 if __name__ == "__main__":
-
-    global COUNTERS
 
     # Command line / OS Env
     parser = argparse.ArgumentParser(
