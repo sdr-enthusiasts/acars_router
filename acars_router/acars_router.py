@@ -130,6 +130,10 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         global COUNTERS
         self.logger = baselogger.getChild(f'input.tcp.{self.protoname}.{self.client_address[0]}:{self.client_address[1]}')
         self.logger.info("client connected")
+        print("")
+        print(dir(self))
+        print(dir(self.request))
+        print("")
         while True:
             data = self.request.recv(1024).strip()
             if not data: break
