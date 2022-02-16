@@ -735,6 +735,13 @@ if __name__ == "__main__":
         action='count',
         default=int(os.getenv("AR_VERBOSITY", 0)),
     )
+    parser.add_argument(
+        '--threads-json-deserialiser',
+        help=f'Number of threads for JSON deserialisers (default: {os.cpu_count()})',
+        type=int,
+        nargs='?',
+        default=os.cpu_count(),
+    )
     args = parser.parse_args()
 
     # configure logging
