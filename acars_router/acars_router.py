@@ -57,11 +57,11 @@ class ARCounters():
         if self.receive_tcp_acars > 0:
             logger.log(level, f"ACARS messages via TCP receive: {self.receive_tcp_acars}")
         if self.listen_udp_vdlm2 > 0:
-            logger.log(level, f"VDLM2 messages via UDP listen: {self.listen_udp_acars}")
+            logger.log(level, f"VDLM2 messages via UDP listen: {self.listen_udp_vdlm2}")
         if self.listen_tcp_vdlm2 > 0:
-            logger.log(level, f"VDLM2 messages via TCP listen: {self.listen_tcp_acars}")
+            logger.log(level, f"VDLM2 messages via TCP listen: {self.listen_tcp_vdlm2}")
         if self.receive_tcp_vdlm2 > 0:
-            logger.log(level, f"VDLM2 messages via TCP receive: {self.receive_tcp_acars}")
+            logger.log(level, f"VDLM2 messages via TCP receive: {self.receive_tcp_vdlm2}")
 
         # Log queue depths (TODO: should probably be debug level)
         for q in self.standalone_queues:
