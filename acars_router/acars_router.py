@@ -145,10 +145,10 @@ def UDPSender(host, port, output_queues: list, protoname: str):
     Intended to be run in a thread.
     """
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'output.udp.{protoname}.{host}.{port}')
+    logger = baselogger.getChild(f'output.udp.{protoname}.{host}:{port}')
     logger.debug("spawned")
     # Create an output queue for this instance of the function & add to output queue
-    q = queue.Queue(100)
+    q = ARQueue(f'output.udp.{protoname}.{host}:{port}', 100)
     output_queues.append(q)
     # Set up socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -200,7 +200,7 @@ def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: 
     logger = baselogger.getChild(f'output.tcpserver.{protoname}.{host}:{port}')
     logger.info("connection established")
     # Create an output queue for this instance of the function & add to output queue
-    q = queue.Queue(100)
+    q = ARQueue(f'output.tcpserver.{protoname}.{host}:{port}', 100)
     output_queues.append(q)
     # Set up socket
     conn.settimeout(1)
@@ -228,10 +228,10 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
     Intended to be run in a thread.
     """
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'output.tcpclient.{protoname}.{host}.{port}')
+    logger = baselogger.getChild(f'output.tcpclient.{protoname}.{host}:{port}')
     logger.debug("spawned")
     # Create an output queue for this instance of the function & add to output queue
-    q = queue.Queue(100)
+    q = ARQueue(f'output.tcpclient.{protoname}.{host}:{port}', 100)
     output_queues.append(q)
     while True:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -258,7 +258,7 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                         logger.info("connection lost")
                     q.task_done()
 
-def TCPReceiver(host: str, port: int, inbound_message_queue: queue.Queue(), protoname: str):
+def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
     """
     Process to receive ACARS/VDLM2 messages from a TCP server.
     Intended to be run in a thread.
@@ -325,7 +325,7 @@ def log_on_first_message(out_queues: list, protoname: str):
     logger = baselogger.getChild(f'first_message.{protoname}')
     logger.debug("spawned")
     # Create an output queue for this instance of the function & add to output queue
-    q = queue.Queue(100)
+    q = ARQueue(f'first_message.{protoname}', 100)
     out_queues.append(q)
     data = q.get()
     q.task_done()
@@ -554,7 +554,7 @@ if __name__ == "__main__":
         ).start()
 
     # inbound acars queue & processor
-    inbound_acars_message_queue = queue.Queue(100)
+    inbound_acars_message_queue = ARQueue('inbound_acars_message_queue', 100)
     threading.Thread(
         target=message_processor,
         daemon=True,
@@ -563,7 +563,7 @@ if __name__ == "__main__":
 
 
     # inbound vdlm2 queue & processor
-    inbound_vdlm2_message_queue = queue.Queue(100)
+    inbound_vdlm2_message_queue = ARQueue('inbound_vdlm2_message_queue', 100)
     threading.Thread(
         target=message_processor,
         daemon=True,
