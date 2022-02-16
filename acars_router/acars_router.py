@@ -360,7 +360,7 @@ def valid_tcp_udp_port(num: int):
 
 def valid_args(args):
     """
-    Checks command line arguments are valid
+    Returns True if command line arguments are valid, else return False.
     """
 
     # TODO: This function has a lot of repetition, and doesn't really conform with python's DRY principle. Fix.
