@@ -589,8 +589,9 @@ if __name__ == "__main__":
         threading.Thread(
             target=ThreadedTCPServer(
                 ("0.0.0.0", int(port)),
-                InboundTCPACARSMessageHandler,
+                InboundTCPMessageHandler,
                 inbound_message_queue=inbound_acars_message_queue,
+                protoname="ACARS",
             ).serve_forever,
             daemon=True,
         ).start()
@@ -614,8 +615,9 @@ if __name__ == "__main__":
         threading.Thread(
             target=ThreadedTCPServer(
                 ("0.0.0.0", int(port)),
-                InboundTCPVDLM2MessageHandler,
+                InboundTCPMessageHandler,
                 inbound_message_queue=inbound_vdlm2_message_queue,
+                protoname="VDLM2",
             ).serve_forever,
             daemon=True,
         ).start()
