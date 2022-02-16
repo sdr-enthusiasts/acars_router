@@ -261,6 +261,9 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
             except ConnectionRefusedError:
                 logger.error("connection refused")
                 time.sleep(10)
+            except Exception as e:
+                logger.error(f"connection error: {e}")
+                time.sleep(10)
             else:
                 logger.info("connection established")
                 connected = True
@@ -293,6 +296,9 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                 sock.connect((host, port))
             except ConnectionRefusedError:
                 logger.error("connection refused")
+                time.sleep(10)
+            except Exception as e:
+                logger.error(f"connection error: {e}")
                 time.sleep(10)
             else:
                 logger.info("connection established")
