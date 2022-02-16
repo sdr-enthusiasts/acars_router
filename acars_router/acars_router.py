@@ -73,10 +73,14 @@ class ARCounters():
 
         # Log queue depths (TODO: should probably be debug level)
         for q in self.standalone_queues:
-            logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
+            qs = q.qsize()
+            if qs > 0:
+                logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
         for queue_list in self.queue_lists:
             for q in queue_list:
-                logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
+                qs = q.qsize()
+                if qs > 0:
+                    logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
     
     def register_queue_list(self, qlist: list):
         self.queue_lists.append(qlist)
