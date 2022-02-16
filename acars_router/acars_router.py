@@ -286,7 +286,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
     Intended to be run in a thread.
     """
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'input.tcpclient.{protoname}.{host}.{port}')
+    logger = baselogger.getChild(f'input.tcpclient.{protoname}.{host}:{port}')
     logger.debug("spawned")
     # Set up counters
     global COUNTERS
