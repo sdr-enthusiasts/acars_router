@@ -85,27 +85,6 @@ class ARCounters():
             setattr(self, counter, getattr(self, counter)+1)
         return None
 
-COUNTERS = ARCounters()
-
-def display_stats(
-    mins: int=5,
-    loglevel: int=logging.INFO
-):
-    """
-    Displays the status of the global counters.
-    Intended to be run in a thread, as this function will run forever.
-
-    Arguments:
-    mins -- the number of minutes between logging stats
-    loglevel -- the log level to use when logging statistics
-    """
-    logger = baselogger.getChild(f'statistics')
-    logger.debug("spawned")
-    global COUNTERS
-    while True:
-        time.sleep(mins * 60)
-        COUNTERS.log(logger, loglevel)
-
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """ Mix-in for multi-threaded UDP server """
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, inbound_message_queue=None, protoname=None):
@@ -154,6 +133,25 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             self.inbound_message_queue.put(data)
             COUNTERS.increment(f'listen_udp_{self.protoname}')
         self.logger.info("connection lost")
+
+def display_stats(
+    mins: int=5,
+    loglevel: int=logging.INFO
+):
+    """
+    Displays the status of the global counters.
+    Intended to be run in a thread, as this function will run forever.
+
+    Arguments:
+    mins -- the number of minutes between logging stats
+    loglevel -- the log level to use when logging statistics
+    """
+    logger = baselogger.getChild(f'statistics')
+    logger.debug("spawned")
+    global COUNTERS
+    while True:
+        time.sleep(mins * 60)
+        COUNTERS.log(logger, loglevel)
 
 def UDPSender(host, port, output_queues: list, protoname: str):
     """
@@ -718,6 +716,9 @@ if __name__ == "__main__":
     # sanity check input, if invalid then bail out
     if not valid_args:
         sys.exit(1)
+
+    # initialise counters
+    COUNTERS = ARCounters()
     
     # Start stats thread
     threading.Thread(
