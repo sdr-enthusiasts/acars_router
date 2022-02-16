@@ -102,6 +102,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
     def __init__(self, request, client_address, server):
         self.logger = baselogger.getChild(f'input.udp.{server.protoname}')
         self.inbound_message_queue = server.inbound_message_queue
+        self.protoname = server.protoname
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
@@ -109,7 +110,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         socket = self.request[1]
         self.inbound_message_queue.put(data)
         global COUNTERS
-        COUNTERS.increment(f'listen_udp_{server.protoname}')
+        COUNTERS.increment(f'listen_udp_{self.protoname}')
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     """ Mix-in for multi-threaded UDP server """
@@ -124,6 +125,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         self.logger = baselogger.getChild(f'input.tcpserver.{server.protoname}')
         self.logger.debug("spawned")
         self.inbound_message_queue = server.inbound_message_queue
+        self.protoname = server.protoname
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
@@ -134,7 +136,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             data = self.request.recv(1024).strip()
             if not data: break
             self.inbound_message_queue.put(data)
-            COUNTERS.increment(f'listen_udp_{server.protoname}')
+            COUNTERS.increment(f'listen_udp_{self.protoname}')
         self.logger.info("connection lost")
 
 def UDPSender(host, port, output_queues: list, protoname: str):
