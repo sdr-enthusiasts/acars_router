@@ -402,13 +402,6 @@ if __name__ == "__main__":
         default=split_env_safely('AR_RECV_TCP_ACARS'),
     )
     parser.add_argument(
-        '--receive-tcp-vdlm2',
-        help='Connect to "host:port" (over TCP) and receive VDLM2 messages. Can be specified multiple times to receive from multiple sources.',
-        type=str,
-        nargs='*',
-        default=split_env_safely('AR_RECV_TCP_VDLM2'),
-    )
-    parser.add_argument(
         '--listen-udp-vdlm2',
         help='UDP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. (default: 5555)',
         type=str,
@@ -421,6 +414,13 @@ if __name__ == "__main__":
         type=str,
         nargs='*',
         default=os.getenv('AR_LISTEN_TCP_VDLM2', "5555").split(';'),
+    )
+    parser.add_argument(
+        '--receive-tcp-vdlm2',
+        help='Connect to "host:port" (over TCP) and receive VDLM2 messages. Can be specified multiple times to receive from multiple sources.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_RECV_TCP_VDLM2'),
     )
     parser.add_argument(
         '--send-udp-acars',
@@ -455,14 +455,14 @@ if __name__ == "__main__":
         help='Serve ACARS messages on TCP "port". Can be specified multiple times to serve on multiple ports.',
         type=str,
         nargs='*',
-        default=os.getenv('AR_SERVE_TCP_ACARS', "15550").split(';')
+        default=split_env_safely('AR_SERVE_TCP_ACARS'),
     )
     parser.add_argument(
         '--serve-tcp-vdlm2',
         help='Serve VDLM2 messages on TCP "port". Can be specified multiple times to serve on multiple ports.',
         type=str,
         nargs='*',
-        default=os.getenv('AR_SERVE_TCP_VDLM2', "15555").split(';')
+        default=split_env_safely('AR_SERVE_TCP_VDLM2'),
     )
     parser.add_argument(
         '--stats-every',
