@@ -486,21 +486,21 @@ if __name__ == "__main__":
     if args.verbose == 1:
         log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s')
         logger.setLevel(logging.DEBUG)
-        logger_console_handler.setlevel(logging.DEBUG)
+        logger_console_handler.setLevel(logging.DEBUG)
         logger_console_handler.setFormatter(log_formatter)
         logger.debug(f"Command line arguments: {args}")
         logger.debug("DEBUG logging enabled")
     elif args.verbose >= 2:
         log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
         logger.setLevel(logging.DEBUG - 5)
-        logger_console_handler.setlevel(logging.DEBUG - 5)
+        logger_console_handler.setLevel(logging.DEBUG - 5)
         logger_console_handler.setFormatter(log_formatter)
         logger.debug(f"Command line arguments: {args}")
         logger.debug("TRACE logging enabled")
     else:
         log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s')
         logger.setLevel(logging.INFO)
-        logger_console_handler.setlevel(logging.INFO)
+        logger_console_handler.setLevel(logging.INFO)
         logger_console_handler.setFormatter(log_formatter)
     
     # Start stats thread
