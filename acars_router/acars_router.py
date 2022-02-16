@@ -7,7 +7,6 @@ import argparse
 import socket
 import socketserver
 import threading
-lock = threading.Lock()
 import queue
 import time
 import logging
@@ -771,6 +770,9 @@ if __name__ == "__main__":
 
     # initialise counters
     COUNTERS = ARCounters()
+    
+    # initialise threading lock
+    lock = threading.Lock()
     
     # Start stats thread
     threading.Thread(
