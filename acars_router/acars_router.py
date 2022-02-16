@@ -297,8 +297,10 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: queue.Queue(), prot
     logger = baselogger.getChild(f'input.tcpclient.{protoname}.{host}.{port}')
     logger.debug("spawned")
     while True:
+        logger.log(logging.DEBUG - 5, f"creating socket")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             # attempt connection
+            logger.log(logging.DEBUG - 5, f"attempting to connect")
             try:
                 sock.connect((host, port))
             except ConnectionRefusedError:
