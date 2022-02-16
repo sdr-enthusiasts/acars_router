@@ -121,25 +121,21 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded TCP server to receive ACARS/VDLM2 messages """
     def __init__(self, request, client_address, server):
-        self.logger = baselogger.getChild(f'input.tcp.{self.protoname}')
+        self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}')
         self.logger.debug("spawned")
         self.inbound_message_queue = server.inbound_message_queue
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
         global COUNTERS
-        self.logger = baselogger.getChild(f'input.tcp.{self.protoname}.{self.client_address[0]}:{self.client_address[1]}')
-        self.logger.info("client connected")
-        print("")
-        print(dir(self))
-        print(dir(self.request))
-        print("")
+        self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{self.client_address[0]}:{self.client_address[1]}')
+        self.logger.info("connection established")
         while True:
             data = self.request.recv(1024).strip()
             if not data: break
             self.inbound_message_queue.put(data)
             COUNTERS.increment('listen_udp_{self.protoname}')
-        self.logger.info("client disconnected")
+        self.logger.info("connection lost")
 
 def UDPSender(host, port, output_queues: list, protoname: str):
     """
@@ -199,8 +195,8 @@ def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: 
     host = addr[0]
     port = addr[1]
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'output.tcpserver.{protoname}.{host}.{port}')
-    logger.info("client connected")
+    logger = baselogger.getChild(f'output.tcpserver.{protoname}.{host}:{port}')
+    logger.info("connection established")
     # Create an output queue for this instance of the function & add to output queue
     q = queue.Queue(100)
     output_queues.append(q)
@@ -222,7 +218,7 @@ def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: 
     # delete our queue
     del(q)
     # finally, let the user know client has disconnected
-    logger.info("client disconnected")
+    logger.info("connection lost")
 
 def TCPSender(host: str, port: int, output_queues: list, protoname: str):
     """
@@ -245,10 +241,10 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
             try:
                 sock.connect((host, port))
             except ConnectionRefusedError:
-                logger.error("connection to server refused")
+                logger.error("connection refused")
                 time.sleep(10)
             else:
-                logger.info("connected to server")
+                logger.info("connection established")
                 connected = True
                 while connected:
                     data = q.get()
@@ -257,7 +253,7 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                         sock.sendall(data)
                     except:
                         connected = False
-                        logger.info("disconnected from server")
+                        logger.info("connection lost")
                     q.task_done()
 
 def TCPReceiver(host: str, port: int, inbound_message_queue: queue.Queue(), protoname: str):
@@ -268,6 +264,8 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: queue.Queue(), prot
     protoname = protoname.lower()
     logger = baselogger.getChild(f'input.tcpclient.{protoname}.{host}.{port}')
     logger.debug("spawned")
+    # Set up counters
+    global COUNTERS
     while True:
         logger.log(logging.DEBUG - 5, f"creating socket")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -276,21 +274,17 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: queue.Queue(), prot
             try:
                 sock.connect((host, port))
             except ConnectionRefusedError:
-                logger.error("connection to server refused")
+                logger.error("connection refused")
                 time.sleep(10)
             else:
-                logger.info("connected to server")
+                logger.info("connection established")
                 while True:
-                    logger.log(logging.DEBUG - 5, f"about to receive")
                     data = sock.recv(1024)
                     logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
                     if not data: break
-                    logger.log(logging.DEBUG - 5, f"putting data in queue")
                     inbound_message_queue.put(data)
-                    # TODO counters. change to a dict possibly so we can go COUNTER_TCP_RECEIVER[protoname] etc
-                    # COUNTER_ACARS_TCP_RECEIVED_TOTAL += 1
-                    # COUNTER_ACARS_TCP_RECEIVED_LAST += 1
-                logger.info("client disconnected")
+                    COUNTERS.increment(f'receive_tcp_{protoname}')
+                logger.info("connection lost")
 
 def message_processor(in_queue, out_queues, protoname):
     """
