@@ -362,7 +362,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         in_queue.task_done()
         
         # create timestamp from t.sec & t.usec
-        msgtime_ns = data['timestamp'] * 1e9
+        msgtime_ns = int(float(data['timestamp']) * 1e9)
         
         # TODO: sanity check: drop messages with timestamp outside of max skew range
         
@@ -407,8 +407,8 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         in_queue.task_done()
         
         # create timestamp from t.sec & t.usec
-        msgtime_ns = data['vdl2']['t']['sec'] * 1e9
-        msgtime_ns += data['vdl2']['t']['usec'] * 1000
+        msgtime_ns = int(data['vdl2']['t']['sec']) * 1e9
+        msgtime_ns += int(data['vdl2']['t']['usec']) * 1000
         
         # TODO: sanity check: drop messages with timestamp outside of max skew range
         
