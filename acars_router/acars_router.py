@@ -376,12 +376,11 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         del(data_to_hash['timestamp'])
         
         # serialise & hash
-        msghash = hash(
-            json.dumps(
-                data[0],
-                separators=(',', ':'),
-                sort_keys=True,
-            )
+        msghash = hash(json.dumps(
+            data[0],
+            separators=(',', ':'),
+            sort_keys=True,
+        ))
         
         logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
         
@@ -427,12 +426,11 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         del(data_to_hash['vdl2']['t'])
         
         # serialise & hash
-        msghash = hash(
-            json.dumps(
-                data[0],
-                separators=(',', ':'),
-                sort_keys=True,
-            )
+        msghash = hash(json.dumps(
+            data[0],
+            separators=(',', ':'),
+            sort_keys=True,
+        ))
         
         logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
         
