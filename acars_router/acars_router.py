@@ -430,14 +430,13 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
     # Set up counters
     global COUNTERS
     while True:
-        with lock:
-            if len(recent_message_queue) > 0:
-                # evict items older than 2 seconds
-                if recent_message_queue[0][2] <= (time.time_ns() - (2 * 1e9)):
-                    evictedmsg = recent_message_queue.popleft()
-                    logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
-                    COUNTERS.increment(f"duplicate_{protoname}")
-                    continue
+        if len(recent_message_queue) > 0:
+            # evict items older than 2 seconds
+            if recent_message_queue[0][2] <= (time.time_ns() - (2 * 1e9)):
+                evictedmsg = recent_message_queue.popleft()
+                logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
+                COUNTERS.increment(f"duplicate_{protoname}")
+                continue
         time.sleep(0.250)
 
 def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.deque, protoname: str):
