@@ -371,9 +371,9 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         
         # remove feeder-specific data so we only hash data unique to the message
         del(data_to_hash['error'])
-        del(data_to_hash['level']
-        del(data_to_hash['station_id']
-        del(data_to_hash['timestamp']
+        del(data_to_hash['level'])
+        del(data_to_hash['station_id'])
+        del(data_to_hash['timestamp'])
         
         # serialise & hash
         msghash = hash(
@@ -418,13 +418,13 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         
         # remove feeder-specific data so we only hash data unique to the message
         del(data_to_hash['vdl2']['app'])
-        del(data_to_hash['vdl2']['freq_skew']
-        del(data_to_hash['vdl2']['hdr_bits_fixed']
-        del(data_to_hash['vdl2']['noise_level']
-        del(data_to_hash['vdl2']['octets_corrected_by_fec']
-        del(data_to_hash['vdl2']['sig_level']
-        del(data_to_hash['vdl2']['station']
-        del(data_to_hash['vdl2']['t']
+        del(data_to_hash['vdl2']['freq_skew'])
+        del(data_to_hash['vdl2']['hdr_bits_fixed'])
+        del(data_to_hash['vdl2']['noise_level'])
+        del(data_to_hash['vdl2']['octets_corrected_by_fec'])
+        del(data_to_hash['vdl2']['sig_level'])
+        del(data_to_hash['vdl2']['station'])
+        del(data_to_hash['vdl2']['t'])
         
         # serialise & hash
         msghash = hash(
