@@ -383,6 +383,8 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
                 sort_keys=True,
             )
         
+        logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
+        
         # put data in queue
         out_queue.put((
             data[0], # dict
@@ -431,6 +433,8 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
                 separators=(',', ':'),
                 sort_keys=True,
             )
+        
+        logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
         
         # put data in queue
         out_queue.put((
