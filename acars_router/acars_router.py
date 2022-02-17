@@ -351,7 +351,7 @@ def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
             q.put(copy.deepcopy(m))
         in_queue.task_done()
 
-def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.decue, protoname: str):
+def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.deque, protoname: str):
     protoname = protoname.lower()
     logger = baselogger.getChild(f'acars_hasher.{protoname}')
     logger.debug("spawned")
@@ -409,7 +409,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             data_to_hash,
         ))
 
-def recent_message_queue_evictor(recent_message_queue: collections.decue, protoname: str):
+def recent_message_queue_evictor(recent_message_queue: collections.deque, protoname: str):
     protoname = protoname.lower()
     logger = baselogger.getChild(f'recent_message_queue_evictor.{protoname}')
     logger.debug("spawned")
