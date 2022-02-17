@@ -1005,7 +1005,7 @@ if __name__ == "__main__":
     for _ in range(args.threads_json_deserialiser):
         threading.Thread(
             target=json_validator,
-            args=(inbound_acars_message_queue, deserialised_acars_message_queue, recent_message_queue_acars, 'acars',),
+            args=(inbound_acars_message_queue, deserialised_acars_message_queue, 'acars',),
             daemon=True,
         ).start()
 
@@ -1013,7 +1013,7 @@ if __name__ == "__main__":
     for _ in range(args.threads_json_deserialiser):
         threading.Thread(
             target=json_validator,
-            args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, recent_message_queue_vdlm2, 'vdlm2',),
+            args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, 'vdlm2',),
             daemon=True,
         ).start()
         
@@ -1021,7 +1021,7 @@ if __name__ == "__main__":
     for _ in range(args.threads_hasher):
         threading.Thread(
             target=acars_hasher,
-            args=(deserialised_acars_message_queue, hashed_acars_message_queue, "ACARS"),
+            args=(deserialised_acars_message_queue, hashed_acars_message_queue, recent_message_queue_acars, "ACARS"),
             daemon=True,
         ).start()
         
@@ -1029,7 +1029,7 @@ if __name__ == "__main__":
     for _ in range(args.threads_hasher):
         threading.Thread(
             target=vdlm2_hasher,
-            args=(deserialised_vdlm2_message_queue, hashed_vdlm2_message_queue, "VDLM2"),
+            args=(deserialised_vdlm2_message_queue, hashed_vdlm2_message_queue, recent_message_queue_vdlm2, "VDLM2"),
             daemon=True,
         ).start()
 
