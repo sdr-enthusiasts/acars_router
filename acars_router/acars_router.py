@@ -423,7 +423,7 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                     continue
         time.sleep(0.250)
 
-def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
+def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.deque, protoname: str):
     protoname = protoname.lower()
     logger = baselogger.getChild(f'vdlm2_hasher.{protoname}')
     logger.debug("spawned")
@@ -461,6 +461,19 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         ))
         
         logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
+        
+        # check for (and drop) dupe messages
+        with lock:
+            for rm in recent_message_queue:
+                if msghash == rm[0]:
+                    if data_to_hash == rm[1]:
+                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
+                        continue
+        recent_message_queue.append((
+            msghash,
+            data_to_hash,
+            msgtime_ns,
+        ))
         
         # put data in queue
         out_queue.put((
