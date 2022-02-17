@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -10,9 +11,6 @@ import threading
 import queue
 import time
 import logging
-
-logging.addLevelName(logging.DEBUG - 5, 'TRACE')
-baselogger = logging.getLogger('acars_router')
 
 class ARQueue(queue.Queue):
     """
@@ -351,6 +349,55 @@ def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
         for q in out_queues:
             q.put(copy.deepcopy(m))
         in_queue.task_done()
+
+def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
+    protoname = protoname.lower()
+    logger = baselogger.getChild(f'vdlm2_hasher.{protoname}')
+    logger.debug("spawned")
+    # Set up counters
+    global COUNTERS
+    while True:
+        # pop data from queue
+        data = in_queue.get()
+        in_queue.task_done()
+        
+        # create timestamp from t.sec & t.usec
+        msgtime_ns = data['vdl2']['t']['sec'] * 1e9
+        msgtime_ns += data['vdl2']['t']['usec'] * 1000
+        
+        # TODO: sanity check: drop messages with timestamp outside of max skew range
+        
+        # copy object so we don't molest original data
+        data_to_hash = copy.deepcopy(data[0])
+        
+        # remove feeder-specific data so we only hash data unique to the message
+        del(data_to_hash['vdl2']['app'])
+        del(data_to_hash['vdl2']['freq_skew']
+        del(data_to_hash['vdl2']['hdr_bits_fixed']
+        del(data_to_hash['vdl2']['noise_level']
+        del(data_to_hash['vdl2']['octets_corrected_by_fec']
+        del(data_to_hash['vdl2']['sig_level']
+        del(data_to_hash['vdl2']['station']
+        del(data_to_hash['vdl2']['t']
+        
+        # serialise & hash
+        msghash = hash(
+            json.dumps(
+                data[0],
+                separators=(',', ':'),
+                sort_keys=True,
+            )
+        
+        # put data in queue
+        out_queue.put((
+            data[0], # dict
+            data[1], # host
+            data[2], # port
+            data[3], # source func
+            msgtime_ns,
+            msghash,
+            data_to_hash,
+        ))
 
 def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     """
@@ -748,6 +795,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    # configure logging: create trace level
+    logging.addLevelName(logging.DEBUG - 5, 'TRACE')
+    # configure logging: base logger
+    baselogger = logging.getLogger('acars_router')
+    
     # configure logging
     logger = baselogger.getChild('core')
     logger_console_handler = logging.StreamHandler()
