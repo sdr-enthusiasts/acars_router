@@ -48,9 +48,14 @@ class ARCounters():
         # Invalid message counts
         self.invalid_json_acars = 0
         self.invalid_json_vdlm2 = 0
+        
+        # duplicate messages dropped
+        self.duplicate_acars = 0
+        self.duplicate_vdlm2 = 0
 
         self.queue_lists = list()
         self.standalone_queues = list()
+        self.standalone_deque = list()
 
     def log(self, logger: logging.Logger, level: int):
         if self.listen_udp_acars > 0:
@@ -69,6 +74,10 @@ class ARCounters():
             logger.log(level, f"Invalid ACARS JSON messages: {self.invalid_json_acars}")
         if self.invalid_json_vdlm2 > 0:
             logger.log(level, f"Invalid VDLM2 JSON messages: {self.invalid_json_vdlm2}")
+        if self.duplicate_acars > 0:
+            logger.log(level, f"Duplicate ACARS  messages dropped: {self.duplicate_acars}")
+        if self.duplicate_vdlm2 > 0:
+            logger.log(level, f"Duplicate VDLM2  messages dropped: {self.duplicate_vdlm2}")
 
         # Log queue depths (TODO: should probably be debug level)
         for q in self.standalone_queues:
@@ -80,12 +89,17 @@ class ARCounters():
                 qs = q.qsize()
                 if qs > 0:
                     logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
+        for dq in self.standalone_deque:
+            logger.log(level, f"Queue depth of {dq[0]}: {len(dq[1])}")
     
     def register_queue_list(self, qlist: list):
         self.queue_lists.append(qlist)
 
     def register_queue(self, q: ARQueue):
         self.standalone_queues.append(q)
+        
+    def register_deque(self, dq: collections.deque, name: str):
+        self.standalone_deque.append((name, dq,))
 
     def increment(self, counter):
         """
@@ -413,6 +427,8 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
     protoname = protoname.lower()
     logger = baselogger.getChild(f'recent_message_queue_evictor.{protoname}')
     logger.debug("spawned")
+    # Set up counters
+    global COUNTERS
     while True:
         with lock:
             if len(recent_message_queue) > 0:
@@ -420,6 +436,7 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                 if recent_message_queue[0][2] <= (time.time_ns() - (2 * 1e9)):
                     evictedmsg = recent_message_queue.popleft()
                     logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
+                    COUNTERS.increment("duplicate_{protoname}")
                     continue
         time.sleep(0.250)
 
@@ -987,7 +1004,9 @@ if __name__ == "__main__":
     
     # recent message buffers for dedupe
     recent_message_queue_acars = collections.deque()
+    COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
     recent_message_queue_vdlm2 = collections.deque()
+    COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
     
     # recent message buffers evictor threads
     threading.Thread(
