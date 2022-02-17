@@ -98,7 +98,7 @@ class ARCounters():
     def register_queue(self, q: ARQueue):
         self.standalone_queues.append(q)
         
-    def register_deque(self, dq: collections.deque, name: str):
+    def register_deque(self, name: str, dq: collections.deque):
         self.standalone_deque.append((name, dq,))
 
     def increment(self, counter):
