@@ -11,6 +11,7 @@ import threading
 import queue
 import time
 import logging
+import collections
 
 class ARQueue(queue.Queue):
     """
@@ -350,7 +351,7 @@ def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
             q.put(copy.deepcopy(m))
         in_queue.task_done()
 
-def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
+def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.decue, protoname: str):
     protoname = protoname.lower()
     logger = baselogger.getChild(f'acars_hasher.{protoname}')
     logger.debug("spawned")
@@ -384,6 +385,19 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         
         logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
         
+        # check for (and drop) dupe messages
+        with lock:
+            for rm in recent_message_queue:
+                if msghash == rm[0]:
+                    if data_to_hash == rm[1]:
+                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
+                        continue
+        recent_message_queue.append((
+            msghash,
+            data_to_hash,
+            msgtime_ns,
+        ))
+        
         # put data in queue
         out_queue.put((
             data[0], # dict
@@ -394,6 +408,20 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             msghash,
             data_to_hash,
         ))
+
+def recent_message_queue_evictor(recent_message_queue: collections.decue, protoname: str):
+    protoname = protoname.lower()
+    logger = baselogger.getChild(f'recent_message_queue_evictor.{protoname}')
+    logger.debug("spawned")
+    while True:
+        with lock:
+            if len(recent_message_queue) > 0:
+                # evict items older than 2 seconds
+                if recent_message_queue[0][2] <= (time.time_ns() - (2 * 1e9)):
+                    evictedmsg = recent_message_queue.popleft()
+                    logger.debug(f"evicted: {evictedmsg}")
+                    continue
+        time.sleep(0.250)
 
 def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     protoname = protoname.lower()
@@ -943,12 +971,28 @@ if __name__ == "__main__":
     COUNTERS.register_queue(hashed_acars_message_queue)
     hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
     COUNTERS.register_queue(hashed_vdlm2_message_queue)
+    
+    # recent message buffers for dedupe
+    recent_message_queue_acars = collections.deque()
+    recent_message_queue_vdlm2 = collections.deque()
+    
+    # recent message buffers evictor threads
+    threading.Thread(
+        target=recent_message_queue_evictor,
+        args=(recent_message_queue_acars, "acars"),
+        daemon=True,
+    ).start()
+    threading.Thread(
+        target=recent_message_queue_evictor,
+        args=(recent_message_queue_vdlm2, "vdlm2"),
+        daemon=True,
+    ).start()
 
     # acars json deserialiser threads
     for _ in range(args.threads_json_deserialiser):
         threading.Thread(
             target=json_validator,
-            args=(inbound_acars_message_queue, deserialised_acars_message_queue, 'acars',),
+            args=(inbound_acars_message_queue, deserialised_acars_message_queue, recent_message_queue_acars, 'acars',),
             daemon=True,
         ).start()
 
@@ -956,7 +1000,7 @@ if __name__ == "__main__":
     for _ in range(args.threads_json_deserialiser):
         threading.Thread(
             target=json_validator,
-            args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, 'vdlm2',),
+            args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, recent_message_queue_vdlm2, 'vdlm2',),
             daemon=True,
         ).start()
         
