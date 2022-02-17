@@ -350,6 +350,50 @@ def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
             q.put(copy.deepcopy(m))
         in_queue.task_done()
 
+def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
+    protoname = protoname.lower()
+    logger = baselogger.getChild(f'acars_hasher.{protoname}')
+    logger.debug("spawned")
+    # Set up counters
+    global COUNTERS
+    while True:
+        # pop data from queue
+        data = in_queue.get()
+        in_queue.task_done()
+        
+        # create timestamp from t.sec & t.usec
+        msgtime_ns = data['timestamp'] * 1e9
+        
+        # TODO: sanity check: drop messages with timestamp outside of max skew range
+        
+        # copy object so we don't molest original data
+        data_to_hash = copy.deepcopy(data[0])
+        
+        # remove feeder-specific data so we only hash data unique to the message
+        del(data_to_hash['error'])
+        del(data_to_hash['level']
+        del(data_to_hash['station_id']
+        del(data_to_hash['timestamp']
+        
+        # serialise & hash
+        msghash = hash(
+            json.dumps(
+                data[0],
+                separators=(',', ':'),
+                sort_keys=True,
+            )
+        
+        # put data in queue
+        out_queue.put((
+            data[0], # dict
+            data[1], # host
+            data[2], # port
+            data[3], # source func
+            msgtime_ns,
+            msghash,
+            data_to_hash,
+        ))
+
 def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     protoname = protoname.lower()
     logger = baselogger.getChild(f'vdlm2_hasher.{protoname}')
