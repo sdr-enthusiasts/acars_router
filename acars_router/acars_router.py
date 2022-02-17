@@ -838,6 +838,14 @@ if __name__ == "__main__":
         default=os.cpu_count(),
     )
     args = parser.parse_args()
+    parser.add_argument(
+        '--threads-hasher',
+        help=f'Number of threads for message hashers (default: {os.cpu_count()})',
+        type=int,
+        nargs='?',
+        default=os.cpu_count(),
+    )
+    args = parser.parse_args()
 
     # configure logging: create trace level
     logging.addLevelName(logging.DEBUG - 5, 'TRACE')
@@ -907,7 +915,7 @@ if __name__ == "__main__":
     inbound_vdlm2_message_queue = ARQueue('inbound_vdlm2_message_queue', 100)
     COUNTERS.register_queue(inbound_vdlm2_message_queue)
 
-    # define intermediate queue
+    # define intermediate queue for deserialised messages
     # populate with tuples: (data, host, port, source,)
     # where:
     #   * data: deserialised acars/vdlm2 messages (dict)
@@ -918,6 +926,21 @@ if __name__ == "__main__":
     COUNTERS.register_queue(deserialised_acars_message_queue)
     deserialised_vdlm2_message_queue = ARQueue('deserialised_vdlm2_message_queue', 100)
     COUNTERS.register_queue(deserialised_vdlm2_message_queue)
+
+    # define intermediate queue for hashed messages
+    # populate with tuples: (data, host, port, source,)
+    # where:
+    #   * data: deserialised acars/vdlm2 messages (dict)
+    #   * host: remote host (str)
+    #   * port: remote port (str)
+    #   * source: where the message was placed into the queue (str)
+    #   * timestamp_ns: timestamp of receiving host (int)
+    #   * hash: hash() of unique data in message
+    #   * uniquedata: serialised unique data that hash is based on (int)
+    hashed_acars_message_queue = ARQueue('hashed_acars_message_queue', 100)
+    COUNTERS.register_queue(hashed_acars_message_queue)
+    hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
+    COUNTERS.register_queue(hashed_vdlm2_message_queue)
 
     # acars json deserialiser threads
     for _ in range(args.threads_json_deserialiser):
@@ -934,19 +957,35 @@ if __name__ == "__main__":
             args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, 'vdlm2',),
             daemon=True,
         ).start()
+        
+    # acars hasher threads
+    for _ in range(args.threads_hasher):
+        threading.Thread(
+            target=acars_hasher,
+            args=(deserialised_acars_message_queue, hashed_acars_message_queue, "ACARS"),
+            daemon=True,
+        ).start()
+        
+    # vdlm2 hasher threads
+    for _ in range(args.threads_hasher):
+        threading.Thread(
+            target=vdlm2_hasher,
+            args=(deserialised_vdlm2_message_queue, hashed_vdlm2_message_queue, "VDLM2"),
+            daemon=True,
+        ).start()
 
     # deserialised acars processor(s)
     threading.Thread(
         target=message_processor,
         daemon=True,
-        args=(deserialised_acars_message_queue, output_acars_queues, "ACARS",),
+        args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
     ).start()
 
     # deserialised vdlm2 processor(s)
     threading.Thread(
         target=message_processor,
         daemon=True,
-        args=(deserialised_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+        args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
     ).start()
 
     # Configure "log on first message" for ACARS
