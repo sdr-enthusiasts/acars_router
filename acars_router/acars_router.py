@@ -390,7 +390,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             for rm in recent_message_queue:
                 if msghash == rm[0]:
                     if data_to_hash == rm[1]:
-                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
+                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                         continue
         recent_message_queue.append((
             msghash,
@@ -460,7 +460,7 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             sort_keys=True,
         ))
         
-        logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}, unique: {data_to_hash}")
+        logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages
         with lock:
