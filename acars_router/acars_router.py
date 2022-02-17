@@ -75,9 +75,9 @@ class ARCounters():
         if self.invalid_json_vdlm2 > 0:
             logger.log(level, f"Invalid VDLM2 JSON messages: {self.invalid_json_vdlm2}")
         if self.duplicate_acars > 0:
-            logger.log(level, f"Duplicate ACARS  messages dropped: {self.duplicate_acars}")
+            logger.log(level, f"Duplicate ACARS messages dropped: {self.duplicate_acars}")
         if self.duplicate_vdlm2 > 0:
-            logger.log(level, f"Duplicate VDLM2  messages dropped: {self.duplicate_vdlm2}")
+            logger.log(level, f"Duplicate VDLM2 messages dropped: {self.duplicate_vdlm2}")
 
         # Log queue depths (TODO: should probably be debug level)
         for q in self.standalone_queues:
@@ -405,6 +405,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                 if msghash == rm[0]:
                     if data_to_hash == rm[1]:
                         logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                        COUNTERS.increment(f"duplicate_{protoname}")
                         continue
         recent_message_queue.append((
             msghash,
@@ -435,7 +436,6 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
             if recent_message_queue[0][2] <= (time.time_ns() - (2 * 1e9)):
                 evictedmsg = recent_message_queue.popleft()
                 logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
-                COUNTERS.increment(f"duplicate_{protoname}")
                 continue
         time.sleep(0.250)
 
@@ -484,6 +484,7 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                 if msghash == rm[0]:
                     if data_to_hash == rm[1]:
                         logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                        COUNTERS.increment(f"duplicate_{protoname}")
                         continue
         recent_message_queue.append((
             msghash,
