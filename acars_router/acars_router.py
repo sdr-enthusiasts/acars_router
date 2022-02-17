@@ -436,7 +436,7 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                 if recent_message_queue[0][2] <= (time.time_ns() - (2 * 1e9)):
                     evictedmsg = recent_message_queue.popleft()
                     logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
-                    COUNTERS.increment("duplicate_{protoname}")
+                    COUNTERS.increment(f"duplicate_{protoname}")
                     continue
         time.sleep(0.250)
 
