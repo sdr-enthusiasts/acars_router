@@ -106,8 +106,7 @@ class ARCounters():
         Increment a counter.
         eg: COUNTER.increment('receive_tcp_acars')
         """
-        with lock:
-            setattr(self, counter, getattr(self, counter)+1)
+        setattr(self, counter, getattr(self, counter)+1)
         return None
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
@@ -407,11 +406,11 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                         logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                         COUNTERS.increment(f"duplicate_{protoname}")
                         continue
-        recent_message_queue.append((
-            msghash,
-            data_to_hash,
-            msgtime_ns,
-        ))
+            recent_message_queue.append((
+                msghash,
+                data_to_hash,
+                msgtime_ns,
+            ))
         
         # put data in queue
         out_queue.put((
@@ -486,11 +485,11 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                         logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                         COUNTERS.increment(f"duplicate_{protoname}")
                         continue
-        recent_message_queue.append((
-            msghash,
-            data_to_hash,
-            msgtime_ns,
-        ))
+            recent_message_queue.append((
+                msghash,
+                data_to_hash,
+                msgtime_ns,
+            ))
         
         # put data in queue
         out_queue.put((
