@@ -391,7 +391,71 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
         
         # serialise & hash
         msghash = hash(json.dumps(
-            data[0],
+            data_to_hash,
+            separators=(',', ':'),
+            sort_keys=True,
+        ))
+        
+        logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        
+        # check for (and drop) dupe messages
+        with lock:
+            for rm in recent_message_queue:
+                if msghash == rm[0]:
+                    if data_to_hash == rm[1]:
+                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                        COUNTERS.increment(f"duplicate_{protoname}")
+                        continue
+            recent_message_queue.append((
+                msghash,
+                data_to_hash,
+                msgtime_ns,
+            ))
+        
+        # put data in queue
+        out_queue.put((
+            data[0], # dict
+            data[1], # host
+            data[2], # port
+            data[3], # source func
+            msgtime_ns,
+            msghash,
+            data_to_hash,
+        ))
+
+def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.deque, protoname: str):
+    protoname = protoname.lower()
+    logger = baselogger.getChild(f'vdlm2_hasher.{protoname}')
+    logger.debug("spawned")
+    # Set up counters
+    global COUNTERS
+    while True:
+        # pop data from queue
+        data = in_queue.get()
+        in_queue.task_done()
+        
+        # create timestamp from t.sec & t.usec
+        msgtime_ns = int(data[0]['vdl2']['t']['sec']) * 1e9
+        msgtime_ns += int(data[0]['vdl2']['t']['usec']) * 1000
+        
+        # TODO: sanity check: drop messages with timestamp outside of max skew range
+        
+        # copy object so we don't molest original data
+        data_to_hash = copy.deepcopy(data[0])
+        
+        # remove feeder-specific data so we only hash data unique to the message
+        del(data_to_hash['vdl2']['app'])
+        del(data_to_hash['vdl2']['freq_skew'])
+        del(data_to_hash['vdl2']['hdr_bits_fixed'])
+        del(data_to_hash['vdl2']['noise_level'])
+        del(data_to_hash['vdl2']['octets_corrected_by_fec'])
+        del(data_to_hash['vdl2']['sig_level'])
+        del(data_to_hash['vdl2']['station'])
+        del(data_to_hash['vdl2']['t'])
+        
+        # serialise & hash
+        msghash = hash(json.dumps(
+            data_to_hash,
             separators=(',', ':'),
             sort_keys=True,
         ))
@@ -437,70 +501,6 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                 logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
                 continue
         time.sleep(0.250)
-
-def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.deque, protoname: str):
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'vdlm2_hasher.{protoname}')
-    logger.debug("spawned")
-    # Set up counters
-    global COUNTERS
-    while True:
-        # pop data from queue
-        data = in_queue.get()
-        in_queue.task_done()
-        
-        # create timestamp from t.sec & t.usec
-        msgtime_ns = int(data[0]['vdl2']['t']['sec']) * 1e9
-        msgtime_ns += int(data[0]['vdl2']['t']['usec']) * 1000
-        
-        # TODO: sanity check: drop messages with timestamp outside of max skew range
-        
-        # copy object so we don't molest original data
-        data_to_hash = copy.deepcopy(data[0])
-        
-        # remove feeder-specific data so we only hash data unique to the message
-        del(data_to_hash['vdl2']['app'])
-        del(data_to_hash['vdl2']['freq_skew'])
-        del(data_to_hash['vdl2']['hdr_bits_fixed'])
-        del(data_to_hash['vdl2']['noise_level'])
-        del(data_to_hash['vdl2']['octets_corrected_by_fec'])
-        del(data_to_hash['vdl2']['sig_level'])
-        del(data_to_hash['vdl2']['station'])
-        del(data_to_hash['vdl2']['t'])
-        
-        # serialise & hash
-        msghash = hash(json.dumps(
-            data[0],
-            separators=(',', ':'),
-            sort_keys=True,
-        ))
-        
-        logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-        
-        # check for (and drop) dupe messages
-        with lock:
-            for rm in recent_message_queue:
-                if msghash == rm[0]:
-                    if data_to_hash == rm[1]:
-                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-                        COUNTERS.increment(f"duplicate_{protoname}")
-                        continue
-            recent_message_queue.append((
-                msghash,
-                data_to_hash,
-                msgtime_ns,
-            ))
-        
-        # put data in queue
-        out_queue.put((
-            data[0], # dict
-            data[1], # host
-            data[2], # port
-            data[3], # source func
-            msgtime_ns,
-            msghash,
-            data_to_hash,
-        ))
 
 def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     """
