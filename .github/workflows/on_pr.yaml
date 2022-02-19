@@ -56,7 +56,7 @@ jobs:
           cat ./test_data/acars.patched
       - name: "VDLM2: Patch test file timestamps"
         run: |
-          jq -cM ".vdl2.t.sec = $(date +%s)" < ./vdlm2 < ./test_data/vdlm2 > ./test_data/vdlm2.patched
+          jq -cM ".vdl2.t.sec = $(date +%s)" < ./test_data/vdlm2 > ./test_data/vdlm2.patched
           cat ./test_data/vdlm2.patched
 
   test_build:
