@@ -1,0 +1,33 @@
+---
+name: Pull Request
+
+on:
+  # Enable manual running of action if necessary
+  workflow_dispatch:
+  # Build and test deployment the image on pushes to main branch
+  pull_request:
+    # Only publish on push to main branch
+    branches:
+      - main
+    # Only run if the PR yaml has changed or a Dockerfile has changed
+    paths:
+      - Dockerfile**
+      - "**on_pr.yml"
+      - "**.py"
+
+jobs:
+  flake8-lint:
+    runs-on: ubuntu-latest
+    name: Lint
+    steps:
+      - name: Check out source repository
+        uses: actions/checkout@v2
+      - name: Set up Python environment
+        uses: actions/setup-python@v1
+        with:
+          python-version: "3.9"
+      - name: flake8 Lint
+        uses: py-actions/flake8@v2
+        with:
+          exclude: "src/ignoreme.py"
+          max-line-length: "100"
