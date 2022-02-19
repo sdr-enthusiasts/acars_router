@@ -159,7 +159,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             data = self.request.recv(8192).strip()
             if not data: break
             self.inbound_message_queue.put((data, host, port, f'input.tcpserver.{self.protoname}.{host}:{port}',))
-            COUNTERS.increment(f'listen_udp_{self.protoname}')
+            COUNTERS.increment(f'listen_tcp_{self.protoname}')
         self.logger.info("connection lost")
 
 def display_stats(
@@ -399,7 +399,8 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
         logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages
-        with lock:
+        lck = lock.acquire(blocking=True, timeout=1)
+        if lck:
             for rm in recent_message_queue:
                 if msghash == rm[0]:
                     if data_to_hash == rm[1]:
@@ -411,6 +412,9 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                 data_to_hash,
                 msgtime_ns,
             ))
+            lck.release()
+        else:
+            logger.error("Could not acquire lock!")
         
         # put data in queue
         out_queue.put((
@@ -463,7 +467,8 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
         logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages
-        with lock:
+        lck = lock.acquire(blocking=True, timeout=1)
+        if lck:
             for rm in recent_message_queue:
                 if msghash == rm[0]:
                     if data_to_hash == rm[1]:
@@ -475,6 +480,9 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                 data_to_hash,
                 msgtime_ns,
             ))
+            lck.release()
+        else:
+            logger.error("Could not acquire lock!")
         
         # put data in queue
         out_queue.put((
