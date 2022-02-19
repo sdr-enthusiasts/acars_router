@@ -18,9 +18,10 @@ class ARQueue(queue.Queue):
     """
     A subclass of queue.Queue, allowing us to name the queue.
     """
-    def __init__(self, name: str, maxsize: int=0):
+    def __init__(self, name: str, maxsize: int = 0):
         self.name = name
         super().__init__(maxsize=maxsize)
+
 
 class ARCounters():
     """
@@ -49,7 +50,7 @@ class ARCounters():
         # Invalid message counts
         self.invalid_json_acars = 0
         self.invalid_json_vdlm2 = 0
-        
+
         # duplicate messages dropped
         self.duplicate_acars = 0
         self.duplicate_vdlm2 = 0
@@ -94,13 +95,13 @@ class ARCounters():
             dqlen = len(dq[1])
             if dqlen > 0:
                 logger.log(level, f"Queue depth of {dq[0]}: {dqlen}")
-    
+
     def register_queue_list(self, qlist: list):
         self.queue_lists.append(qlist)
 
     def register_queue(self, q: ARQueue):
         self.standalone_queues.append(q)
-        
+
     def register_deque(self, name: str, dq: collections.deque):
         self.standalone_deque.append((name, dq,))
 
@@ -111,6 +112,7 @@ class ARCounters():
         """
         setattr(self, counter, getattr(self, counter)+1)
         return None
+
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """ Mix-in for multi-threaded UDP server """
