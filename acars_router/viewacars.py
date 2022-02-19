@@ -33,8 +33,10 @@ if __name__ == "__main__":
     )
 
     while True:
-        data = sock.recv(16384)
-        if not data:
-            break
-        j = json.loads(data)
-        pprint(j)
+        try:
+            data = sock.recv(16384)
+        except TimeoutError:
+            pass
+        else:
+            j = json.loads(data)
+            pprint(j)
