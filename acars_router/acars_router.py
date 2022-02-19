@@ -1092,20 +1092,6 @@ if __name__ == "__main__":
         threading.Thread(
             target=message_processor,
             daemon=True,
-            args=(deserialised_acars_message_queue, output_acars_queues, "ACARS",),
-        ).start()
-
-        # deserialised vdlm2 processor(s)
-        threading.Thread(
-            target=message_processor,
-            daemon=True,
-            args=(deserialised_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
-        ).start()
-    else:
-        # deserialised acars processor(s)
-        threading.Thread(
-            target=message_processor,
-            daemon=True,
             args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
         ).start()
 
@@ -1114,6 +1100,20 @@ if __name__ == "__main__":
             target=message_processor,
             daemon=True,
             args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+        ).start()
+    else:
+        # deserialised acars processor(s)
+        threading.Thread(
+            target=message_processor,
+            daemon=True,
+            args=(deserialised_acars_message_queue, output_acars_queues, "ACARS",),
+        ).start()
+
+        # deserialised vdlm2 processor(s)
+        threading.Thread(
+            target=message_processor,
+            daemon=True,
+            args=(deserialised_vdlm2_message_queue , output_vdlm2_queues, "VDLM2",),
         ).start()
 
     # Configure "log on first message" for ACARS
