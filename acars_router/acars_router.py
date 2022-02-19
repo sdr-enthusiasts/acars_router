@@ -388,6 +388,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
         del(data_to_hash['level'])
         del(data_to_hash['station_id'])
         del(data_to_hash['timestamp'])
+        del(data_to_hash['channel'])
         
         # serialise & hash
         msghash = hash(json.dumps(
