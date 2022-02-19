@@ -397,7 +397,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             sort_keys=True,
         ))
         
-        logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages
         lck = lock.acquire(blocking=True, timeout=1)
@@ -405,7 +405,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             for rm in recent_message_queue:
                 if msghash == rm[0]:
                     if data_to_hash == rm[1]:
-                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                         COUNTERS.increment(f"duplicate_{protoname}")
                         continue
             recent_message_queue.append((
@@ -465,7 +465,7 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             sort_keys=True,
         ))
         
-        logger.log(logging.DEBUG - 5, f"hashed: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages
         lck = lock.acquire(blocking=True, timeout=1)
@@ -473,7 +473,7 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             for rm in recent_message_queue:
                 if msghash == rm[0]:
                     if data_to_hash == rm[1]:
-                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                         COUNTERS.increment(f"duplicate_{protoname}")
                         continue
             recent_message_queue.append((
@@ -539,6 +539,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             continue
         else:
             # if no exception, put deserialised data onto out_queue
+            logger.log(logger.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
             out_queue.put((j, data[1], data[2], data[3]))
         finally:
             # regardless of exception or not, tell in_queue that task is done
