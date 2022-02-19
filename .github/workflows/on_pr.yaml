@@ -49,8 +49,8 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Patch test file timestamps
-        run: jq ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars > ./test_data/acars
+      - name: "ACARS: Patch test file timestamps"
+        run: jq ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars | tee ./test_data/acars
 
   test_build:
     name: Test Build
