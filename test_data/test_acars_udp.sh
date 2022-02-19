@@ -8,7 +8,7 @@ sleep 2
 python3 ./acars_router/acars_router.py -v --listen-udp-acars 5550 --send-udp-acars 127.0.0.1:15550 &
 sleep 2
 
-while IFS="" read -r p || [ -n "$p" ]
+while IFS="" read -r p || [ -n "$p" ]; do
   printf '%s\n' "$p" | nc -u -v -q 1 -w 5 127.0.0.1 5550
 done <./test_data/acars.patched
 
