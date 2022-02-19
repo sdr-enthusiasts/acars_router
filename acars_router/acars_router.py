@@ -366,9 +366,24 @@ def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
             q.put(copy.deepcopy(m))
         in_queue.task_done()
 
-def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.deque, protoname: str):
+def within_acceptable_skew(timestamp:int, skew_window_secs: int):
+    min_timestamp = time.time_ns() - (skew_window_secs * 1e9)
+    max_timestamp = time.time_ns() + (skew_window_secs * 1e9)
+    if min_timestamp <= timestamp <= max_timestamp:
+        return True
+    else:
+        return False
+
+def acars_hasher(
+    in_queue: ARQueue,
+    out_queue: ARQueue,
+    recent_message_queue: collections.deque,
+    protoname: str,
+    skew_window_secs: int,
+    enable_dedupe: bool,
+):
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'acars_hasher.{protoname}')
+    logger = baselogger.getChild(f'acars_hasher')
     logger.debug("spawned")
     # Set up counters
     global COUNTERS
@@ -380,7 +395,10 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
         # create timestamp from t.sec & t.usec
         msgtime_ns = int(float(data[0]['timestamp']) * 1e9)
         
-        # TODO: sanity check: drop messages with timestamp outside of max skew range
+        # drop messages with timestamp outside of max skew range
+        if not within_acceptable_skew(msgtime_ns, skew_window_secs):
+            logger.warning(f"Message timestamp outside acceptable skew window: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]},")
+            continue
         
         # copy object so we don't molest original data
         data_to_hash = copy.deepcopy(data[0])
@@ -401,24 +419,32 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
         
         logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
-        # check for (and drop) dupe messages
-        lck = lock.acquire(blocking=True, timeout=2)
-        if lck:
-            for rm in recent_message_queue:
-                if msghash == rm[0]:
-                    if data_to_hash == rm[1]:
-                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-                        COUNTERS.increment(f"duplicate_{protoname}")
-                        break
-            recent_message_queue.append((
-                msghash,
-                data_to_hash,
-                msgtime_ns,
-            ))
-            lock.release()
-        else:
-            logger.error("Could not acquire lock!")
+        # check for (and drop) dupe messages, if enabled
+        dropmsg = False
+        if enable_dedupe:
+            lck = lock.acquire(blocking=True, timeout=2)
+            if lck:
+                for rm in recent_message_queue:
+                    if msghash == rm[0]:
+                        if data_to_hash == rm[1]:
+                            logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                            COUNTERS.increment(f"duplicate_{protoname}")
+                            dropmsg = True
+                            break
+                if not dropmsg:
+                    recent_message_queue.append((
+                        msghash,
+                        data_to_hash,
+                        msgtime_ns,
+                    ))
+                lock.release()
+            else:
+                logger.error("Could not acquire lock!")
         
+        # if we drop the message, skip everything below
+        if dropmsg:
+            continue
+
         # put data in queue
         out_queue.put((
             data[0], # dict
@@ -430,9 +456,16 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             data_to_hash,
         ))
 
-def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: collections.deque, protoname: str):
+def vdlm2_hasher(
+    in_queue: ARQueue,
+    out_queue: ARQueue,
+    recent_message_queue: collections.deque,
+    protoname: str,
+    skew_window_secs: int,
+    enable_dedupe: bool,
+):
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'vdlm2_hasher.{protoname}')
+    logger = baselogger.getChild(f'vdlm2_hasher')
     logger.debug("spawned")
     # Set up counters
     global COUNTERS
@@ -445,7 +478,10 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
         msgtime_ns = int(data[0]['vdl2']['t']['sec']) * 1e9
         msgtime_ns += int(data[0]['vdl2']['t']['usec']) * 1000
         
-        # TODO: sanity check: drop messages with timestamp outside of max skew range
+        # drop messages with timestamp outside of max skew range
+        if not within_acceptable_skew(msgtime_ns, skew_window_secs):
+            logger.warning(f"Message timestamp outside acceptable skew window: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]},")
+            continue
         
         # copy object so we don't molest original data
         data_to_hash = copy.deepcopy(data[0])
@@ -469,24 +505,31 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
         
         logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
-        # check for (and drop) dupe messages
-        lck = lock.acquire(blocking=True, timeout=2)
-        if lck:
-            for rm in recent_message_queue:
-                if msghash == rm[0]:
-                    if data_to_hash == rm[1]:
-                        logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-                        COUNTERS.increment(f"duplicate_{protoname}")
-                        break
-            recent_message_queue.append((
-                msghash,
-                data_to_hash,
-                msgtime_ns,
-            ))
-            lock.release()
-        else:
-            logger.error("Could not acquire lock!")
+        # check for (and drop) dupe messages if enabled
+        dropmsg = False
+        if enable_dedupe:
+            lck = lock.acquire(blocking=True, timeout=2)
+            if lck:
+                for rm in recent_message_queue:
+                    if msghash == rm[0]:
+                        if data_to_hash == rm[1]:
+                            logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                            COUNTERS.increment(f"duplicate_{protoname}")
+                            break
+                if not dropmsg:
+                    recent_message_queue.append((
+                        msghash,
+                        data_to_hash,
+                        msgtime_ns,
+                    ))
+                lock.release()
+            else:
+                logger.error("Could not acquire lock!")
         
+        # if we drop the message, skip everything below
+        if dropmsg:
+            continue
+
         # put data in queue
         out_queue.put((
             data[0], # dict
@@ -927,6 +970,13 @@ if __name__ == "__main__":
         default=int(os.getenv("AR_DEDUPE_WINDOW", 2)),
     )
     parser.add_argument(
+        '--skew-window',
+        help='Reject messages with a timestamp greater than +/- this many seconds (default: 1).',
+        type=int,
+        nargs='?',
+        default=int(os.getenv("AR_SKEW_WINDOW", 1)),
+    )
+    parser.add_argument(
         '--threads-json-deserialiser',
         help=f'Number of threads for JSON deserialisers (default: {os.cpu_count()})',
         type=int,
@@ -1032,29 +1082,28 @@ if __name__ == "__main__":
     #   * timestamp_ns: timestamp of receiving host (int)
     #   * hash: hash() of unique data in message
     #   * uniquedata: serialised unique data that hash is based on (int)
-    if args.enable_dedupe:
-        hashed_acars_message_queue = ARQueue('hashed_acars_message_queue', 100)
-        COUNTERS.register_queue(hashed_acars_message_queue)
-        hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
-        COUNTERS.register_queue(hashed_vdlm2_message_queue)
-        
-        # recent message buffers for dedupe
-        recent_message_queue_acars = collections.deque()
-        COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
-        recent_message_queue_vdlm2 = collections.deque()
-        COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
-        
-        # recent message buffers evictor threads
-        threading.Thread(
-            target=recent_message_queue_evictor,
-            args=(recent_message_queue_acars, "acars", args.dedupe_window),
-            daemon=True,
-        ).start()
-        threading.Thread(
-            target=recent_message_queue_evictor,
-            args=(recent_message_queue_vdlm2, "vdlm2", args.dedupe_window),
-            daemon=True,
-        ).start()
+    hashed_acars_message_queue = ARQueue('hashed_acars_message_queue', 100)
+    COUNTERS.register_queue(hashed_acars_message_queue)
+    hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
+    COUNTERS.register_queue(hashed_vdlm2_message_queue)
+    
+    # recent message buffers for dedupe
+    recent_message_queue_acars = collections.deque()
+    COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
+    recent_message_queue_vdlm2 = collections.deque()
+    COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
+    
+    # recent message buffers evictor threads
+    threading.Thread(
+        target=recent_message_queue_evictor,
+        args=(recent_message_queue_acars, "acars", args.dedupe_window),
+        daemon=True,
+    ).start()
+    threading.Thread(
+        target=recent_message_queue_evictor,
+        args=(recent_message_queue_vdlm2, "vdlm2", args.dedupe_window),
+        daemon=True,
+    ).start()
 
     # acars json deserialiser threads
     for _ in range(args.threads_json_deserialiser):
@@ -1072,51 +1121,49 @@ if __name__ == "__main__":
             daemon=True,
         ).start()
     
-    if args.enable_dedupe:
-        # acars hasher threads
-        for _ in range(args.threads_hasher):
-            threading.Thread(
-                target=acars_hasher,
-                args=(deserialised_acars_message_queue, hashed_acars_message_queue, recent_message_queue_acars, "ACARS"),
-                daemon=True,
-            ).start()
-            
-        # vdlm2 hasher threads
-        for _ in range(args.threads_hasher):
-            threading.Thread(
-                target=vdlm2_hasher,
-                args=(deserialised_vdlm2_message_queue, hashed_vdlm2_message_queue, recent_message_queue_vdlm2, "VDLM2"),
-                daemon=True,
-            ).start()
-
-    if args.enable_dedupe:
-        # deserialised acars processor(s)
+    # acars hasher threads
+    for _ in range(args.threads_hasher):
         threading.Thread(
-            target=message_processor,
+            target=acars_hasher,
+            args=(
+                deserialised_acars_message_queue,
+                hashed_acars_message_queue,
+                recent_message_queue_acars,
+                "ACARS",
+                args.skew_window,
+                args.enable_dedupe,
+            ),
             daemon=True,
-            args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
+        ).start()
+        
+    # vdlm2 hasher threads
+    for _ in range(args.threads_hasher):
+        threading.Thread(
+            target=vdlm2_hasher,
+            args=(
+                deserialised_vdlm2_message_queue,
+                hashed_vdlm2_message_queue,
+                recent_message_queue_vdlm2,
+                "VDLM2",
+                args.skew_window,
+                args.enable_dedupe,
+            ),
+            daemon=True,
         ).start()
 
-        # deserialised vdlm2 processor(s)
-        threading.Thread(
-            target=message_processor,
-            daemon=True,
-            args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
-        ).start()
-    else:
-        # deserialised acars processor(s)
-        threading.Thread(
-            target=message_processor,
-            daemon=True,
-            args=(deserialised_acars_message_queue, output_acars_queues, "ACARS",),
-        ).start()
+    # deserialised acars processor(s)
+    threading.Thread(
+        target=message_processor,
+        daemon=True,
+        args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
+    ).start()
 
-        # deserialised vdlm2 processor(s)
-        threading.Thread(
-            target=message_processor,
-            daemon=True,
-            args=(deserialised_vdlm2_message_queue , output_vdlm2_queues, "VDLM2",),
-        ).start()
+    # deserialised vdlm2 processor(s)
+    threading.Thread(
+        target=message_processor,
+        daemon=True,
+        args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+    ).start()
 
     # Configure "log on first message" for ACARS
     threading.Thread(
