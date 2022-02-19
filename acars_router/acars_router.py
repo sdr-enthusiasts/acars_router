@@ -156,7 +156,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
         self.logger.info("connection established")
         while True:
-            data = self.request.recv(8192).strip()
+            data = self.request.recv(16384)
             if not data: break
             self.inbound_message_queue.put((data, host, port, f'input.tcpserver.{self.protoname}.{host}:{port}',))
             COUNTERS.increment(f'listen_tcp_{self.protoname}')
@@ -336,7 +336,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                 # put socket in blocking mode
                 sock.settimeout(None)
                 while True:
-                    data = sock.recv(8192)
+                    data = sock.recv(16384)
                     logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
                     if not data: break
                     inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
