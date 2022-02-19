@@ -919,7 +919,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--dedupe-window',
-        help='The window in seconds for duplicate messages to be dropped (default: 2).'
+        help='The window in seconds for duplicate messages to be dropped (default: 2).',
         type=int,
         nargs='?',
         default=int(os.getenv("AR_DEDUPE_WINDOW", 2)),
