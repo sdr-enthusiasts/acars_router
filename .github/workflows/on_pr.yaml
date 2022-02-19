@@ -50,7 +50,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: "ACARS: Patch test file timestamps"
-        run: jq ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars | tee ./test_data/acars
+        run: |
+          jq ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars > tee ./test_data/acars
+          cat ./test_data/acars
 
   test_build:
     name: Test Build
