@@ -58,15 +58,7 @@ jobs:
           jq -cM ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars > ./test_data/acars.patched
           cat ./test_data/acars.patched
       - name: "ACARS: TestUDP in/out"
-        run: |
-          socat UDP-LISTEN:15550 CREATE:/tmp/acars.udp.out &
-          sleep 2
-          python3 ./acars_router/acars_router.py -v --listen-udp-acars 5550 --send-udp-acars 127.0.0.1:15550 &
-          sleep 2
-          while read x; do echo "$x" | nc -u -v -q 1 -w 5 127.0.0.1 5550; done < ./test_data/acars.patched
-          sleep 2
-          cat ./tmp/acars.udp.out
-          killall -9 nc socat
+        run: ./test_data/test_acars_udp.sh
 
       - name: "VDLM2: Patch test file timestamps"
         run: |
