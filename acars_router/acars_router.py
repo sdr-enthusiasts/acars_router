@@ -539,7 +539,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             continue
         else:
             # if no exception, put deserialised data onto out_queue
-            logger.log(logger.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
+            logger.log(logging.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
             out_queue.put((j, data[1], data[2], data[3]))
         finally:
             # regardless of exception or not, tell in_queue that task is done
