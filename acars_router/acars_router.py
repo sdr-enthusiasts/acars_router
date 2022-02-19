@@ -407,7 +407,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                     if data_to_hash == rm[1]:
                         logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                         COUNTERS.increment(f"duplicate_{protoname}")
-                        continue
+                        break
             recent_message_queue.append((
                 msghash,
                 data_to_hash,
@@ -475,7 +475,7 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                     if data_to_hash == rm[1]:
                         logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                         COUNTERS.increment(f"duplicate_{protoname}")
-                        continue
+                        break
             recent_message_queue.append((
                 msghash,
                 data_to_hash,
