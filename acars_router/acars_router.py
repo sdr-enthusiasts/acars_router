@@ -110,7 +110,7 @@ class ARCounters():
         Increment a counter.
         eg: COUNTER.increment('receive_tcp_acars')
         """
-        setattr(self, counter, getattr(self, counter)+1)
+        setattr(self, counter, getattr(self, counter) + 1)
         return None
 
 
@@ -808,7 +808,7 @@ def valid_args(args):
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
+            socket.gethostbyname(host)
         except socket.gaierror:
             logger.warning(f"send_udp_vdlm2: host appears invalid or unresolvable: {host}")
 
