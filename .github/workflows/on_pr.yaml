@@ -52,7 +52,7 @@ jobs:
       - name: Install test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y socat
+          sudo apt-get install -y socat netcat
       - name: "ACARS: Patch test file timestamps"
         run: |
           jq -cM ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars > ./test_data/acars.patched
@@ -63,9 +63,9 @@ jobs:
           sleep 2
           python3 ./acars_router/acars_router.py --listen-udp-acars 5550 --send-udp-acars 127.0.0.1:15550 &
           sleep 2
-          socat OPEN:./test_data/acars.patched UDP-DATAGRAM:127.0.0.1:5550
+          while read x; do echo "$x" | nc -u 127.0.0.1 5550; done < ./test_data/acars.patched
           sleep 2
-          cat ./test_data/acars.patched
+          cat ./tmp/acars.udp.out
 
       - name: "VDLM2: Patch test file timestamps"
         run: |
