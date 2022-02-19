@@ -18,7 +18,7 @@ on:
 jobs:
   flake8-lint:
     runs-on: ubuntu-latest
-    name: Lint
+    name: "Linting: flake8"
     steps:
       - name: Check out source repository
         uses: actions/checkout@v2
