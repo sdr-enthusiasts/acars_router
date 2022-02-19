@@ -6,19 +6,35 @@ import json
 import argparse
 import socket
 import time
-import curses
-
-def main(stdscr):
-    # Clear screen
-    stdscr.clear()
-
-    # This raises ZeroDivisionError when i == 10.
-    for i in range(0, 11):
-        v = i-10
-        stdscr.addstr(i, 0, '10 divided by {} is {}'.format(v, 10/v))
-
-    stdscr.refresh()
-    stdscr.getkey()
+from pprint import pprint
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    
+    parser = argparse.ArgumentParser(
+        description='View ACARS messages'
+    )
+    parser.add_argument(
+        '--host',
+        type=str,
+        nargs='?',
+        default="127.0.0.1",
+    )
+    parser.add_argument(
+        '--port',
+        type=int,
+        nargs='?',
+        default=15550,
+    )
+    args = parser.parse_args()
+
+    sock = socket.create_connection(
+        address=(args.host, args.port,),
+        timeout=5,
+    )
+
+    while True:
+        data = sock.recv(16384)
+        if not data:
+            break
+        j = json.loads(data)
+        pprint(j)
