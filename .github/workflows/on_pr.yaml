@@ -66,6 +66,7 @@ jobs:
           while read x; do echo "$x" | nc -u 127.0.0.1 5550; done < ./test_data/acars.patched
           sleep 2
           cat ./tmp/acars.udp.out
+          killall -9 nc socat
 
       - name: "VDLM2: Patch test file timestamps"
         run: |
