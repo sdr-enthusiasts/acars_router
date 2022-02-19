@@ -12,16 +12,16 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
-| `--listen-udp-acars` | `AR_LISTEN_UDP_ACARS` | UDP port to listen for ACARS messages. Can be specified multiple times to listen on multiple ports. | `5550` |
-| `--listen-tcp-acars` | `AR_LISTEN_TCP_ACARS` | TCP port to listen for ACARS messages. Can be specified multiple times to listen on multiple ports. | `5550` |
+| `--listen-udp-acars` | `AR_LISTEN_UDP_ACARS` | UDP port to listen for ACARS messages. Can be specified multiple times to listen on multiple ports. | |
+| `--listen-tcp-acars` | `AR_LISTEN_TCP_ACARS` | TCP port to listen for ACARS messages. Can be specified multiple times to listen on multiple ports. | |
 | `--receive-tcp-acars` | `AR_RECV_TCP_ACARS` | Connect to "host:port" (over TCP) and receive ACARS messages. Can be specified multiple times to receive from multiple sources. | |
 
 #### VDLM2
 
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
-| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | UDP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. | `5555` |
-| `--listen-tcp-vdlm2` | `AR_LISTEN_TCP_VDLM2` | TCP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. | `5555` |
+| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | UDP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. | |
+| `--listen-tcp-vdlm2` | `AR_LISTEN_TCP_VDLM2` | TCP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. | |
 | `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | Connect to "host:port" (over TCP) and receive VDLM2 messages. Can be specified multiple times to receive from multiple sources. | |
 
 ### Output
@@ -48,3 +48,12 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | -------- | -------------------- | ----------- | --------|
 | `--stats-every` | `AR_STATS_EVERY` | Print statistics every `N` minutes | `5` |
 | `-v` `--verbose` | `AR_VERBOSITY` | Increase log verbosity. `-v`/`AR_VERBOSITY=1` = Debug. `-vv`/`AR_VERBOSITY=2` = Trace (raw packets printed) | `0` (info) |
+
+### Advanced
+
+| Argument | Environment Variable | Description | Default |
+| -------- | -------------------- | ----------- | --------|
+| `--skew-window` | `AR_SKEW_WINDOW` | Reject messages with a timestamp greater than +/- this many seconds. | 1 |
+| `--threads-json-deserialiser` | `AR_THREADS_JSON_DESERIALISER` | Number of threads for JSON deserialisers (per message protocol) | Number CPU cores |
+| `--threads-hasher` | `AR_THREADS_HASHER` | Number of threads for message hashers (per message protocol) | Number CPU cores |
+| `--threads-output-queue-populator` | `AR_OUTPUT_QUEUE_POPULATOR` | Number of threads for output queue populators (per message protocol) | Number CPU cores |

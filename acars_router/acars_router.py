@@ -857,14 +857,14 @@ if __name__ == "__main__":
         help='UDP port to listen for ACARS messages. Can be specified multiple times to listen on multiple ports. (default: 5550)',
         type=str,
         nargs='*',
-        default=os.getenv('AR_LISTEN_UDP_ACARS', "5550").split(';'),
+        default=split_env_safely('AR_LISTEN_UDP_ACARS'),
     )
     parser.add_argument(
         '--listen-tcp-acars',
         help='TCP port to listen for ACARS messages. Can be specified multiple times to listen on multiple ports. (default: 5550)',
         type=str,
         nargs='*',
-        default=os.getenv('AR_LISTEN_TCP_ACARS', "5550").split(';'),
+        default=split_env_safely('AR_LISTEN_TCP_ACARS'),
     )
     parser.add_argument(
         '--receive-tcp-acars',
@@ -878,14 +878,14 @@ if __name__ == "__main__":
         help='UDP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. (default: 5555)',
         type=str,
         nargs='*',
-        default=os.getenv('AR_LISTEN_UDP_VDLM2', "5555").split(';'),
+        default=split_env_safely('AR_LISTEN_UDP_VDLM2'),
     )
     parser.add_argument(
         '--listen-tcp-vdlm2',
         help='TCP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. (default: 5550)',
         type=str,
         nargs='*',
-        default=os.getenv('AR_LISTEN_TCP_VDLM2', "5555").split(';'),
+        default=split_env_safely('AR_LISTEN_TCP_VDLM2'),
     )
     parser.add_argument(
         '--receive-tcp-vdlm2',
@@ -909,6 +909,13 @@ if __name__ == "__main__":
         default=split_env_safely('AR_SEND_TCP_ACARS'),
     )
     parser.add_argument(
+        '--serve-tcp-acars',
+        help='Serve ACARS messages on TCP "port". Can be specified multiple times to serve on multiple ports.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_SERVE_TCP_ACARS'),
+    )
+    parser.add_argument(
         '--send-udp-vdlm2',
         help='Send VDLM2 messages via UDP datagram to "host:port". Can be specified multiple times to send to multiple clients.',
         type=str,
@@ -921,13 +928,6 @@ if __name__ == "__main__":
         type=str,
         nargs='*',
         default=split_env_safely('AR_SEND_TCP_VDLM2'),
-    )
-    parser.add_argument(
-        '--serve-tcp-acars',
-        help='Serve ACARS messages on TCP "port". Can be specified multiple times to serve on multiple ports.',
-        type=str,
-        nargs='*',
-        default=split_env_safely('AR_SERVE_TCP_ACARS'),
     )
     parser.add_argument(
         '--serve-tcp-vdlm2',
@@ -974,21 +974,21 @@ if __name__ == "__main__":
         help=f'Number of threads for JSON deserialisers (default: {os.cpu_count()})',
         type=int,
         nargs='?',
-        default=os.cpu_count(),
+        default=int(os.getenv("AR_THREADS_JSON_DESERIALISER", os.cpu_count())),
     )
     parser.add_argument(
         '--threads-hasher',
         help=f'Number of threads for message hashers (default: {os.cpu_count()})',
         type=int,
         nargs='?',
-        default=os.cpu_count(),
+        default=int(os.getenv("AR_THREADS_HASHER", os.cpu_count())),
     )
     parser.add_argument(
         '--threads-output-queue-populator',
-        help=f'Number of threads for message hashers (default: {os.cpu_count()})',
+        help=f'Number of threads for output queue populators (default: {os.cpu_count()})',
         type=int,
         nargs='?',
-        default=os.cpu_count(),
+        default=int(os.getenv("AR_OUTPUT_QUEUE_POPULATOR", os.cpu_count())),
     )
     args = parser.parse_args()
 
