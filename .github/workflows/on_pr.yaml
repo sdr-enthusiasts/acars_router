@@ -45,7 +45,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: flake8-lint
     steps:
-      # Check out our code
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -54,6 +53,16 @@ jobs:
         run: |
           jq -cM ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars > ./test_data/acars.patched
           cat ./test_data/acars.patched
+      - name: "ACARS: TestUDP in/out"
+        run: |
+          socat UDP-LISTEN:15550 CREATE:/tmp/acars.udp.out &
+          sleep 2
+          python3 ./acars_router/acars_router.py --listen-udp-acars 5550 --send-udp-acars 127.0.0.1:15550 &
+          sleep 2
+          socat OPEN:./test_data/acars.patched UDP-DATAGRAM:127.0.0.1:5550
+          sleep 2
+          cat ./test_data/acars.patched
+
       - name: "VDLM2: Patch test file timestamps"
         run: |
           jq -cM ".vdl2.t.sec = $(date +%s)" < ./test_data/vdlm2 > ./test_data/vdlm2.patched
