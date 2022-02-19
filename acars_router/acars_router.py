@@ -566,7 +566,7 @@ def env_true_false(
     """
     Returns True or False objects
     """
-    if os.getenv(env, False).lower() == "true":
+    if str(os.getenv(env, False)).lower() == "true":
         return True
     else:
         return False
