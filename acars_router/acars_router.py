@@ -786,7 +786,7 @@ def valid_args(args):
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
+            socket.gethostbyname(host)
         except socket.gaierror:
             logger.warning(f"send_tcp_acars: host appears invalid or unresolvable: {host}")
 
