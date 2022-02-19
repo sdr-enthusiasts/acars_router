@@ -702,7 +702,7 @@ def valid_args(args):
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
+            socket.gethostbyname(host)
         except socket.gaierror:
             logger.warning(f"listen_tcp_acars: host appears invalid or unresolvable: {host}")
 
@@ -742,7 +742,7 @@ def valid_args(args):
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
+            socket.gethostbyname(host)
         except socket.gaierror:
             logger.warning(f"receive_tcp_vdlm2: host appears invalid or unresolvable: {host}")
 
@@ -764,7 +764,7 @@ def valid_args(args):
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
+            socket.gethostbyname(host)
         except socket.gaierror:
             logger.warning(f"send_udp_acars: host appears invalid or unresolvable: {host}")
 
