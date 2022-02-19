@@ -345,13 +345,13 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                     COUNTERS.increment(f'receive_tcp_{protoname}')
                 logger.info("connection lost")
 
-def message_processor(in_queue: ARQueue, out_queues: list, protoname: str):
+def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
     """
     Puts incoming ACARS/VDLM2 messages into each output queue.
     Intended to be run in a thread.
     """
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'message_processor.{protoname}')
+    logger = baselogger.getChild(f'output_queue_populator.{protoname}')
     logger.debug("spawned")
     while True:
         data = in_queue.get()
@@ -984,6 +984,13 @@ if __name__ == "__main__":
         nargs='?',
         default=os.cpu_count(),
     )
+    parser.add_argument(
+        '--threads-output-queue-populator',
+        help=f'Number of threads for message hashers (default: {os.cpu_count()})',
+        type=int,
+        nargs='?',
+        default=os.cpu_count(),
+    )
     args = parser.parse_args()
 
     # configure logging: create trace level
@@ -1145,19 +1152,21 @@ if __name__ == "__main__":
             daemon=True,
         ).start()
 
-    # deserialised acars processor(s)
-    threading.Thread(
-        target=message_processor,
-        daemon=True,
-        args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
-    ).start()
+    # output queue populator: acars
+    for _ in range(args.threads_output_queue_populator):
+        threading.Thread(
+            target=output_queue_populator,
+            args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
+            daemon=True,
+        ).start()
 
-    # deserialised vdlm2 processor(s)
-    threading.Thread(
-        target=message_processor,
-        daemon=True,
-        args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
-    ).start()
+    # output queue populator: vdlm2
+    for _ in range(args.threads_output_queue_populator):
+        threading.Thread(
+            target=output_queue_populator,
+            args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+            daemon=True,
+        ).start()
 
     # Configure "log on first message" for ACARS
     threading.Thread(
