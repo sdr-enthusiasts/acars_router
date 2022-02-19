@@ -51,8 +51,8 @@ jobs:
           fetch-depth: 0
       - name: Install test dependencies
         run: |
-          apt-get update
-          apt-get install -y socat
+          sudo apt-get update
+          sudo apt-get install -y socat
       - name: "ACARS: Patch test file timestamps"
         run: |
           jq -cM ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars > ./test_data/acars.patched
