@@ -441,20 +441,17 @@ def acars_hasher(
             else:
                 logger.error("Could not acquire lock!")
         
-        # if we drop the message, skip everything below
-        if dropmsg:
-            continue
-
         # put data in queue
-        out_queue.put((
-            data[0], # dict
-            data[1], # host
-            data[2], # port
-            data[3], # source func
-            msgtime_ns,
-            msghash,
-            data_to_hash,
-        ))
+        if not dropmsg:
+            out_queue.put((
+                data[0], # dict
+                data[1], # host
+                data[2], # port
+                data[3], # source func
+                msgtime_ns,
+                msghash,
+                data_to_hash,
+            ))
 
 def vdlm2_hasher(
     in_queue: ARQueue,
@@ -526,20 +523,17 @@ def vdlm2_hasher(
             else:
                 logger.error("Could not acquire lock!")
         
-        # if we drop the message, skip everything below
-        if dropmsg:
-            continue
-
         # put data in queue
-        out_queue.put((
-            data[0], # dict
-            data[1], # host
-            data[2], # port
-            data[3], # source func
-            msgtime_ns,
-            msghash,
-            data_to_hash,
-        ))
+        if not dropmsg:
+            out_queue.put((
+                data[0], # dict
+                data[1], # host
+                data[2], # port
+                data[3], # source func
+                msgtime_ns,
+                msghash,
+                data_to_hash,
+            ))
 
 def recent_message_queue_evictor(recent_message_queue: collections.deque, protoname: str, dedupe_window_secs: int):
     protoname = protoname.lower()
