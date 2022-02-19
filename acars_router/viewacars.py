@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
-import os
-import sys
 import json
 import argparse
 import socket
-import time
 from pprint import pprint
 import threading
+
 
 def message_handler(sock):
     while True:
@@ -19,8 +17,9 @@ def message_handler(sock):
             j = json.loads(data)
             pprint(j)
 
+
 if __name__ == "__main__":
-    
+
     parser = argparse.ArgumentParser(
         description='View ACARS messages'
     )
@@ -67,7 +66,7 @@ if __name__ == "__main__":
         args=(acars_sock, ),
         daemon=True,
     )
-    
+
     vdlm2_thread = threading.Thread(
         target=message_handler,
         args=(vdlm2_sock, ),
@@ -79,4 +78,3 @@ if __name__ == "__main__":
 
     acars_thread.join()
     vdlm2_thread.join()
-    
