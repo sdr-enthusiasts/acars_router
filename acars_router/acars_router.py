@@ -125,7 +125,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
-        data = self.request[0].strip()
+        data = self.request[0]
         socket = self.request[1]
         host = self.client_address[0]
         port = self.client_address[1]
