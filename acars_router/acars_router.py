@@ -417,7 +417,7 @@ def acars_hasher(
             sort_keys=True,
         ))
         
-        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages, if enabled
         dropmsg = False
@@ -427,7 +427,7 @@ def acars_hasher(
                 for rm in recent_message_queue:
                     if msghash == rm[0]:
                         if data_to_hash == rm[1]:
-                            logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                            logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                             COUNTERS.increment(f"duplicate_{protoname}")
                             dropmsg = True
                             break
@@ -503,7 +503,7 @@ def vdlm2_hasher(
             sort_keys=True,
         ))
         
-        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages if enabled
         dropmsg = False
@@ -513,7 +513,7 @@ def vdlm2_hasher(
                 for rm in recent_message_queue:
                     if msghash == rm[0]:
                         if data_to_hash == rm[1]:
-                            logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+                            logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
                             COUNTERS.increment(f"duplicate_{protoname}")
                             break
                 if not dropmsg:
