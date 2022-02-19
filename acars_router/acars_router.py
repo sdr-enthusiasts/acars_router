@@ -417,7 +417,7 @@ def acars_hasher(
             sort_keys=True,
         ))
         
-        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        #logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages, if enabled
         dropmsg = False
@@ -500,7 +500,7 @@ def vdlm2_hasher(
             sort_keys=True,
         ))
         
-        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        # logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
         
         # check for (and drop) dupe messages if enabled
         dropmsg = False
@@ -578,7 +578,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             continue
         else:
             # if no exception, put deserialised data onto out_queue
-            logger.log(logging.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
+            # logger.log(logging.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
             out_queue.put((j, data[1], data[2], data[3]))
         finally:
             # regardless of exception or not, tell in_queue that task is done
