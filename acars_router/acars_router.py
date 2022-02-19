@@ -496,7 +496,7 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
             data_to_hash,
         ))
 
-def recent_message_queue_evictor(recent_message_queue: collections.deque, protoname: str):
+def recent_message_queue_evictor(recent_message_queue: collections.deque, protoname: str, dedupe_window_secs: int):
     protoname = protoname.lower()
     logger = baselogger.getChild(f'recent_message_queue_evictor.{protoname}')
     logger.debug("spawned")
@@ -505,7 +505,7 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
     while True:
         if len(recent_message_queue) > 0:
             # evict items older than 2 seconds
-            if recent_message_queue[0][2] <= (time.time_ns() - (2 * 1e9)):
+            if recent_message_queue[0][2] <= (time.time_ns() - (dedupe_window_secs * 1e9)):
                 evictedmsg = recent_message_queue.popleft()
                 logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
                 continue
@@ -900,13 +900,25 @@ if __name__ == "__main__":
         default=int(os.getenv("AR_VERBOSITY", 0)),
     )
     parser.add_argument(
+        '--enable-dedupe',
+        help='Enables message deduplication.',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        '--dedupe-window',
+        help='The window in seconds for duplicate messages to be dropped (default: 2).'
+        type=int,
+        nargs='?',
+        default=2,
+    )
+    parser.add_argument(
         '--threads-json-deserialiser',
         help=f'Number of threads for JSON deserialisers (default: {os.cpu_count()})',
         type=int,
         nargs='?',
         default=os.cpu_count(),
     )
-    args = parser.parse_args()
     parser.add_argument(
         '--threads-hasher',
         help=f'Number of threads for message hashers (default: {os.cpu_count()})',
@@ -1006,28 +1018,29 @@ if __name__ == "__main__":
     #   * timestamp_ns: timestamp of receiving host (int)
     #   * hash: hash() of unique data in message
     #   * uniquedata: serialised unique data that hash is based on (int)
-    hashed_acars_message_queue = ARQueue('hashed_acars_message_queue', 100)
-    COUNTERS.register_queue(hashed_acars_message_queue)
-    hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
-    COUNTERS.register_queue(hashed_vdlm2_message_queue)
-    
-    # recent message buffers for dedupe
-    recent_message_queue_acars = collections.deque()
-    COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
-    recent_message_queue_vdlm2 = collections.deque()
-    COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
-    
-    # recent message buffers evictor threads
-    threading.Thread(
-        target=recent_message_queue_evictor,
-        args=(recent_message_queue_acars, "acars"),
-        daemon=True,
-    ).start()
-    threading.Thread(
-        target=recent_message_queue_evictor,
-        args=(recent_message_queue_vdlm2, "vdlm2"),
-        daemon=True,
-    ).start()
+    if args.enable_dedupe:
+        hashed_acars_message_queue = ARQueue('hashed_acars_message_queue', 100)
+        COUNTERS.register_queue(hashed_acars_message_queue)
+        hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
+        COUNTERS.register_queue(hashed_vdlm2_message_queue)
+        
+        # recent message buffers for dedupe
+        recent_message_queue_acars = collections.deque()
+        COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
+        recent_message_queue_vdlm2 = collections.deque()
+        COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
+        
+        # recent message buffers evictor threads
+        threading.Thread(
+            target=recent_message_queue_evictor,
+            args=(recent_message_queue_acars, "acars", args.dedupe_window),
+            daemon=True,
+        ).start()
+        threading.Thread(
+            target=recent_message_queue_evictor,
+            args=(recent_message_queue_vdlm2, "vdlm2", args.dedupe_window),
+            daemon=True,
+        ).start()
 
     # acars json deserialiser threads
     for _ in range(args.threads_json_deserialiser):
@@ -1044,36 +1057,52 @@ if __name__ == "__main__":
             args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, 'vdlm2',),
             daemon=True,
         ).start()
-        
-    # acars hasher threads
-    for _ in range(args.threads_hasher):
+    
+    if args.enable_dedupe:
+        # acars hasher threads
+        for _ in range(args.threads_hasher):
+            threading.Thread(
+                target=acars_hasher,
+                args=(deserialised_acars_message_queue, hashed_acars_message_queue, recent_message_queue_acars, "ACARS"),
+                daemon=True,
+            ).start()
+            
+        # vdlm2 hasher threads
+        for _ in range(args.threads_hasher):
+            threading.Thread(
+                target=vdlm2_hasher,
+                args=(deserialised_vdlm2_message_queue, hashed_vdlm2_message_queue, recent_message_queue_vdlm2, "VDLM2"),
+                daemon=True,
+            ).start()
+
+    if args.enable_dedupe:
+        # deserialised acars processor(s)
         threading.Thread(
-            target=acars_hasher,
-            args=(deserialised_acars_message_queue, hashed_acars_message_queue, recent_message_queue_acars, "ACARS"),
+            target=message_processor,
             daemon=True,
-        ).start()
-        
-    # vdlm2 hasher threads
-    for _ in range(args.threads_hasher):
-        threading.Thread(
-            target=vdlm2_hasher,
-            args=(deserialised_vdlm2_message_queue, hashed_vdlm2_message_queue, recent_message_queue_vdlm2, "VDLM2"),
-            daemon=True,
+            args=(deserialised_acars_message_queue, output_acars_queues, "ACARS",),
         ).start()
 
-    # deserialised acars processor(s)
-    threading.Thread(
-        target=message_processor,
-        daemon=True,
-        args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
-    ).start()
+        # deserialised vdlm2 processor(s)
+        threading.Thread(
+            target=message_processor,
+            daemon=True,
+            args=(deserialised_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+        ).start()
+    else:
+        # deserialised acars processor(s)
+        threading.Thread(
+            target=message_processor,
+            daemon=True,
+            args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
+        ).start()
 
-    # deserialised vdlm2 processor(s)
-    threading.Thread(
-        target=message_processor,
-        daemon=True,
-        args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
-    ).start()
+        # deserialised vdlm2 processor(s)
+        threading.Thread(
+            target=message_processor,
+            daemon=True,
+            args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+        ).start()
 
     # Configure "log on first message" for ACARS
     threading.Thread(
