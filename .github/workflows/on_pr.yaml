@@ -33,13 +33,25 @@ jobs:
   hadolint:
     name: "Linting: hadolint"
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v2
       - name: Pull hadolint/hadolint:latest Image
         run: docker pull hadolint/hadolint:latest
       - name: Run hadolint against Dockerfiles
         run: docker run --rm -i -v "$PWD":/workdir --workdir /workdir --entrypoint hadolint hadolint/hadolint $(find . -type f -iname "Dockerfile*")
+  
+  test_functionality:
+    name: "Test Functionality"
+    runs-on: ubuntu-latest
+    steps:
+      # Check out our code
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Patch test file timestamps
+        run: jq ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars > ./test_data/acars
+
   test_build:
     name: Test Build
     runs-on: ubuntu-latest
