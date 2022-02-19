@@ -13,6 +13,7 @@ import time
 import logging
 import collections
 
+
 class ARQueue(queue.Queue):
     """
     A subclass of queue.Queue, allowing us to name the queue.
