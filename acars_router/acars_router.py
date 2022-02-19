@@ -600,7 +600,6 @@ def split_env_safely(
 
 def env_true_false(
     env: str,
-    sep: str=';',
 ):
     """
     Returns True or False objects
