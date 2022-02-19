@@ -559,6 +559,18 @@ def split_env_safely(
         return list()
     return list()
 
+def env_true_false(
+    env: str,
+    sep: str=';',
+):
+    """
+    Returns True or False objects
+    """
+    if os.getenv(env, False).lower() == "true":
+        return True
+    else:
+        return False
+
 def log_on_first_message(out_queues: list, protoname: str):
     """
     Logs when the first message is received.
@@ -903,14 +915,14 @@ if __name__ == "__main__":
         '--enable-dedupe',
         help='Enables message deduplication.',
         action='store_true',
-        default=False,
+        default=env_true_false("AR_ENABLE_DEDUPE"),
     )
     parser.add_argument(
         '--dedupe-window',
         help='The window in seconds for duplicate messages to be dropped (default: 2).'
         type=int,
         nargs='?',
-        default=2,
+        default=int(os.getenv("AR_DEDUPE_WINDOW", 2)),
     )
     parser.add_argument(
         '--threads-json-deserialiser',
