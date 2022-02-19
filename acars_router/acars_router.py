@@ -413,7 +413,7 @@ def acars_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                 data_to_hash,
                 msgtime_ns,
             ))
-            lck.release()
+            lock.release()
         else:
             logger.error("Could not acquire lock!")
         
@@ -481,7 +481,7 @@ def vdlm2_hasher(in_queue: ARQueue, out_queue: ARQueue, recent_message_queue: co
                 data_to_hash,
                 msgtime_ns,
             ))
-            lck.release()
+            lock.release()
         else:
             logger.error("Could not acquire lock!")
         
