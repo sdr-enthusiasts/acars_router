@@ -364,6 +364,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                         time.sleep(1)
                         break
 
+
 def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
     """
     Process to receive ACARS/VDLM2 messages from a TCP server.
@@ -387,6 +388,7 @@ def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
             logger.log(logging.DEBUG, f"received {data} from {host}:{port}")
             inbound_message_queue.put((data, host, port, f'input.zmqclient.{protoname}.{host}:{port}',))
             COUNTERS.increment(f'receive_zmq_{protoname}')
+
 
 def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
     """
@@ -597,17 +599,6 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                 continue
         time.sleep(0.250)
 
-# def json_splitter(inbytes: bytes):
-#     """
-#     If JSON is malformed and has multiple objects that aren't properly separated.
-#     This function is pure evil. Abandon all hope ye who enter.
-#     """
-#     # Attempt to jsonise:
-#     try:
-#         j = json.loads(inbytes)
-#     except:
-
-#     pass
 
 def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     """
@@ -626,11 +617,6 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     while True:
         # pop data from queue
         data = in_queue.get()
-        # # decode if needed
-        # if type(data[0]) is bytes:
-        #     json_data = data[0].decode('utf-8')
-        # else:
-        #     json_data = data[0]
         # attempt to deserialise
         try:
             j = json.loads(data[0])
@@ -813,7 +799,7 @@ def valid_args(args):
             socket.gethostbyname(host)
         except socket.gaierror:
             logger.warning(f"receive_zmq_vdlm2: host appears invalid or unresolvable: {host}")
-    
+
     # Check send_udp_acars, should be a list of host:port
     for i in args.send_udp_acars:
         # try to split host:port
