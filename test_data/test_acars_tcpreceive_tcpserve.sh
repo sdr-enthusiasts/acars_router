@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-$PORT1=$(shuf -i 2000-3000 -n 1)
-$PORT2=$(shuf -i 3000-4000 -n 1)
+PORT1=$(shuf -i 2000-2999 -n 1)
+PORT2=$(shuf -i 3000-3999 -n 1)
 
 # Start acars_router
 timeout 30s python3 ./acars_router/acars_router.py -vv --skew-window 300 --receive-tcp-acars="127.0.0.1:${PORT1}" --serve-tcp-acars "${PORT2}" &
