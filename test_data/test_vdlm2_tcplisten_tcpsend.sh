@@ -21,7 +21,7 @@ sleep 1
 # Send test data thru acars_router
 while IFS="" read -r p || [ -n "$p" ]; do
     printf '%s\n' "$p" | socat - TCP:127.0.0.1:5555;
-done <./test_data/acars.patched
+done <./test_data/vdlm2.patched
 
 # Re-format output files
 jq -M . < /tmp/vdlm2.tcplisten.tcpsend.out.reference > /tmp/vdlm2.tcplisten.tcpsend.out.reference.reformatted
