@@ -384,7 +384,7 @@ def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
         # Process all parts of the message
         message = subscriber.recv_multipart()
         for data in message:
-            logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
+            logger.log(logging.DEBUG, f"received {data} from {host}:{port}")
             inbound_message_queue.put((data, host, port, f'input.zmqclient.{protoname}.{host}:{port}',))
             COUNTERS.increment(f'receive_zmq_{protoname}')
 
@@ -597,6 +597,12 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                 continue
         time.sleep(0.250)
 
+def json_splitter(input: bytes):
+    """
+    If JSON is malformed and has multiple objects that aren't 
+    This function is evil.
+    """
+    pass
 
 def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     """
