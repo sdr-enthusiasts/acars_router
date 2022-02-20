@@ -59,11 +59,12 @@ jobs:
           cat ./test_data/acars.patched
       - name: "ACARS: TestUDP in/out"
         run: ./test_data/test_acars_udp.sh
-
       - name: "VDLM2: Patch test file timestamps"
         run: |
           jq -cM ".vdl2.t.sec = $(date +%s)" < ./test_data/vdlm2 > ./test_data/vdlm2.patched
           cat ./test_data/vdlm2.patched
+      - name: "VDLM2: TestUDP in/out"
+        run: ./test_data/test_vdlm2_udp.sh
 
   test_build:
     name: Test Build
