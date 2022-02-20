@@ -337,23 +337,19 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
             # attempt connection
             logger.log(logging.DEBUG - 5, "attempting to connect")
             # set socket timeout to 5 seconds
-            sock.settimeout(5)
+            sock.settimeout(1)
             try:
                 sock.connect((host, port))
-            except ConnectionRefusedError:
-                logger.error("connection refused")
-                time.sleep(10)
             except Exception as e:
                 logger.error(f"connection error: {e}")
-                time.sleep(10)
+                time.sleep(1)
             else:
                 logger.info("connection established")
-                # put socket in blocking mode
                 sock.settimeout(1)
                 while True:
                     data = sock.recv(16384)
+                    logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
                     if data:
-                        logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
                         inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
                         COUNTERS.increment(f'receive_tcp_{protoname}')
                     else:
