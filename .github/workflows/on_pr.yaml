@@ -53,6 +53,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y socat netcat
+          sudo python3 -m pip install ./acars_router/requirements.txt
       - name: "ACARS: Patch test file timestamps"
         run: |
           jq -cM ".timestamp = \"$(date +%s.%N)\"" < ./test_data/acars > ./test_data/acars.patched
