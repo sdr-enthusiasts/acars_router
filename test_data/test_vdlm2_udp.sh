@@ -2,7 +2,7 @@
 set -xe
 
 # Start fake destination server for reference output
-socat -ddd -x -t5 UDP-LISTEN:25555,fork OPEN:/tmp/vdlm2.udp.out.reference,creat,append &
+socat -dd -x -t5 UDP-LISTEN:25555,fork OPEN:/tmp/vdlm2.udp.out.reference,creat,append &
 sleep 1
 
 # Send data bypassing acars_router
@@ -11,7 +11,7 @@ while IFS="" read -r p || [ -n "$p" ]; do
 done <./test_data/vdlm2.patched
 
 # Start fake destination server for acars_router output
-socat -ddd -x -t5 UDP-LISTEN:15555,fork OPEN:/tmp/vdlm2.udp.out,creat,append &
+socat -dd -x -t5 UDP-LISTEN:15555,fork OPEN:/tmp/vdlm2.udp.out,creat,append &
 sleep 1
 
 # Start acars_router
