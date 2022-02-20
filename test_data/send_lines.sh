@@ -2,5 +2,5 @@
 while IFS="" read -r p || [ -n "$p" ]; do
     #printf '%s\n' "$p"
     echo "$p"
-    sleep 0.25
+    sleep 1
 done < $1
