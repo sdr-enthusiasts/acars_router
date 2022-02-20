@@ -9,6 +9,8 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
 
 COPY acars_router/requirements.txt /opt/acars_router/requirements.txt
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 RUN set -x && \
     TEMP_PACKAGES=() && \
     KEPT_PACKAGES=() && \
