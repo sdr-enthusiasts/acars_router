@@ -88,6 +88,11 @@ jobs:
       - name: Clean up between tests
         run: ./test_data/clean_up_after_test.sh
 
+      - name: "VDLM2: Test TCP Receive -> TCP Serve"
+        run: ./test_data/test_tcpreceive_tcpserve.sh vdlm2
+      - name: Clean up between tests
+        run: ./test_data/clean_up_after_test.sh
+
   test_build:
     name: Test Build
     runs-on: ubuntu-latest
