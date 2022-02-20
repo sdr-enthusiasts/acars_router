@@ -332,6 +332,8 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
     while True:
         logger.log(logging.DEBUG - 5, "creating socket")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            # set up socket
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             # attempt connection
             logger.log(logging.DEBUG - 5, "attempting to connect")
             # set socket timeout to 5 seconds
