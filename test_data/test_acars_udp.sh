@@ -31,6 +31,10 @@ done <./test_data/acars.patched
 # Stop socat
 kill -9 $SOCAT_PID
 
+# Re-format output files
+jq -M . < /tmp/acars.udp.out.reference > /tmp/acars.udp.out.reference.reformatted
+jq -M . < /tmp/acars.udp.out > /tmp/acars.udp.out.reformatted
+
 # Check output
-diff /tmp/acars.udp.out.reference /tmp/acars.udp.out
+diff /tmp/acars.udp.out.reference.reformatted /tmp/acars.udp.out.reformatted
 echo $?
