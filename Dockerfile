@@ -12,7 +12,7 @@ COPY acars_router/requirements.txt /opt/acars_router/requirements.txt
 RUN set -x && \
     TEMP_PACKAGES=() && \
     KEPT_PACKAGES=() && \
-    TEMP_PACKAGES+=(build-essential)
+    TEMP_PACKAGES+=(build-essential) && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         "${KEPT_PACKAGES[@]}" \
