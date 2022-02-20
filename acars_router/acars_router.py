@@ -615,6 +615,9 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     while True:
         # pop data from queue
         data = in_queue.get()
+        # decode if needed
+        if type(data[0]) is bytes:
+            data[0] = data.decode('utf-8')
         # attempt to deserialise
         try:
             j = json.loads(json.dumps(data[0]))
