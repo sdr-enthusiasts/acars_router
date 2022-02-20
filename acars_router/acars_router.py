@@ -617,10 +617,12 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         data = in_queue.get()
         # decode if needed
         if type(data[0]) is bytes:
-            data[0] = data[0].decode('utf-8')
+            json_data = data[0].decode('utf-8')
+        else:
+            json_data = data[0]
         # attempt to deserialise
         try:
-            j = json.loads(json.dumps(data[0]))
+            j = json.loads(json.dumps(json_data))
         except Exception as e:
             # if an exception, log and continue (after finally:)
             logger.error(f"invalid JSON received via {data[3]}")
