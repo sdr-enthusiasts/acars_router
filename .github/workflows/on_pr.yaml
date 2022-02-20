@@ -61,6 +61,8 @@ jobs:
         run: ./test_data/test_acars_udp.sh
       - name: "ACARS: Test TCP Listen -> TCP Send"
         run: ./test_data/test_acars_tcplisten_tcpsend.sh
+      - name: "ACARS: Test TCP Receive -> TCP Serve"
+        run: ./test_data/test_acars_tcpreceive_tcpserve.sh
       - name: "VDLM2: Patch test file timestamps"
         run: |
           jq -cM ".vdl2.t.sec = $(date +%s)" < ./test_data/vdlm2 > ./test_data/vdlm2.patched
