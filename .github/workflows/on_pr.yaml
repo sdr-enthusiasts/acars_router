@@ -67,6 +67,8 @@ jobs:
           cat ./test_data/vdlm2.patched
       - name: "VDLM2: Test UDP Listen -> UDP Send"
         run: ./test_data/test_vdlm2_udp.sh
+      - name: "VDLM2: Test TCP Listen -> TCP Send"
+        run: ./test_data/test_vdlm2_tcplisten_tcpsend.sh
 
   test_build:
     name: Test Build
