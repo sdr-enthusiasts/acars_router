@@ -2,25 +2,25 @@
 set -xe
 
 # Start fake destination server for reference output
-socat -d -t5 UDP-LISTEN:25550,fork OPEN:/tmp/acars.udp.out.reference,creat,append &
+socat -d -t5 UDP-LISTEN:15550,fork OPEN:/tmp/acars.udp.out.reference,creat,append &
 sleep 1
 
 # Send data bypassing acars_router
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:25550;
+    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:15550;
 done <./test_data/acars.patched
 
 # Start fake destination server for acars_router output
-socat -d -t5 UDP-LISTEN:15550,fork OPEN:/tmp/acars.udp.out,creat,append &
+socat -d -t5 UDP-LISTEN:15551,fork OPEN:/tmp/acars.udp.out,creat,append &
 sleep 1
 
 # Start acars_router
-python3 ./acars_router/acars_router.py -vv --skew-window 30 --listen-udp-acars 5550 --send-udp-acars 127.0.0.1:15550 &
+python3 ./acars_router/acars_router.py -vv --skew-window 300 --listen-udp-acars 5551 --send-udp-acars 127.0.0.1:15551 &
 sleep 1
 
 # Send test data thru acars_router
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:5550;
+    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:5551;
 done <./test_data/acars.patched
 
 # Re-format output files

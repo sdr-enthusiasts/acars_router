@@ -15,7 +15,7 @@ socat -d -t5 TCP-LISTEN:15555,fork OPEN:/tmp/vdlm2.tcplisten.tcpsend.out,creat,a
 sleep 1
 
 # Start acars_router
-python3 ./acars_router/acars_router.py -vv --skew-window 30 --listen-tcp-vdlm2 5555 --send-tcp-vdlm2 127.0.0.1:15555 &
+python3 ./acars_router/acars_router.py -vv --skew-window 300 --listen-tcp-vdlm2 5555 --send-tcp-vdlm2 127.0.0.1:15555 &
 sleep 1
 
 # Send test data thru acars_router
