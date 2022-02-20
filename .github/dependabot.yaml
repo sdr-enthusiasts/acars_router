@@ -8,11 +8,15 @@ updates:
     directory: "/"
     schedule:
       interval: daily
-      time: "00:00"
-      timezone: "Etc/UTC"
 
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    schedule:
+      interval: "daily"
+
+  # Maintain pip packages for acars_router
+  - package-ecosystem: "pip"
+    directory: "/acars_router"
     schedule:
       interval: "daily"

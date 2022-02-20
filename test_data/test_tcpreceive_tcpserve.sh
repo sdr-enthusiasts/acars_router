@@ -17,8 +17,6 @@ while IFS="" read -r p || [ -n "$p" ]; do
 done < ./test_data/"$1".patched
 sleep 10
 
-jq . < /tmp/"$1".tcpreceive.tcpsserve.out 
-
 # Re-format output files
 jq -M . < ./test_data/"$1".patched > /tmp/"$1".tcpreceive.tcpsserve.out.reference.reformatted
 jq -M . < /tmp/"$1".tcpreceive.tcpsserve.out > /tmp/"$1".tcpreceive.tcpsserve.out.reformatted
