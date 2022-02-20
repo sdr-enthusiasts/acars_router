@@ -355,6 +355,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                     else:
                         logger.info("connection lost")
                         sock.close()
+                        time.sleep(1)
                         break
 
 
