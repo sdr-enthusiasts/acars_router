@@ -271,22 +271,23 @@ def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: 
     output_queues.append(q)
     # Set up socket
     conn.settimeout(1)
-    connected = True
     # Loop to send messages from output queue
-    while connected:
+    while True:
         data = q.get()
+        q.task_done()
         logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
         try:
             conn.sendall(data)
         except Exception as e:
-            connected = False
             logger.info(f"connection error: {e}")
-        q.task_done()
+            break
     # clean up
     # remove this instance's queue from the output queue
     output_queues.remove(q)
     # delete our queue
     del(q)
+    # close socket
+    conn.close()
     # finally, let the user know client has disconnected
     logger.info("connection lost")
 
