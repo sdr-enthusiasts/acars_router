@@ -8,14 +8,14 @@ sleep 1
 
 # Send data bypassing acars_router
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:5550;
+    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:15550;
 done <./test_data/acars.patched
 
 # Stop socat
 kill -9 $SOCAT_PID
 
 # Start fake destination server
-socat -ddd -x -t10 UDP-LISTEN:15550,fork OPEN:/tmp/acars.udp.out,creat,append &
+socat -ddd -x -t5 UDP-LISTEN:15550,fork OPEN:/tmp/acars.udp.out,creat,append &
 SOCAT_PID="$!"
 sleep 1
 
