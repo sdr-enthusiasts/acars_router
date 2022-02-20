@@ -13,13 +13,15 @@ import time
 import logging
 import collections
 
+
 class ARQueue(queue.Queue):
     """
     A subclass of queue.Queue, allowing us to name the queue.
     """
-    def __init__(self, name: str, maxsize: int=0):
+    def __init__(self, name: str, maxsize: int = 0):
         self.name = name
         super().__init__(maxsize=maxsize)
+
 
 class ARCounters():
     """
@@ -48,7 +50,7 @@ class ARCounters():
         # Invalid message counts
         self.invalid_json_acars = 0
         self.invalid_json_vdlm2 = 0
-        
+
         # duplicate messages dropped
         self.duplicate_acars = 0
         self.duplicate_vdlm2 = 0
@@ -93,13 +95,13 @@ class ARCounters():
             dqlen = len(dq[1])
             if dqlen > 0:
                 logger.log(level, f"Queue depth of {dq[0]}: {dqlen}")
-    
+
     def register_queue_list(self, qlist: list):
         self.queue_lists.append(qlist)
 
     def register_queue(self, q: ARQueue):
         self.standalone_queues.append(q)
-        
+
     def register_deque(self, name: str, dq: collections.deque):
         self.standalone_deque.append((name, dq,))
 
@@ -108,8 +110,9 @@ class ARCounters():
         Increment a counter.
         eg: COUNTER.increment('receive_tcp_acars')
         """
-        setattr(self, counter, getattr(self, counter)+1)
+        setattr(self, counter, getattr(self, counter) + 1)
         return None
+
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """ Mix-in for multi-threaded UDP server """
@@ -117,6 +120,7 @@ class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
         self.inbound_message_queue = inbound_message_queue
         self.protoname = protoname.lower()
         socketserver.UDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=bind_and_activate)
+
 
 class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded UDP server to receive ACARS/VDLM2 messages """
@@ -128,12 +132,13 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         data = self.request[0]
-        socket = self.request[1]
+        # socket = self.request[1]
         host = self.client_address[0]
         port = self.client_address[1]
         self.inbound_message_queue.put((data, host, port, f'input.udp.{self.protoname}'))
         global COUNTERS
         COUNTERS.increment(f'listen_udp_{self.protoname}')
+
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     """ Mix-in for multi-threaded UDP server """
@@ -141,6 +146,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.inbound_message_queue = inbound_message_queue
         self.protoname = protoname.lower()
         socketserver.UDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=bind_and_activate)
+
 
 class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded TCP server to receive ACARS/VDLM2 messages """
@@ -159,14 +165,16 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         self.logger.info("connection established")
         while True:
             data = self.request.recv(16384)
-            if not data: break
+            if not data:
+                break
             self.inbound_message_queue.put((data, host, port, f'input.tcpserver.{self.protoname}.{host}:{port}',))
             COUNTERS.increment(f'listen_tcp_{self.protoname}')
         self.logger.info("connection lost")
 
+
 def display_stats(
-    mins: int=5,
-    loglevel: int=logging.INFO
+    mins: int = 5,
+    loglevel: int = logging.INFO,
 ):
     """
     Displays the status of the global counters.
@@ -176,12 +184,13 @@ def display_stats(
     mins -- the number of minutes between logging stats
     loglevel -- the log level to use when logging statistics
     """
-    logger = baselogger.getChild(f'statistics')
+    logger = baselogger.getChild('statistics')
     logger.debug("spawned")
     global COUNTERS
     while True:
         time.sleep(mins * 60)
         COUNTERS.log(logger, loglevel)
+
 
 def UDPSender(host, port, output_queues: list, protoname: str):
     """
@@ -204,17 +213,15 @@ def UDPSender(host, port, output_queues: list, protoname: str):
         try:
             sock.sendto(data, (host, port))
             logger.log(logging.DEBUG - 5, f"sent {data} to {host}:{port} OK")
-        except:
-            logger.error("Error sending to {host}:{port}".format(
-                host=host,
-                port=port,
-            ))
+        except Exception as e:
+            logger.error(f"Error sending to {host}:{port}: {e}")
         q.task_done()
     # clean up
     # remove this instance's queue from the output queue
     output_queues.remove(q)
     # delete our queue
     del(q)
+
 
 def TCPServerAcceptor(port: int, output_queues: list, protoname: str):
     """
@@ -232,6 +239,7 @@ def TCPServerAcceptor(port: int, output_queues: list, protoname: str):
                 daemon=True,
                 args=(conn, addr, output_queues, protoname),
             ).start()
+
 
 def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: str):
     """
@@ -255,8 +263,9 @@ def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: 
         logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
         try:
             conn.sendall(data)
-        except:
+        except Exception as e:
             connected = False
+            logger.info(f"connection error: {e}")
         q.task_done()
     # clean up
     # remove this instance's queue from the output queue
@@ -265,6 +274,7 @@ def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: 
     del(q)
     # finally, let the user know client has disconnected
     logger.info("connection lost")
+
 
 def TCPSender(host: str, port: int, output_queues: list, protoname: str):
     """
@@ -303,10 +313,11 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                     logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
                     try:
                         sock.sendall(data)
-                    except:
+                    except Exception as e:
                         connected = False
-                        logger.info("connection lost")
+                        logger.info(f"connection lost: {e}")
                     q.task_done()
+
 
 def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
     """
@@ -319,31 +330,34 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
     # Set up counters
     global COUNTERS
     while True:
-        logger.log(logging.DEBUG - 5, f"creating socket")
+        logger.log(logging.DEBUG - 5, "creating socket")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            # set up socket
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             # attempt connection
-            logger.log(logging.DEBUG - 5, f"attempting to connect")
+            logger.log(logging.DEBUG - 5, "attempting to connect")
             # set socket timeout to 5 seconds
-            sock.settimeout(5)
+            sock.settimeout(1)
             try:
                 sock.connect((host, port))
-            except ConnectionRefusedError:
-                logger.error("connection refused")
-                time.sleep(10)
             except Exception as e:
                 logger.error(f"connection error: {e}")
                 time.sleep(10)
             else:
                 logger.info("connection established")
-                # put socket in blocking mode
-                sock.settimeout(None)
+                sock.settimeout(1)
                 while True:
                     data = sock.recv(16384)
                     logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
-                    if not data: break
-                    inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
-                    COUNTERS.increment(f'receive_tcp_{protoname}')
-                logger.info("connection lost")
+                    if data:
+                        inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
+                        COUNTERS.increment(f'receive_tcp_{protoname}')
+                    else:
+                        logger.info("connection lost")
+                        sock.close()
+                        time.sleep(1)
+                        break
+
 
 def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
     """
@@ -360,19 +374,21 @@ def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
                 data[0],
                 separators=(',', ':'),
                 sort_keys=True,
-            ),'utf-8')
+            ), 'utf-8')
         logger.log(logging.DEBUG - 5, f'{m}')
         for q in out_queues:
             q.put(copy.deepcopy(m))
         in_queue.task_done()
 
-def within_acceptable_skew(timestamp:int, skew_window_secs: int):
+
+def within_acceptable_skew(timestamp: int, skew_window_secs: int):
     min_timestamp = time.time_ns() - (skew_window_secs * 1e9)
     max_timestamp = time.time_ns() + (skew_window_secs * 1e9)
     if min_timestamp <= timestamp <= max_timestamp:
         return True
     else:
         return False
+
 
 def acars_hasher(
     in_queue: ARQueue,
@@ -383,7 +399,7 @@ def acars_hasher(
     enable_dedupe: bool,
 ):
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'acars_hasher')
+    logger = baselogger.getChild('acars_hasher')
     logger.debug("spawned")
     # Set up counters
     global COUNTERS
@@ -391,34 +407,34 @@ def acars_hasher(
         # pop data from queue
         data = in_queue.get()
         in_queue.task_done()
-        
+
         # create timestamp from t.sec & t.usec
         msgtime_ns = int(float(data[0]['timestamp']) * 1e9)
-        
+
         # drop messages with timestamp outside of max skew range
         if not within_acceptable_skew(msgtime_ns, skew_window_secs):
             logger.warning(f"Message timestamp outside acceptable skew window: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]},")
             continue
-        
+
         # copy object so we don't molest original data
         data_to_hash = copy.deepcopy(data[0])
-        
+
         # remove feeder-specific data so we only hash data unique to the message
         del(data_to_hash['error'])
         del(data_to_hash['level'])
         del(data_to_hash['station_id'])
         del(data_to_hash['timestamp'])
         del(data_to_hash['channel'])
-        
+
         # serialise & hash
         msghash = hash(json.dumps(
             data_to_hash,
             separators=(',', ':'),
             sort_keys=True,
         ))
-        
-        #logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-        
+
+        # logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+
         # check for (and drop) dupe messages, if enabled
         dropmsg = False
         if enable_dedupe:
@@ -440,18 +456,19 @@ def acars_hasher(
                 lock.release()
             else:
                 logger.error("Could not acquire lock!")
-        
+
         # put data in queue
         if not dropmsg:
             out_queue.put((
-                data[0], # dict
-                data[1], # host
-                data[2], # port
-                data[3], # source func
+                data[0],  # dict
+                data[1],  # host
+                data[2],  # port
+                data[3],  # source func
                 msgtime_ns,
                 msghash,
                 data_to_hash,
             ))
+
 
 def vdlm2_hasher(
     in_queue: ARQueue,
@@ -462,7 +479,7 @@ def vdlm2_hasher(
     enable_dedupe: bool,
 ):
     protoname = protoname.lower()
-    logger = baselogger.getChild(f'vdlm2_hasher')
+    logger = baselogger.getChild('vdlm2_hasher')
     logger.debug("spawned")
     # Set up counters
     global COUNTERS
@@ -470,19 +487,19 @@ def vdlm2_hasher(
         # pop data from queue
         data = in_queue.get()
         in_queue.task_done()
-        
+
         # create timestamp from t.sec & t.usec
         msgtime_ns = int(data[0]['vdl2']['t']['sec']) * 1e9
         msgtime_ns += int(data[0]['vdl2']['t']['usec']) * 1000
-        
+
         # drop messages with timestamp outside of max skew range
         if not within_acceptable_skew(msgtime_ns, skew_window_secs):
             logger.warning(f"Message timestamp outside acceptable skew window: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]},")
             continue
-        
+
         # copy object so we don't molest original data
         data_to_hash = copy.deepcopy(data[0])
-        
+
         # remove feeder-specific data so we only hash data unique to the message
         del(data_to_hash['vdl2']['app'])
         del(data_to_hash['vdl2']['freq_skew'])
@@ -492,16 +509,16 @@ def vdlm2_hasher(
         del(data_to_hash['vdl2']['sig_level'])
         del(data_to_hash['vdl2']['station'])
         del(data_to_hash['vdl2']['t'])
-        
+
         # serialise & hash
         msghash = hash(json.dumps(
             data_to_hash,
             separators=(',', ':'),
             sort_keys=True,
         ))
-        
+
         # logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-        
+
         # check for (and drop) dupe messages if enabled
         dropmsg = False
         if enable_dedupe:
@@ -522,18 +539,19 @@ def vdlm2_hasher(
                 lock.release()
             else:
                 logger.error("Could not acquire lock!")
-        
+
         # put data in queue
         if not dropmsg:
             out_queue.put((
-                data[0], # dict
-                data[1], # host
-                data[2], # port
-                data[3], # source func
+                data[0],  # dict
+                data[1],  # host
+                data[2],  # port
+                data[3],  # source func
                 msgtime_ns,
                 msghash,
                 data_to_hash,
             ))
+
 
 def recent_message_queue_evictor(recent_message_queue: collections.deque, protoname: str, dedupe_window_secs: int):
     protoname = protoname.lower()
@@ -549,6 +567,7 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                 logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
                 continue
         time.sleep(0.250)
+
 
 def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     """
@@ -583,10 +602,11 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         finally:
             # regardless of exception or not, tell in_queue that task is done
             in_queue.task_done()
-        
+
+
 def split_env_safely(
     env: str,
-    sep: str=';',
+    sep: str = ';',
 ):
     """
     Splits the contents of environment variable `env` with separator `sep`.
@@ -594,9 +614,10 @@ def split_env_safely(
     """
     try:
         return os.getenv(env).split(sep)
-    except:
+    except AttributeError:
         return list()
     return list()
+
 
 def env_true_false(
     env: str,
@@ -609,6 +630,7 @@ def env_true_false(
     else:
         return False
 
+
 def log_on_first_message(out_queues: list, protoname: str):
     """
     Logs when the first message is received.
@@ -619,20 +641,22 @@ def log_on_first_message(out_queues: list, protoname: str):
     # Create an output queue for this instance of the function & add to output queue
     q = ARQueue(f'first_message.{protoname}', 100)
     out_queues.append(q)
-    data = q.get()
+    q.get()
     q.task_done()
     logger.info(f"Receiving {protoname} messages!")
     out_queues.remove(q)
     del(q)
+
 
 def valid_tcp_udp_port(num: int):
     """
     Returns True if num is a valid TCP/UDP port number, else return False.
     """
     if type(num) == int:
-        if 1 >= int(i) <= 65535:
+        if 1 >= int(num) <= 65535:
             return True
     return False
+
 
 def valid_args(args):
     """
@@ -648,7 +672,7 @@ def valid_args(args):
         try:
             if not valid_tcp_udp_port(int(i)):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"listen_udp_acars: invalid port: {i}")
             return False
 
@@ -657,7 +681,7 @@ def valid_args(args):
         try:
             if not valid_tcp_udp_port(int(i)):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"listen_tcp_acars: invalid port: {i}")
             return False
 
@@ -667,20 +691,20 @@ def valid_args(args):
         try:
             host = i.split(':')[0]
             port = i.split(':')[1]
-        except:
+        except IndexError:
             logger.critical(f"listen_tcp_acars: host:port expected, got: {i}")
             return False
         # ensure port valid
         try:
             if not valid_tcp_udp_port(port):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"listen_tcp_acars: invalid port: {port}")
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
-        except:
+            socket.gethostbyname(host)
+        except socket.gaierror:
             logger.warning(f"listen_tcp_acars: host appears invalid or unresolvable: {host}")
 
     # Check listen_udp_vdlm2, should be list of valid port numbers
@@ -688,7 +712,7 @@ def valid_args(args):
         try:
             if not valid_tcp_udp_port(int(i)):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"listen_udp_vdlm2: invalid port: {i}")
             return False
 
@@ -697,7 +721,7 @@ def valid_args(args):
         try:
             if not valid_tcp_udp_port(int(i)):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"listen_tcp_vdlm2: invalid port: {i}")
             return False
 
@@ -707,20 +731,20 @@ def valid_args(args):
         try:
             host = i.split(':')[0]
             port = i.split(':')[1]
-        except:
+        except IndexError:
             logger.critical(f"receive_tcp_vdlm2: host:port expected, got: {i}")
             return False
         # ensure port valid
         try:
             if not valid_tcp_udp_port(port):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"receive_tcp_vdlm2: invalid port: {port}")
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
-        except:
+            socket.gethostbyname(host)
+        except socket.gaierror:
             logger.warning(f"receive_tcp_vdlm2: host appears invalid or unresolvable: {host}")
 
     # Check send_udp_acars, should be a list of host:port
@@ -729,20 +753,20 @@ def valid_args(args):
         try:
             host = i.split(':')[0]
             port = i.split(':')[1]
-        except:
+        except IndexError:
             logger.critical(f"send_udp_acars: host:port expected, got: {i}")
             return False
         # ensure port valid
         try:
             if not valid_tcp_udp_port(port):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"send_udp_acars: invalid port: {port}")
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
-        except:
+            socket.gethostbyname(host)
+        except socket.gaierror:
             logger.warning(f"send_udp_acars: host appears invalid or unresolvable: {host}")
 
     # Check send_tcp_acars, should be a list of host:port
@@ -751,20 +775,20 @@ def valid_args(args):
         try:
             host = i.split(':')[0]
             port = i.split(':')[1]
-        except:
+        except IndexError:
             logger.critical(f"send_tcp_acars: host:port expected, got: {i}")
             return False
         # ensure port valid
         try:
             if not valid_tcp_udp_port(port):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"send_tcp_acars: invalid port: {port}")
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
-        except:
+            socket.gethostbyname(host)
+        except socket.gaierror:
             logger.warning(f"send_tcp_acars: host appears invalid or unresolvable: {host}")
 
     # Check send_udp_vdlm2, should be a list of host:port
@@ -773,20 +797,20 @@ def valid_args(args):
         try:
             host = i.split(':')[0]
             port = i.split(':')[1]
-        except:
+        except IndexError:
             logger.critical(f"send_udp_vdlm2: host:port expected, got: {i}")
             return False
         # ensure port valid
         try:
             if not valid_tcp_udp_port(port):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"send_udp_vdlm2: invalid port: {port}")
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
-        except:
+            socket.gethostbyname(host)
+        except socket.gaierror:
             logger.warning(f"send_udp_vdlm2: host appears invalid or unresolvable: {host}")
 
     # Check send_tcp_vdlm2, should be a list of host:port
@@ -795,20 +819,20 @@ def valid_args(args):
         try:
             host = i.split(':')[0]
             port = i.split(':')[1]
-        except:
+        except IndexError:
             logger.critical(f"send_tcp_vdlm2: host:port expected, got: {i}")
             return False
         # ensure port valid
         try:
             if not valid_tcp_udp_port(port):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"send_tcp_vdlm2: invalid port: {port}")
             return False
         # warn if host appears wrong
         try:
-            x = socket.gethostbyname(host)
-        except:
+            socket.gethostbyname(host)
+        except socket.gaierror:
             logger.warning(f"send_tcp_vdlm2: host appears invalid or unresolvable: {host}")
 
     # Check listen_tcp_acars, should be list of valid port numbers
@@ -816,7 +840,7 @@ def valid_args(args):
         try:
             if not valid_tcp_udp_port(int(i)):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"serve_tcp_acars: invalid port: {i}")
             return False
 
@@ -825,26 +849,27 @@ def valid_args(args):
         try:
             if not valid_tcp_udp_port(int(i)):
                 raise ValueError
-        except:
+        except ValueError:
             logger.critical(f"serve_tcp_vdlm2: invalid port: {i}")
             return False
 
     # Check stats_every, should be an int
     try:
         int(args.stats_every)
-    except:
+    except ValueError:
         logger.critical(f"stats_every: invalid value: {args.stats_every}")
         return False
 
     # Check verbose, should be an int
     try:
         int(args.verbose)
-    except:
+    except ValueError:
         logger.critical(f"verbose: invalid value: {args.verbose}")
         return False
 
     # If we're here, all arguments are good
     return True
+
 
 if __name__ == "__main__":
 
@@ -996,13 +1021,16 @@ if __name__ == "__main__":
     logging.addLevelName(logging.DEBUG - 5, 'TRACE')
     # configure logging: base logger
     baselogger = logging.getLogger('acars_router')
-    
+
     # configure logging
     logger = baselogger.getChild('core')
     logger_console_handler = logging.StreamHandler()
     baselogger.addHandler(logger_console_handler)
     if args.verbose == 1:
-        log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s', r'%Y-%m-%d %H:%M:%S')
+        log_formatter = logging.Formatter(
+            '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s',
+            r'%Y-%m-%d %H:%M:%S',
+        )
         baselogger.setLevel(logging.DEBUG)
         logger.setLevel(logging.DEBUG)
         logger_console_handler.setLevel(logging.DEBUG)
@@ -1010,7 +1038,10 @@ if __name__ == "__main__":
         logger.debug(f"Command line arguments: {args}")
         logger.debug("DEBUG logging enabled")
     elif args.verbose >= 2:
-        log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s', r'%Y-%m-%d %H:%M:%S')
+        log_formatter = logging.Formatter(
+            '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s',
+            r'%Y-%m-%d %H:%M:%S',
+        )
         baselogger.setLevel(logging.DEBUG - 5)
         logger.setLevel(logging.DEBUG - 5)
         logger_console_handler.setLevel(logging.DEBUG - 5)
@@ -1018,7 +1049,10 @@ if __name__ == "__main__":
         logger.debug(f"Command line arguments: {args}")
         logger.debug("TRACE logging enabled")
     else:
-        log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s] %(message)s', r'%Y-%m-%d %H:%M:%S')
+        log_formatter = logging.Formatter(
+            '%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
+            r'%Y-%m-%d %H:%M:%S',
+        )
         baselogger.setLevel(logging.INFO)
         logger.setLevel(logging.INFO)
         logger_console_handler.setLevel(logging.INFO)
@@ -1030,10 +1064,10 @@ if __name__ == "__main__":
 
     # initialise counters
     COUNTERS = ARCounters()
-    
+
     # initialise threading lock
     lock = threading.Lock()
-    
+
     # Start stats thread
     threading.Thread(
         target=display_stats,
@@ -1086,13 +1120,13 @@ if __name__ == "__main__":
     COUNTERS.register_queue(hashed_acars_message_queue)
     hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
     COUNTERS.register_queue(hashed_vdlm2_message_queue)
-    
+
     # recent message buffers for dedupe
     recent_message_queue_acars = collections.deque()
     COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
     recent_message_queue_vdlm2 = collections.deque()
     COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
-    
+
     # recent message buffers evictor threads
     threading.Thread(
         target=recent_message_queue_evictor,
@@ -1120,7 +1154,7 @@ if __name__ == "__main__":
             args=(inbound_vdlm2_message_queue, deserialised_vdlm2_message_queue, 'vdlm2',),
             daemon=True,
         ).start()
-    
+
     # acars hasher threads
     for _ in range(args.threads_hasher):
         threading.Thread(
@@ -1135,7 +1169,7 @@ if __name__ == "__main__":
             ),
             daemon=True,
         ).start()
-        
+
     # vdlm2 hasher threads
     for _ in range(args.threads_hasher):
         threading.Thread(
@@ -1312,7 +1346,7 @@ if __name__ == "__main__":
             args=(s.split(':')[0], int(s.split(':')[1]), inbound_vdlm2_message_queue, "VDLM2"),
             daemon=True,
         ).start()
-    
+
     # Main loop
     while True:
         time.sleep(10)
