@@ -342,7 +342,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                 sock.connect((host, port))
             except Exception as e:
                 logger.error(f"connection error: {e}")
-                time.sleep(1)
+                time.sleep(10)
             else:
                 logger.info("connection established")
                 sock.settimeout(1)
