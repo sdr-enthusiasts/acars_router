@@ -353,16 +353,20 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                 logger.info("connection established")
                 sock.settimeout(1)
                 while True:
-                    data = sock.recv(16384)
-                    logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
-                    if data:
-                        inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
-                        COUNTERS.increment(f'receive_tcp_{protoname}')
+                    try:
+                        data = sock.recv(16384)
+                        logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
+                    except TimeoutError as e:
+                        pass
                     else:
-                        logger.info("connection lost")
-                        sock.close()
-                        time.sleep(1)
-                        break
+                        if data:
+                            inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
+                            COUNTERS.increment(f'receive_tcp_{protoname}')
+                        else:
+                            logger.info("connection lost")
+                            sock.close()
+                            time.sleep(1)
+                            break
 
 
 # TODO: add test for this input in github action
