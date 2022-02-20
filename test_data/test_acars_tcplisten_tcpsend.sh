@@ -2,7 +2,7 @@
 set -xe
 
 # Start fake destination server for reference output
-socat -dd -x -t5 TCP-LISTEN:25550,fork OPEN:/tmp/acars.tcplisten.tcpsend.out.reference,creat,append &
+socat -d -x -t5 TCP-LISTEN:25550,fork OPEN:/tmp/acars.tcplisten.tcpsend.out.reference,creat,append &
 sleep 1
 
 # Send data bypassing acars_router
@@ -11,7 +11,7 @@ while IFS="" read -r p || [ -n "$p" ]; do
 done <./test_data/acars.patched
 
 # Start fake destination server for acars_router output
-socat -dd -x -t5 TCP-LISTEN:15550,fork OPEN:/tmp/acars.tcplisten.tcpsend.out,creat,append &
+socat -d -x -t5 TCP-LISTEN:15550,fork OPEN:/tmp/acars.tcplisten.tcpsend.out,creat,append &
 sleep 1
 
 # Start acars_router
