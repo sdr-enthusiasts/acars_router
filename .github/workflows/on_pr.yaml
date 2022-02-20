@@ -60,24 +60,15 @@ jobs:
       - name: "ACARS: Test UDP Listen -> UDP Send"
         run: ./test_data/test_acars_udp.sh
       - name: Clean up between tests
-        run: |
-          killall -9 socat
-          killall -9 python3
-          rm -rfv /tmp/acars* /tmp/vdlm2*
+        run: ./test_data/clean_up_after_test.sh
       - name: "ACARS: Test TCP Listen -> TCP Send"
         run: ./test_data/test_acars_tcplisten_tcpsend.sh
       - name: Clean up between tests
-        run: |
-          killall -9 socat
-          killall -9 python3
-          rm -rfv /tmp/acars* /tmp/vdlm2*
+        run: ./test_data/clean_up_after_test.sh
       - name: "ACARS: Test TCP Receive -> TCP Serve"
         run: ./test_data/test_acars_tcpreceive_tcpserve.sh
       - name: Clean up between tests
-        run: |
-          killall -9 socat
-          killall -9 python3
-          rm -rfv /tmp/acars* /tmp/vdlm2*
+        run: ./test_data/clean_up_after_test.sh
       - name: "VDLM2: Patch test file timestamps"
         run: |
           jq -cM ".vdl2.t.sec = $(date +%s)" < ./test_data/vdlm2 > ./test_data/vdlm2.patched
@@ -85,17 +76,11 @@ jobs:
       - name: "VDLM2: Test UDP Listen -> UDP Send"
         run: ./test_data/test_vdlm2_udp.sh
       - name: Clean up between tests
-        run: |
-          killall -9 socat
-          killall -9 python3
-          rm -rfv /tmp/acars* /tmp/vdlm2*
+        run: ./test_data/clean_up_after_test.sh
       - name: "VDLM2: Test TCP Listen -> TCP Send"
         run: ./test_data/test_vdlm2_tcplisten_tcpsend.sh
       - name: Clean up between tests
-        run: |
-          killall -9 socat
-          killall -9 python3
-          rm -rfv /tmp/acars* /tmp/vdlm2*
+        run: ./test_data/clean_up_after_test.sh
 
   test_build:
     name: Test Build
