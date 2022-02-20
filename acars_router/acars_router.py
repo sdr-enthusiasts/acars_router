@@ -518,6 +518,7 @@ def vdlm2_hasher(
         in_queue.task_done()
 
         # create timestamp from t.sec & t.usec
+        logger.debug(f"pre-exception: {type(data[0])}")
         logger.debug(f"pre-exception: {data[0]}")
         logger.debug(f"pre-exception: {data[0]['vdl2']}")
         logger.debug(f"pre-exception: {data[0]['vdl2']['t']}")
