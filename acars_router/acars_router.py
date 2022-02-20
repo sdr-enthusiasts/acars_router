@@ -141,7 +141,11 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         # socket = self.request[1]
         host = self.client_address[0]
         port = self.client_address[1]
-        self.inbound_message_queue.put((data, host, port, f'input.udp.{self.protoname}'))
+        self.inbound_message_queue.put((
+            copy.deepcopy(data),
+            copy.deepcopy(host),
+            copy.deepcopy(port),
+            f'input.udp.{self.protoname}'))
         global COUNTERS
         COUNTERS.increment(f'listen_udp_{self.protoname}')
 
@@ -173,7 +177,12 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             data = self.request.recv(16384)
             if not data:
                 break
-            self.inbound_message_queue.put((data, host, port, f'input.tcpserver.{self.protoname}.{host}:{port}',))
+            self.inbound_message_queue.put((
+                copy.deepcopy(data),
+                copy.deepcopy(host),
+                copy.deepcopy(port),
+                f'input.tcpserver.{self.protoname}.{host}:{port}',
+            ))
             COUNTERS.increment(f'listen_tcp_{self.protoname}')
         self.logger.info("connection lost")
 
@@ -360,7 +369,12 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                         pass
                     else:
                         if data:
-                            inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
+                            inbound_message_queue.put((
+                                copy.deepcopy(data),
+                                copy.deepcopy(host),
+                                copy.deepcopy(port),
+                                f'input.tcpclient.{protoname}.{host}:{port}',
+                            ))
                             COUNTERS.increment(f'receive_tcp_{protoname}')
                         else:
                             logger.info("connection lost")
@@ -391,7 +405,12 @@ def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
         message = subscriber.recv_multipart()
         for data in message:
             logger.log(logging.DEBUG, f"received {data} from {host}:{port}")
-            inbound_message_queue.put((data, host, port, f'input.zmqclient.{protoname}.{host}:{port}',))
+            inbound_message_queue.put((
+                copy.deepcopy(data),
+                copy.deepcopy(host),
+                copy.deepcopy(port),
+                f'input.zmqclient.{protoname}.{host}:{port}',
+            ))
             COUNTERS.increment(f'receive_zmq_{protoname}')
 
 
@@ -497,13 +516,13 @@ def acars_hasher(
         # put data in queue
         if not dropmsg:
             out_queue.put((
-                data[0],  # dict
-                data[1],  # host
-                data[2],  # port
-                data[3],  # source func
-                msgtime_ns,
-                msghash,
-                data_to_hash,
+                copy.deepcopy(data[0]),  # dict
+                copy.deepcopy(data[1]),  # host
+                copy.deepcopy(data[2]),  # port
+                copy.deepcopy(data[3]),  # source func
+                copy.deepcopy(msgtime_ns),
+                copy.deepcopy(msghash),
+                copy.deepcopy(data_to_hash),
             ))
 
 
@@ -580,13 +599,13 @@ def vdlm2_hasher(
         # put data in queue
         if not dropmsg:
             out_queue.put((
-                data[0],  # dict
-                data[1],  # host
-                data[2],  # port
-                data[3],  # source func
-                msgtime_ns,
-                msghash,
-                data_to_hash,
+                copy.deepcopy(data[0]),  # dict
+                copy.deepcopy(data[1]),  # host
+                copy.deepcopy(data[2]),  # port
+                copy.deepcopy(data[3]),  # source func
+                copy.deepcopy(msgtime_ns),
+                copy.deepcopy(msghash),
+                copy.deepcopy(data_to_hash),
             ))
 
 
@@ -635,7 +654,12 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         else:
             # if no exception, put deserialised data onto out_queue
             # logger.log(logging.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
-            out_queue.put((j, data[1], data[2], data[3]))
+            out_queue.put((
+                copy.deepcopy(j),
+                copy.deepcopy(data[1]),
+                copy.deepcopy(data[2]),
+                copy.deepcopy(data[3]),
+            ))
         finally:
             # regardless of exception or not, tell in_queue that task is done
             in_queue.task_done()
