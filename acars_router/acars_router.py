@@ -519,6 +519,10 @@ def vdlm2_hasher(
 
         # create timestamp from t.sec & t.usec
         logger.debug(f"pre-exception: {data[0]}")
+        logger.debug(f"pre-exception: {data[0]['vdl2']}")
+        logger.debug(f"pre-exception: {data[0]['vdl2']['t']}")
+        logger.debug(f"pre-exception: {data[0]['vdl2']['t']['sec']}")
+        logger.debug(f"pre-exception: {data[0]['vdl2']['t']['usec']}")
         msgtime_ns = int(data[0]['vdl2']['t']['sec']) * 1e9
         msgtime_ns += int(data[0]['vdl2']['t']['usec']) * 1000
 
