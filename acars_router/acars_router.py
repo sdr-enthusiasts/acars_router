@@ -347,15 +347,17 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
             else:
                 logger.info("connection established")
                 # put socket in blocking mode
-                sock.settimeout(None)
+                sock.settimeout(1)
                 while True:
                     data = sock.recv(16384)
-                    logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
-                    if not data:
+                    if data:
+                        logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
+                        inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
+                        COUNTERS.increment(f'receive_tcp_{protoname}')
+                    else:
+                        logger.info("connection lost")
+                        sock.close()
                         break
-                    inbound_message_queue.put((data, host, port, f'input.tcpclient.{protoname}.{host}:{port}',))
-                    COUNTERS.increment(f'receive_tcp_{protoname}')
-                logger.info("connection lost")
 
 
 def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
