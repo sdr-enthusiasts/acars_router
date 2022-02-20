@@ -382,10 +382,11 @@ def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
     # Receive all messages
     while True:
         # Process all parts of the message
-        data = subscriber.recv_multipart()
-        logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
-        inbound_message_queue.put((data, host, port, f'input.zmqclient.{protoname}.{host}:{port}',))
-        COUNTERS.increment(f'receive_zmq_{protoname}')
+        message = subscriber.recv_multipart()
+        for data in message:
+            logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
+            inbound_message_queue.put((data, host, port, f'input.zmqclient.{protoname}.{host}:{port}',))
+            COUNTERS.increment(f'receive_zmq_{protoname}')
 
 def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
     """
