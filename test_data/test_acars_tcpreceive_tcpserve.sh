@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -xe
+
 
 # Start acars_router
 timeout 10s python3 ./acars_router/acars_router.py -vv --skew-window 30 --receive-tcp-acars=127.0.0.1:25550 --serve-tcp-acars 5552 &
@@ -10,8 +10,8 @@ socat -d -t10 TCP:127.0.0.1:5552 OPEN:/tmp/acars.tcpreceive.tcpsserve.out,creat,
 sleep 1
 
 # Start fake source server 
-socat -d -x -t5 TCP-LISTEN:25550 EXEC:"./test_data/send_lines.sh ./test_data/acars.patched"
-sleep 1
+socat -d -t5 TCP-LISTEN:25550 EXEC:"./test_data/send_lines.sh ./test_data/acars.patched"
+sleep 10
 
 jq . < /tmp/acars.tcpreceive.tcpsserve.out 
 
