@@ -13,5 +13,5 @@ while IFS="" read -r p || [ -n "$p" ]; do
 done <./test_data/acars.patched
 
 sleep 2
-cat ./tmp/acars.udp.out
+cat /tmp/acars.udp.out
 kill -9 $ALLOWED_STDERRSOCAT_PID
