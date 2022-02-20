@@ -48,6 +48,9 @@ class ARCounters():
         # VDLM2 messages received via TCP (where we are the client)
         self.receive_tcp_vdlm2 = 0
 
+        # VDLM2 messages received via ZMQ (where we are the client)
+        self.receive_zmq_vdlm2 = 0
+
         # Invalid message counts
         self.invalid_json_acars = 0
         self.invalid_json_vdlm2 = 0
@@ -73,6 +76,8 @@ class ARCounters():
             logger.log(level, f"VDLM2 messages via TCP listen: {self.listen_tcp_vdlm2}")
         if self.receive_tcp_vdlm2 > 0:
             logger.log(level, f"VDLM2 messages via TCP receive: {self.receive_tcp_vdlm2}")
+        if self.receive_zmq_vdlm2 > 0:
+            logger.log(level, f"VDLM2 messages via ZMQ receive: {self.receive_zmq_vdlm2}")
         if self.invalid_json_acars > 0:
             logger.log(level, f"Invalid ACARS JSON messages: {self.invalid_json_acars}")
         if self.invalid_json_vdlm2 > 0:
@@ -377,8 +382,10 @@ def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
     # Receive all messages
     while True:
         # Process all parts of the message
-        message = subscriber.recv_multipart()
-        logger.debug(f'Received {message}')
+        data = subscriber.recv_multipart()
+        logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
+        inbound_message_queue.put((data, host, port, f'input.zmqclient.{protoname}.{host}:{port}',))
+        COUNTERS.increment(f'receive_zmq_{protoname}')
 
 def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
     """
