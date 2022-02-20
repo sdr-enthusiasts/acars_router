@@ -12,6 +12,7 @@ import queue
 import time
 import logging
 import collections
+import zmq
 
 
 class ARQueue(queue.Queue):
@@ -358,6 +359,26 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                         time.sleep(1)
                         break
 
+def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
+    """
+    Process to receive ACARS/VDLM2 messages from a TCP server.
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+    logger = baselogger.getChild(f'input.zmqclient.{protoname}.{host}:{port}')
+    logger.debug("spawned")
+    # Prepare our context and sockets
+    context = zmq.Context()
+    # Connect to dumpvdl2 zmq server
+    subscriber = context.socket(zmq.SUB)
+    subscriber.connect(f"tcp://{host}:{port}")
+    # Subscribe on everything
+    subscriber.setsockopt(zmq.SUBSCRIBE, b'')
+    # Receive all messages
+    while True:
+        # Process all parts of the message
+        message = subscriber.recv_multipart()
+        logger.debug(f'Received {message}')
 
 def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
     """
@@ -747,6 +768,28 @@ def valid_args(args):
         except socket.gaierror:
             logger.warning(f"receive_tcp_vdlm2: host appears invalid or unresolvable: {host}")
 
+    # Check receive_tcp_vdlm2, should be a list of host:port
+    for i in args.receive_zmq_vdlm2:
+        # try to split host:port
+        try:
+            host = i.split(':')[0]
+            port = i.split(':')[1]
+        except IndexError:
+            logger.critical(f"receive_zmq_vdlm2: host:port expected, got: {i}")
+            return False
+        # ensure port valid
+        try:
+            if not valid_tcp_udp_port(port):
+                raise ValueError
+        except ValueError:
+            logger.critical(f"receive_zmq_vdlm2: invalid port: {port}")
+            return False
+        # warn if host appears wrong
+        try:
+            socket.gethostbyname(host)
+        except socket.gaierror:
+            logger.warning(f"receive_zmq_vdlm2: host appears invalid or unresolvable: {host}")
+    
     # Check send_udp_acars, should be a list of host:port
     for i in args.send_udp_acars:
         # try to split host:port
@@ -918,6 +961,13 @@ if __name__ == "__main__":
         type=str,
         nargs='*',
         default=split_env_safely('AR_RECV_TCP_VDLM2'),
+    )
+    parser.add_argument(
+        '--receive-zmq-vdlm2',
+        help='Connect to a ZeroMQ publisher at "host:port" (over TCP) and receive VDLM2 messages as a subscriber. Can be specified multiple times to receive from multiple sources.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_RECV_ZMQ_VDLM2'),
     )
     parser.add_argument(
         '--send-udp-acars',
@@ -1343,6 +1393,15 @@ if __name__ == "__main__":
         logger.info(f"Receiving VDLM2 TCP from {s.split(':')[0]}:{s.split(':')[1]}")
         threading.Thread(
             target=TCPReceiver,
+            args=(s.split(':')[0], int(s.split(':')[1]), inbound_vdlm2_message_queue, "VDLM2"),
+            daemon=True,
+        ).start()
+
+    # Prepare inbound ZMQ client receiver threads for VDLM2
+    for s in args.receive_zmq_vdlm2:
+        logger.info(f"Receiving VDLM2 ZMQ from {s.split(':')[0]}:{s.split(':')[1]}")
+        threading.Thread(
+            target=ZMQReceiver,
             args=(s.split(':')[0], int(s.split(':')[1]), inbound_vdlm2_message_queue, "VDLM2"),
             daemon=True,
         ).start()
