@@ -489,7 +489,7 @@ def acars_hasher(
             sort_keys=True,
         ))
 
-        # logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
 
         # check for (and drop) dupe messages, if enabled
         dropmsg = False
@@ -573,7 +573,7 @@ def vdlm2_hasher(
             sort_keys=True,
         ))
 
-        # logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
+        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
 
         # check for (and drop) dupe messages if enabled
         dropmsg = False
