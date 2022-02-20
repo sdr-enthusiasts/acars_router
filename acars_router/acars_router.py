@@ -597,12 +597,17 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                 continue
         time.sleep(0.250)
 
-def json_splitter(input: bytes):
-    """
-    If JSON is malformed and has multiple objects that aren't 
-    This function is evil.
-    """
-    pass
+# def json_splitter(inbytes: bytes):
+#     """
+#     If JSON is malformed and has multiple objects that aren't properly separated.
+#     This function is pure evil. Abandon all hope ye who enter.
+#     """
+#     # Attempt to jsonise:
+#     try:
+#         j = json.loads(inbytes)
+#     except:
+
+#     pass
 
 def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     """
@@ -621,17 +626,14 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     while True:
         # pop data from queue
         data = in_queue.get()
-        # decode if needed
-        if type(data[0]) is bytes:
-            json_data = data[0].decode('utf-8')
-        else:
-            json_data = data[0]
+        # # decode if needed
+        # if type(data[0]) is bytes:
+        #     json_data = data[0].decode('utf-8')
+        # else:
+        #     json_data = data[0]
         # attempt to deserialise
         try:
-            j = json.loads(json.dumps(json_data))
-            if type(j) is str:
-                j = json.loads(j)
-                #logger.debug(f"Had to json.loads a second time from {data[3]}")
+            j = json.loads(data)
         except Exception as e:
             # if an exception, log and continue (after finally:)
             logger.error(f"invalid JSON received via {data[3]}")
