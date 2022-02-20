@@ -406,6 +406,7 @@ def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
                 separators=(',', ':'),
                 sort_keys=True,
             ), 'utf-8')
+        # TODO: change to TRACE level once stable
         logger.log(logging.DEBUG - 5, f'{m}')
         for q in out_queues:
             q.put(copy.deepcopy(m))
