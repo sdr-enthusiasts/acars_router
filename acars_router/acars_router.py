@@ -518,12 +518,6 @@ def vdlm2_hasher(
         in_queue.task_done()
 
         # create timestamp from t.sec & t.usec
-        logger.debug(f"pre-exception: {type(data[0])}")
-        logger.debug(f"pre-exception: {data[0]}")
-        logger.debug(f"pre-exception: {data[0]['vdl2']}")
-        logger.debug(f"pre-exception: {data[0]['vdl2']['t']}")
-        logger.debug(f"pre-exception: {data[0]['vdl2']['t']['sec']}")
-        logger.debug(f"pre-exception: {data[0]['vdl2']['t']['usec']}")
         msgtime_ns = int(data[0]['vdl2']['t']['sec']) * 1e9
         msgtime_ns += int(data[0]['vdl2']['t']['usec']) * 1000
 
@@ -631,7 +625,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             j = json.loads(json.dumps(json_data))
             if type(j) is str:
                 j = json.loads(j)
-                logger.debug("Had to json.loads a second time")
+                logger.debug(f"Had to json.loads a second time from {data[3]}")
         except Exception as e:
             # if an exception, log and continue (after finally:)
             logger.error(f"invalid JSON received via {data[3]}")
