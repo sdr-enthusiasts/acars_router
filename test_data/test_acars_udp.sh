@@ -9,7 +9,7 @@ python3 ./acars_router/acars_router.py -v --listen-udp-acars 5550 --send-udp-aca
 sleep 2
 
 while IFS="" read -r p || [ -n "$p" ]; do
-  printf '%s\n' "$p" | nc -u -v -q 1 -w 5 127.0.0.1 5550
+  printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:5550
 done <./test_data/acars.patched
 
 sleep 2
