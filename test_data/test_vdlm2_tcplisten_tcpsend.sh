@@ -1,15 +1,6 @@
 #!/usr/bin/env bash
 set -xe
 
-# Start fake destination server for reference output
-socat -d -t5 TCP-LISTEN:25557,fork OPEN:/tmp/vdlm2.tcplisten.tcpsend.out.reference,creat,append &
-sleep 1
-
-# Send data bypassing acars_router
-while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - TCP:127.0.0.1:25557;
-done <./test_data/vdlm2.patched
-
 # Start fake destination server for acars_router output
 socat -d -t5 TCP-LISTEN:25558,fork OPEN:/tmp/vdlm2.tcplisten.tcpsend.out,creat,append &
 sleep 1
@@ -24,7 +15,7 @@ while IFS="" read -r p || [ -n "$p" ]; do
 done <./test_data/vdlm2.patched
 
 # Re-format output files
-jq -M . < /tmp/vdlm2.tcplisten.tcpsend.out.reference > /tmp/vdlm2.tcplisten.tcpsend.out.reference.reformatted
+jq -M . < ./test_data/vdlm2.patched > /tmp/vdlm2.tcplisten.tcpsend.out.reference.reformatted
 jq -M . < /tmp/vdlm2.tcplisten.tcpsend.out > /tmp/vdlm2.tcplisten.tcpsend.out.reformatted
 
 # Check output

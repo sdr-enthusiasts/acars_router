@@ -1,15 +1,6 @@
 #!/usr/bin/env bash
 set -xe
 
-# Start fake destination server for reference output
-socat -d -t5 UDP-LISTEN:15550,fork OPEN:/tmp/acars.udp.out.reference,creat,append &
-sleep 1
-
-# Send data bypassing acars_router
-while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:15550;
-done <./test_data/acars.patched
-
 # Start fake destination server for acars_router output
 socat -d -t5 UDP-LISTEN:15551,fork OPEN:/tmp/acars.udp.out,creat,append &
 sleep 1
@@ -24,7 +15,7 @@ while IFS="" read -r p || [ -n "$p" ]; do
 done <./test_data/acars.patched
 
 # Re-format output files
-jq -M . < /tmp/acars.udp.out.reference > /tmp/acars.udp.out.reference.reformatted
+jq -M . < ./test_data/acars.patched > /tmp/acars.udp.out.reference.reformatted
 jq -M . < /tmp/acars.udp.out > /tmp/acars.udp.out.reformatted
 
 # Check output
