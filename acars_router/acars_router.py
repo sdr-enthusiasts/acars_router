@@ -633,7 +633,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         #     json_data = data[0]
         # attempt to deserialise
         try:
-            j = json.loads(data)
+            j = json.loads(data[0])
         except Exception as e:
             # if an exception, log and continue (after finally:)
             logger.error(f"invalid JSON received via {data[3]}")
