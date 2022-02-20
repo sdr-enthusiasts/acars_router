@@ -91,16 +91,16 @@ class ARCounters():
         for q in self.standalone_queues:
             qs = q.qsize()
             if qs > 0:
-                logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
+                logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
         for queue_list in self.queue_lists:
             for q in queue_list:
                 qs = q.qsize()
                 if qs > 0:
-                    logger.log(level, f"Queue depth of {q.name}: {q.qsize()}")
+                    logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
         for dq in self.standalone_deque:
             dqlen = len(dq[1])
             if dqlen > 0:
-                logger.log(level, f"Queue depth of {dq[0]}: {dqlen}")
+                logger.log(logging.DEBUG, f"Queue depth of {dq[0]}: {dqlen}")
 
     def register_queue_list(self, qlist: list):
         self.queue_lists.append(qlist)
