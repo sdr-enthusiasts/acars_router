@@ -11,7 +11,7 @@ sleep 1
 
 # Start fake source server(s)
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s' "$p" | socat -d TCP-LISTEN:15550,reuseaddr STDIN;
+    printf '%s' "$p" | socat -d TCP-LISTEN:15550 STDIN;
 done < ./test_data/acars.patched
 sleep 10
 
