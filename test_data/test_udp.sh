@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -xe
 
-PORT1=$(shuf -i 1000-1999 -n 1)
+PORT1=$(shuf -i 1025-1999 -n 1)
 PORT2=$(shuf -i 2000-2999 -n 1)
 
 # Start fake destination server for acars_router output
