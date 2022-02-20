@@ -11,16 +11,16 @@ while IFS="" read -r p || [ -n "$p" ]; do
 done <./test_data/vdlm2.patched
 
 # Start fake destination server for acars_router output
-socat -d -t5 UDP-LISTEN:15555,fork OPEN:/tmp/vdlm2.udp.out,creat,append &
+socat -d -t5 UDP-LISTEN:25556,fork OPEN:/tmp/vdlm2.udp.out,creat,append &
 sleep 1
 
 # Start acars_router
-python3 ./acars_router/acars_router.py -vv --skew-window 300 --listen-udp-vdlm2 5555 --send-udp-vdlm2 127.0.0.1:15555 &
+python3 ./acars_router/acars_router.py -vv --skew-window 300 --listen-udp-vdlm2 2556 --send-udp-vdlm2 127.0.0.1:25556 &
 sleep 1
 
 # Send test data thru acars_router
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:5555;
+    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:2556;
 done <./test_data/vdlm2.patched
 
 # Re-format output files

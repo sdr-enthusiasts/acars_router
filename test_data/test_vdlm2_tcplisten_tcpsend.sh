@@ -2,25 +2,25 @@
 set -xe
 
 # Start fake destination server for reference output
-socat -d -t5 TCP-LISTEN:25555,fork OPEN:/tmp/vdlm2.tcplisten.tcpsend.out.reference,creat,append &
+socat -d -t5 TCP-LISTEN:25557,fork OPEN:/tmp/vdlm2.tcplisten.tcpsend.out.reference,creat,append &
 sleep 1
 
 # Send data bypassing acars_router
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - TCP:127.0.0.1:25555;
+    printf '%s\n' "$p" | socat - TCP:127.0.0.1:25557;
 done <./test_data/vdlm2.patched
 
 # Start fake destination server for acars_router output
-socat -d -t5 TCP-LISTEN:15555,fork OPEN:/tmp/vdlm2.tcplisten.tcpsend.out,creat,append &
+socat -d -t5 TCP-LISTEN:25558,fork OPEN:/tmp/vdlm2.tcplisten.tcpsend.out,creat,append &
 sleep 1
 
 # Start acars_router
-python3 ./acars_router/acars_router.py -vv --skew-window 300 --listen-tcp-vdlm2 5555 --send-tcp-vdlm2 127.0.0.1:15555 &
+python3 ./acars_router/acars_router.py -vv --skew-window 300 --listen-tcp-vdlm2 2558 --send-tcp-vdlm2 127.0.0.1:25558 &
 sleep 1
 
 # Send test data thru acars_router
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - TCP:127.0.0.1:5555;
+    printf '%s\n' "$p" | socat - TCP:127.0.0.1:2558;
 done <./test_data/vdlm2.patched
 
 # Re-format output files
