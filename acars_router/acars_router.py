@@ -15,6 +15,9 @@ import collections
 import zmq
 
 
+### HELPER CLASSES ###
+
+
 class ARQueue(queue.Queue):
     """
     A subclass of queue.Queue, allowing us to name the queue.
@@ -120,6 +123,9 @@ class ARCounters():
         return None
 
 
+### RECEIVING MESSAGES ###
+
+
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """ Mix-in for multi-threaded UDP server """
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, inbound_message_queue=None, protoname=None):
@@ -131,21 +137,45 @@ class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
 class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded UDP server to receive ACARS/VDLM2 messages """
     def __init__(self, request, client_address, server):
+
+        # prepare logging
         self.logger = baselogger.getChild(f'input.udp.{server.protoname}')
+        self.logger.debug("spawned")
+
+        # store variables in server object, so they can be accessed in handle() when message arrives
         self.inbound_message_queue = server.inbound_message_queue
         self.protoname = server.protoname
-        socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
+
+        # perform init of super class (socketserver.BaseRequestHandler)
+        super.__init__(self, request, client_address, server)
 
     def handle(self):
+
+        # break request/socket data out into separate variables
         data = self.request[0]
-        # socket = self.request[1]
+        # socket = self.request[1]  # commented out for flake8 whinging about unused variables
         host = self.client_address[0]
         port = self.client_address[1]
-        self.inbound_message_queue.put((
-            copy.deepcopy(data),
-            copy.deepcopy(host),
-            copy.deepcopy(port),
-            f'input.udp.{self.protoname}'))
+
+        # prepare logging
+        self.logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
+        
+        # prepare data to be enqueued into input queue
+        incoming_data = {
+            'raw_json': copy.deepcopy(data),            # raw json data
+            'src_host': copy.deepcopy(host),            # src host
+            'src_port': copy.deepcopy(port),            # src port
+            'src_name': f'input.udp.{self.protoname}',  # function originating the data
+            'msg_uuid': uuid.uuid1(),                   # unique identifier for this message
+        }
+
+        # trace logging
+        self.logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
+
+        # enqueue the data
+        self.inbound_message_queue.put(incoming_data)
+
+        # increment counters
         global COUNTERS
         COUNTERS.increment(f'listen_udp_{self.protoname}')
 
@@ -168,23 +198,679 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
-        global COUNTERS
+        
+        # break socket data down into separate variables
         host = self.client_address[0]
         port = self.client_address[1]
+
+        # prepare logging
         self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
         self.logger.info("connection established")
+
+        # loop until the session is disconnected (we receive no data)
         while True:
+
+            # read data from socket
             data = self.request.recv(16384)
+
+            # if nothing returned from the socket, then "disconnect"
             if not data:
                 break
-            self.inbound_message_queue.put((
-                copy.deepcopy(data),
-                copy.deepcopy(host),
-                copy.deepcopy(port),
-                f'input.tcpserver.{self.protoname}.{host}:{port}',
-            ))
+
+            # prepare data to be enqueued into input queue
+            incoming_data = {
+                'raw_json': copy.deepcopy(data),                                # raw json data
+                'src_host': copy.deepcopy(host),                                # src host
+                'src_port': copy.deepcopy(port),                                # src port
+                'src_name': f'input.tcpserver.{self.protoname}.{host}:{port}',  # function originating the data
+                'msg_uuid': uuid.uuid1(),                                       # unique identifier for this message
+            }
+
+            # trace logging
+            self.logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
+
+            # enqueue the data
+            self.inbound_message_queue.put(incoming_data)
+
+            # increment counters
+            global COUNTERS
             COUNTERS.increment(f'listen_tcp_{self.protoname}')
+        
+        # if broken out of the loop, then "connection lost"
         self.logger.info("connection lost")
+
+
+def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
+    """
+    Process to receive ACARS/VDLM2 messages from a TCP server.
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'input.tcpclient.{protoname}.{host}:{port}')
+    logger.debug("spawned")
+    
+    # loop until the session is disconnected
+    while True:
+
+        # prepare socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            # set up socket
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            
+            # attempt connection
+            logger.debug("attempting to connect")
+
+            # set socket connect timeout
+            sock.settimeout(1)
+
+            # attempt to connect
+            try:
+                sock.connect((host, port))
+            except Exception as e:
+                logger.error(f"connection error: {e}")
+                time.sleep(10)
+
+            # if connected with no exception   
+            else:
+                logger.info("connection established")
+                sock.settimeout(1)
+
+                # while connected
+                while True:
+
+                    # try to receive data
+                    try:
+                        data = sock.recv(16384)
+                        
+                    except TimeoutError as e:
+                        pass
+
+                    except Exception as e:
+                        logger.error(f"error receiving data: {e}")
+
+                    # if data received with no exception 
+                    else:
+
+                        # if we received something
+                        if data:
+
+                            # prepare data to be enqueued into input queue
+                            incoming_data = {
+                                'raw_json': copy.deepcopy(data),                           # raw json data
+                                'src_host': copy.deepcopy(host),                           # src host
+                                'src_port': copy.deepcopy(port),                           # src port
+                                'src_name': f'input.tcpclient.{protoname}.{host}:{port}',  # function originating the data
+                                'msg_uuid': uuid.uuid1(),                                  # unique identifier for this message
+                            }
+
+                            # trace logging
+                            logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {inbound_message_queue.name}; data: {incoming_data}")
+
+                            # enqueue the data
+                            inbound_message_queue.put(incoming_data)
+
+                            # increment counters
+                            global COUNTERS
+                            COUNTERS.increment(f'receive_tcp_{protoname}')
+
+                        # if we received nothing, then "connection lost"
+                        else:
+                            logger.info("connection lost")
+
+                            # close the socket
+                            sock.close()
+
+                            # sleep for a second (slow down reconnection attempts)
+                            time.sleep(1)
+
+                            # break out of inner loop, so reconnection can happen
+                            break
+
+
+# TODO: add test for this input in github action
+def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
+    """
+    Process to receive ACARS/VDLM2 messages from a TCP server.
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'input.zmqclient.{protoname}.{host}:{port}')
+    logger.debug("spawned")
+
+    # Prepare zmq context and sockets
+    context = zmq.Context()
+
+    # This program is a SUBscripber. dumpvdl2 is a PUBlisher.
+    subscriber = context.socket(zmq.SUB)
+
+    # Connect to dumpvdl2 zmq server
+    subscriber.connect(f"tcp://{host}:{port}")
+
+    # Subscribe for everything
+    subscriber.setsockopt(zmq.SUBSCRIBE, b'')
+
+    # Receive messages forever
+    while True:
+
+        # Receive all parts of a zmq message
+        message = subscriber.recv_multipart()
+
+        # For each json message inside the zmq message
+        for data in message:
+
+            # prepare data to be enqueued into input queue
+            incoming_data = {
+                'raw_json': copy.deepcopy(data),                           # raw json data
+                'src_host': copy.deepcopy(host),                           # src host
+                'src_port': copy.deepcopy(port),                           # src port
+                'src_name': f'input.zmqclient.{protoname}.{host}:{port}',  # function originating the data
+                'msg_uuid': uuid.uuid1(),                                  # unique identifier for this message
+            }
+
+            # trace logging
+            logger.log(logging_TRACE, f"in: {host}:{port}/zmq; out: {inbound_message_queue.name}; data: {incoming_data}")
+
+            # enqueue the data
+            inbound_message_queue.put(incoming_data)
+
+            # increment counters
+            global COUNTERS
+            COUNTERS.increment(f'receive_zmq_{protoname}')
+
+
+### PROCESSING MESSAGES ###
+
+
+def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
+    """
+    Deserialise JSON.
+
+    Reads JSON objects from in_queue.
+    Attempts to deserialise. If successful, puts deserialised object into out_queue.
+
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'json_validator.{protoname}')
+    logger.debug("spawned")
+
+    # pop items off queue forever
+    while True:
+
+        # pop data from queue (blocks until an item can be popped)
+        data = in_queue.get()
+        in_queue.task_done()
+
+        # attempt to deserialise
+        try:
+            data['json'] = json.loads(data['raw_json'])
+        
+        # if an exception, log and continue
+        except Exception as e:
+            
+            logger.error(f"invalid JSON received via {data['src_name']}")
+            logger.debug(f"invalid JSON received: {data}, exception: {e}")
+
+            global COUNTERS
+            COUNTERS.increment(f'invalid_json_{protoname}')
+            continue
+
+        # if no exception, put deserialised data onto out_queue
+        # logger.log(logging.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
+        else:
+            
+            # ensure json.loads resulted in a dict
+            if type(data['json']) not dict:
+                logger.error(f"invalid JSON received via {data['src_name']}")
+                logger.debug(f"json.loads on raw_json returned non-dict object: {data}")
+                global COUNTERS
+                COUNTERS.increment(f'invalid_json_{protoname}')
+                continue
+
+            # trace logging
+            logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+
+            # enqueue the data
+            out_queue.put(data)  
+
+
+def within_acceptable_skew(timestamp: int, skew_window_secs: int):
+    """
+    Helper fuction that determines whether timestamp (in nanoseconds) is within +/- skew_window_secs
+    """
+    min_timestamp = time.time_ns() - (skew_window_secs * 1e9)
+    max_timestamp = time.time_ns() + (skew_window_secs * 1e9)
+    if min_timestamp <= timestamp <= max_timestamp:
+        return True
+    else:
+        return False
+
+
+def acars_hasher(
+    in_queue: ARQueue,
+    out_queue: ARQueue,
+    protoname: str,
+    skew_window_secs: int,
+):
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild('acars_hasher')
+    logger.debug("spawned")
+
+    # hash items "forever"
+    while True:
+
+        # pop data from queue
+        data = in_queue.get()
+        in_queue.task_done()
+
+        # create timestamp (in nanoseconds from 
+        msgtime_ns = int(float(data['json']['timestamp']) * 1e9)
+
+        # drop messages with timestamp outside of max skew range
+        if not within_acceptable_skew(msgtime_ns, skew_window_secs):
+            logger.warning(f"message timestamp outside acceptable skew window: {data['json']['timestamp']} (now: {time.time()})")
+            logger.debug(f"message timestamp outside acceptable skew window: {data}")
+            continue
+
+        # copy object so we don't molest original data
+        data_to_hash = copy.deepcopy(data['json'])
+
+        # remove feeder-specific data so we only hash data unique to the message
+        del(data_to_hash['error'])
+        del(data_to_hash['level'])
+        del(data_to_hash['station_id'])
+        del(data_to_hash['timestamp'])
+        del(data_to_hash['channel'])
+
+        # store hashed data in message object
+        data['hashed_data'] = json.dumps(
+            data_to_hash,
+            separators=(',', ':'),
+            sort_keys=True,
+        )
+
+        # store hash
+        data['hash'] = hash(data['hashed_data'])
+
+        # trace logging
+        logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+
+        # enqueue the data
+        out_queue.put(data)
+
+
+def vdlm2_hasher(
+    in_queue: ARQueue,
+    out_queue: ARQueue,
+    protoname: str,
+    skew_window_secs: int,
+):
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild('vdlm2_hasher')
+    logger.debug("spawned")
+
+    # hash items "forever"
+    while True:
+
+        # pop data from queue
+        data = in_queue.get()
+        in_queue.task_done()
+
+        # create timestamp from t.sec & t.usec
+        msgtime_ns = (int(data['json']['vdl2']['t']['sec']) * 1e9) + (int(data['json']['vdl2']['t']['usec']) * 1000)
+
+        # drop messages with timestamp outside of max skew range
+        if not within_acceptable_skew(msgtime_ns, skew_window_secs):
+            logger.warning(f"message timestamp outside acceptable skew window: {data['json']['vdl2']['t']['sec'].data['json']['vdl2']['t']['usec']} (now: {time.time()})")
+            logger.debug(f"message timestamp outside acceptable skew window: {data}")
+            continue
+
+        # copy object so we don't molest original data
+        data_to_hash = copy.deepcopy(data['json'])
+
+        # remove feeder-specific data so we only hash data unique to the message
+        del(data_to_hash['vdl2']['app'])
+        del(data_to_hash['vdl2']['freq_skew'])
+        del(data_to_hash['vdl2']['hdr_bits_fixed'])
+        del(data_to_hash['vdl2']['noise_level'])
+        del(data_to_hash['vdl2']['octets_corrected_by_fec'])
+        del(data_to_hash['vdl2']['sig_level'])
+        del(data_to_hash['vdl2']['station'])
+        del(data_to_hash['vdl2']['t'])
+
+        # store hashed data in message object
+        data['hashed_data'] = json.dumps(
+            data_to_hash,
+            separators=(',', ':'),
+            sort_keys=True,
+        )
+
+        # store hash
+        data['hash'] = hash(data['hashed_data'])
+
+        # trace logging
+        logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+
+        # enqueue the data
+        out_queue.put(data)
+
+
+def deduper(
+    in_queue: ARQueue,
+    out_queue: ARQueue,
+    recent_message_queue: collections.deque,
+    protoname: str,
+):
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'deduper.{protoname}')
+    logger.debug("spawned")
+
+    # dedupe items "forever"
+    while True:
+
+        # pop data from queue
+        data = in_queue.get()
+        in_queue.task_done()
+
+        # check for (and drop) dupe messages, if enabled
+        dropmsg = False
+        lck = lock.acquire()
+        if lck:
+            for recent_message in recent_message_queue:
+
+                # if the hash matches...
+                if data['hash'] == recent_message['hash']:
+
+                    # and if the data matches...
+                    if data['hashed_data'] == recent_message['hashed_data']:
+
+                        # trace logging
+                        logger.log(logging_TRACE, f"in: {in_queue.name}; out: DROP; data: {data}")
+
+                        # increment counters
+                        global COUNTERS
+                        COUNTERS.increment(f"duplicate_{protoname}")
+
+                        # tell following steps to drop the message & break out of for loop
+                        dropmsg = True
+                        break
+
+            # if the message is unique (not dupe):
+            if not dropmsg:
+
+                # put a copy of the message into the recent msg queue
+                recent_message_queue.append(copy.deepcopy(data))
+
+            # release the lock
+            lock.release()
+
+        else:
+            logger.error("could not acquire lock!")
+
+        if not dropmsg:
+
+            data['unique'] = True
+
+            # trace logging
+            logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+
+            # enqueue the data
+            out_queue.put(data)
+
+
+### OUTPUTTING MESSAGES ###
+
+
+def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str, station_name_override: str = None):
+    """
+    Puts incoming ACARS/VDLM2 messages into each output queue.
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'output_queue_populator.{protoname}')
+    logger.debug("spawned")
+
+    # loop forever
+    while True:
+
+        # pop message from input queue
+        data = in_queue.get()
+        in_queue.task_done()
+
+        # override station ID if needed
+        if station_name_override:
+
+            # acars
+            if 'station_id' in data['json']:
+                data['json']['station_id'] = station_name_override
+
+            # vdlm2
+            if 'vdl2' in data['json']:
+                if 'station' in data['json']['vdl2']:
+                    data['json']['vdl2']['station'] = station_name_override
+
+        # serialise json
+        data['out_json'] = bytes(
+            json.dumps(
+                data['json'],
+                separators=(',', ':'),
+                sort_keys=True,
+            ), 'utf-8')
+
+        # put copy of message into each output queue
+        for output_queue in out_queues:
+
+            # trace logging
+            logger.log(logging_TRACE, f"in: {in_queue.name}; out: {output_queue.name}; data: {data}")
+
+            # enqueue a copy of the data
+            output_queue.put(copy.deepcopy(data))
+
+
+def UDPSender(host, port, output_queues: list, protoname: str):
+    """
+    Threaded function to send ACARS / VDLM2 messages via UDP
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'output.udp.{protoname}.{host}:{port}')
+    logger.debug("spawned")
+
+    # Create an output queue for this instance of the function & add to output queue
+    qname = f'output.udp.{protoname}.{host}:{port}'
+    logger.debug(f"registering output queue: {qname}")
+    q = ARQueue(qname, 100)
+    output_queues.append(q)
+
+    # Set up socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.settimeout(1)
+
+    # Loop to send messages from output queue
+    while True:
+
+        # Pop a message from the output queue
+        data = q.get()
+        q.task_done()
+
+        # try to send the message to the remote host
+        try:
+            sock.sendto(data['out_json'], (host, port))
+            
+            # trace 
+            logger.log(logging_TRACE, f"in: {qname}; out: {host}:{port}/udp; data: {data}")
+        
+        except Exception as e:
+            logger.error(f"error sending to {host}:{port}: {e}")
+            break
+        
+    # clean up
+    # remove this instance's queue from the output queue
+    logger.debug(f"deregistering output queue: {qname}")
+    output_queues.remove(q)
+    # delete our queue
+    del(q)
+
+
+def TCPServerAcceptor(port: int, output_queues: list, protoname: str):
+    """
+    Accepts incoming TCP connections to serve ACARS / VDLM2 messages, and spawns a TCPServer for each connection.
+    Intended to be run in a thread.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("0.0.0.0", port))
+        s.listen()
+
+        while True:
+            conn, addr = s.accept()
+            # create new TCPServer for this connection, and pass queue
+            threading.Thread(
+                target=TCPServer,
+                daemon=True,
+                args=(conn, addr, output_queues, protoname),
+            ).start()
+
+
+def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: str):
+    """
+    Process to send ACARS/VDLM2 messages to TCP clients.
+    Intended to be run in a thread.
+    """
+    host = addr[0]
+    port = addr[1]
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'output.tcpserver.{protoname}.{host}:{port}')
+    logger.info("connection established")
+    
+    # Create an output queue for this instance of the function & add to output queue
+    qname = f'output.tcpserver.{protoname}.{host}:{port}'
+    logger.debug(f"registering output queue: {qname}")
+    q = ARQueue(qname, 100)
+    output_queues.append(q)
+
+    # Set up socket
+    conn.settimeout(1)
+
+    # Loop to send messages from output queue
+    while True:
+
+        # Pop a message from the output queue
+        data = q.get()
+        q.task_done()
+
+        # try to send the message to the remote host
+        try:
+            conn.sendall(data['out_json'])
+
+            # trace 
+            logger.log(logging_TRACE, f"in: {qname}; out: {host}:{port}/udp; data: {data}")
+
+        except Exception as e:
+            logger.error(f"error sending to {host}:{port}: {e}")
+            break
+
+    # clean up
+    # remove this instance's queue from the output queue
+    logger.debug(f"deregistering output queue: {qname}")
+    output_queues.remove(q)
+    # delete our queue
+    del(q)
+    # close socket
+    conn.close()
+    # finally, let the user know client has disconnected
+    logger.info("connection lost")
+
+
+def TCPSender(host: str, port: int, output_queues: list, protoname: str):
+    """
+    Process to send ACARS/VDLM2 messages to a TCP server.
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'output.tcpclient.{protoname}.{host}:{port}')
+    logger.debug("spawned")
+
+    # Loop to send messages from output queue
+    while True:
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            
+            # set socket timeout to 5 seconds
+            sock.settimeout(5)
+
+            # attempt connection
+            try:
+                sock.connect((host, port))
+
+            except ConnectionRefusedError:
+                logger.error("connection refused")
+                time.sleep(10)
+
+            except Exception as e:
+                logger.error(f"connection error: {e}")
+                time.sleep(10)
+
+            else:
+                logger.info("connection established")
+
+                # Create an output queue for this instance of the function & add to output queue
+                qname = f'output.tcpclient.{protoname}.{host}:{port}'
+                q = ARQueue(qname, 100)
+                output_queues.append(q)
+
+                # put socket in blocking mode
+                sock.settimeout(None)
+                
+                while True:
+
+                    # Pop a message from the output queue
+                    data = q.get()
+                    q.task_done()
+                    
+                    # try to send the message to the remote host
+                    try:
+                        sock.sendall(data['out_json'])
+
+                    except Exception as e:
+                        logger.error(f"error sending to {host}:{port}: {e}")
+                        break
+
+                # clean up
+                # remove this instance's queue from the output queue
+                logger.debug(f"deregistering output queue: {qname}")
+                output_queues.remove(q)
+                # delete our queue
+                del(q)
+                # close socket
+                sock.close()
+                # finally, let the user know client has disconnected
+                logger.info("connection lost")
+
+                    
+### HELPER FUNCTIONS ###
 
 
 def display_stats(
@@ -207,408 +893,6 @@ def display_stats(
         COUNTERS.log(logger, loglevel)
 
 
-def UDPSender(host, port, output_queues: list, protoname: str):
-    """
-    Threaded function to send ACARS / VDLM2 messages via UDP
-    Intended to be run in a thread.
-    """
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'output.udp.{protoname}.{host}:{port}')
-    logger.debug("spawned")
-    # Create an output queue for this instance of the function & add to output queue
-    q = ARQueue(f'output.udp.{protoname}.{host}:{port}', 100)
-    output_queues.append(q)
-    # Set up socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.settimeout(1)
-    # Loop to send messages from output queue
-    while True:
-        data = q.get()
-        try:
-            sock.sendto(data, (host, port))
-            logger.log(logging.DEBUG - 5, f"sent {data} to {host}:{port} OK")
-        except Exception as e:
-            logger.error(f"Error sending to {host}:{port}: {e}")
-        q.task_done()
-    # clean up
-    # remove this instance's queue from the output queue
-    output_queues.remove(q)
-    # delete our queue
-    del(q)
-
-
-def TCPServerAcceptor(port: int, output_queues: list, protoname: str):
-    """
-    Accepts incoming TCP connections to serve ACARS / VDLM2 messages, and spawns a TCPServer for each connection.
-    Intended to be run in a thread.
-    """
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("0.0.0.0", port))
-        s.listen()
-        while True:
-            conn, addr = s.accept()
-            # create new TCPServer for this connection, and pass queue
-            threading.Thread(
-                target=TCPServer,
-                daemon=True,
-                args=(conn, addr, output_queues, protoname),
-            ).start()
-
-
-def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: str):
-    """
-    Process to send ACARS/VDLM2 messages to TCP clients.
-    Intended to be run in a thread.
-    """
-    host = addr[0]
-    port = addr[1]
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'output.tcpserver.{protoname}.{host}:{port}')
-    logger.info("connection established")
-    # Create an output queue for this instance of the function & add to output queue
-    q = ARQueue(f'output.tcpserver.{protoname}.{host}:{port}', 100)
-    output_queues.append(q)
-    # Set up socket
-    conn.settimeout(1)
-    # Loop to send messages from output queue
-    while True:
-        data = q.get()
-        q.task_done()
-        logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
-        try:
-            conn.sendall(data)
-        except Exception as e:
-            logger.info(f"connection error: {e}")
-            break
-    # clean up
-    # remove this instance's queue from the output queue
-    output_queues.remove(q)
-    # delete our queue
-    del(q)
-    # close socket
-    conn.close()
-    # finally, let the user know client has disconnected
-    logger.info("connection lost")
-
-
-def TCPSender(host: str, port: int, output_queues: list, protoname: str):
-    """
-    Process to send ACARS/VDLM2 messages to a TCP server.
-    Intended to be run in a thread.
-    """
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'output.tcpclient.{protoname}.{host}:{port}')
-    logger.debug("spawned")
-    # Create an output queue for this instance of the function & add to output queue
-    q = ARQueue(f'output.tcpclient.{protoname}.{host}:{port}', 100)
-    output_queues.append(q)
-    while True:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            # clear queue before connecting
-            with q.mutex:
-                q.queue.clear()
-            # set socket timeout to 5 seconds
-            sock.settimeout(5)
-            # attempt connection
-            try:
-                sock.connect((host, port))
-            except ConnectionRefusedError:
-                logger.error("connection refused")
-                time.sleep(10)
-            except Exception as e:
-                logger.error(f"connection error: {e}")
-                time.sleep(10)
-            else:
-                logger.info("connection established")
-                # put socket in blocking mode
-                sock.settimeout(None)
-                connected = True
-                while connected:
-                    data = q.get()
-                    logger.log(logging.DEBUG - 5, f"sending {data} to {host}:{port}")
-                    try:
-                        sock.sendall(data)
-                    except Exception as e:
-                        connected = False
-                        logger.info(f"connection lost: {e}")
-                    q.task_done()
-
-
-def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
-    """
-    Process to receive ACARS/VDLM2 messages from a TCP server.
-    Intended to be run in a thread.
-    """
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'input.tcpclient.{protoname}.{host}:{port}')
-    logger.debug("spawned")
-    # Set up counters
-    global COUNTERS
-    while True:
-        logger.log(logging.DEBUG - 5, "creating socket")
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            # set up socket
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # attempt connection
-            logger.log(logging.DEBUG - 5, "attempting to connect")
-            # set socket timeout to 5 seconds
-            sock.settimeout(1)
-            try:
-                sock.connect((host, port))
-            except Exception as e:
-                logger.error(f"connection error: {e}")
-                time.sleep(10)
-            else:
-                logger.info("connection established")
-                sock.settimeout(1)
-                while True:
-                    try:
-                        data = sock.recv(16384)
-                        logger.log(logging.DEBUG - 5, f"received {data} from {host}:{port}")
-                    except TimeoutError as e:
-                        pass
-                    else:
-                        if data:
-                            inbound_message_queue.put((
-                                copy.deepcopy(data),
-                                copy.deepcopy(host),
-                                copy.deepcopy(port),
-                                f'input.tcpclient.{protoname}.{host}:{port}',
-                            ))
-                            COUNTERS.increment(f'receive_tcp_{protoname}')
-                        else:
-                            logger.info("connection lost")
-                            sock.close()
-                            time.sleep(1)
-                            break
-
-
-# TODO: add test for this input in github action
-def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
-    """
-    Process to receive ACARS/VDLM2 messages from a TCP server.
-    Intended to be run in a thread.
-    """
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'input.zmqclient.{protoname}.{host}:{port}')
-    logger.debug("spawned")
-    # Prepare our context and sockets
-    context = zmq.Context()
-    # Connect to dumpvdl2 zmq server
-    subscriber = context.socket(zmq.SUB)
-    subscriber.connect(f"tcp://{host}:{port}")
-    # Subscribe on everything
-    subscriber.setsockopt(zmq.SUBSCRIBE, b'')
-    # Receive all messages
-    while True:
-        # Process all parts of the message
-        message = subscriber.recv_multipart()
-        for data in message:
-            logger.log(logging.DEBUG, f"received {data} from {host}:{port}")
-            inbound_message_queue.put((
-                copy.deepcopy(data),
-                copy.deepcopy(host),
-                copy.deepcopy(port),
-                f'input.zmqclient.{protoname}.{host}:{port}',
-            ))
-            COUNTERS.increment(f'receive_zmq_{protoname}')
-
-
-def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
-    """
-    Puts incoming ACARS/VDLM2 messages into each output queue.
-    Intended to be run in a thread.
-    """
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'output_queue_populator.{protoname}')
-    logger.debug("spawned")
-    while True:
-        data = in_queue.get()
-        in_queue.task_done()
-        m = bytes(
-            json.dumps(
-                data[0],
-                separators=(',', ':'),
-                sort_keys=True,
-            ), 'utf-8')
-        # TODO: change to TRACE level once stable
-        for q in out_queues:
-            logger.log(logging.DEBUG, f'Populating output queue {q.name} with {m}')
-            q.put(copy.deepcopy(m))
-
-
-def within_acceptable_skew(timestamp: int, skew_window_secs: int):
-    min_timestamp = time.time_ns() - (skew_window_secs * 1e9)
-    max_timestamp = time.time_ns() + (skew_window_secs * 1e9)
-    if min_timestamp <= timestamp <= max_timestamp:
-        return True
-    else:
-        return False
-
-
-def acars_hasher(
-    in_queue: ARQueue,
-    out_queue: ARQueue,
-    recent_message_queue: collections.deque,
-    protoname: str,
-    skew_window_secs: int,
-    enable_dedupe: bool,
-):
-    protoname = protoname.lower()
-    logger = baselogger.getChild('acars_hasher')
-    logger.debug("spawned")
-    # Set up counters
-    global COUNTERS
-    while True:
-        # pop data from queue
-        data = in_queue.get()
-        in_queue.task_done()
-
-        # create timestamp from t.sec & t.usec
-        msgtime_ns = int(float(data[0]['timestamp']) * 1e9)
-
-        # drop messages with timestamp outside of max skew range
-        if not within_acceptable_skew(msgtime_ns, skew_window_secs):
-            logger.warning(f"Message timestamp outside acceptable skew window: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]},")
-            continue
-
-        # copy object so we don't molest original data
-        data_to_hash = copy.deepcopy(data[0])
-
-        # remove feeder-specific data so we only hash data unique to the message
-        del(data_to_hash['error'])
-        del(data_to_hash['level'])
-        del(data_to_hash['station_id'])
-        del(data_to_hash['timestamp'])
-        del(data_to_hash['channel'])
-
-        # serialise & hash
-        msghash = hash(json.dumps(
-            data_to_hash,
-            separators=(',', ':'),
-            sort_keys=True,
-        ))
-
-        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-
-        # check for (and drop) dupe messages, if enabled
-        dropmsg = False
-        if enable_dedupe:
-            lck = lock.acquire(blocking=True, timeout=2)
-            if lck:
-                for rm in recent_message_queue:
-                    if msghash == rm[0]:
-                        if data_to_hash == rm[1]:
-                            logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, station: {data[0]['station_id']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-                            COUNTERS.increment(f"duplicate_{protoname}")
-                            dropmsg = True
-                            break
-                if not dropmsg:
-                    recent_message_queue.append((
-                        copy.deepcopy(msghash),
-                        copy.deepcopy(data_to_hash),
-                        copy.deepcopy(msgtime_ns),
-                    ))
-                lock.release()
-            else:
-                logger.error("Could not acquire lock!")
-
-        # put data in queue
-        if not dropmsg:
-            out_queue.put((
-                copy.deepcopy(data[0]),  # dict
-                copy.deepcopy(data[1]),  # host
-                copy.deepcopy(data[2]),  # port
-                copy.deepcopy(data[3]),  # source func
-                copy.deepcopy(msgtime_ns),
-                copy.deepcopy(msghash),
-                copy.deepcopy(data_to_hash),
-            ))
-
-
-def vdlm2_hasher(
-    in_queue: ARQueue,
-    out_queue: ARQueue,
-    recent_message_queue: collections.deque,
-    protoname: str,
-    skew_window_secs: int,
-    enable_dedupe: bool,
-):
-    protoname = protoname.lower()
-    logger = baselogger.getChild('vdlm2_hasher')
-    logger.debug("spawned")
-    # Set up counters
-    global COUNTERS
-    while True:
-        # pop data from queue
-        data = in_queue.get()
-        in_queue.task_done()
-
-        # create timestamp from t.sec & t.usec
-        msgtime_ns = (int(data[0]['vdl2']['t']['sec']) * 1e9) + (int(data[0]['vdl2']['t']['usec']) * 1000)
-
-        # drop messages with timestamp outside of max skew range
-        if not within_acceptable_skew(msgtime_ns, skew_window_secs):
-            logger.warning(f"Message timestamp outside acceptable skew window: {data[0]}, host: {data[1]}, port: {data[2]}, source: {data[3]},")
-            continue
-
-        # copy object so we don't molest original data
-        data_to_hash = copy.deepcopy(data[0])
-
-        # remove feeder-specific data so we only hash data unique to the message
-        del(data_to_hash['vdl2']['app'])
-        del(data_to_hash['vdl2']['freq_skew'])
-        del(data_to_hash['vdl2']['hdr_bits_fixed'])
-        del(data_to_hash['vdl2']['noise_level'])
-        del(data_to_hash['vdl2']['octets_corrected_by_fec'])
-        del(data_to_hash['vdl2']['sig_level'])
-        del(data_to_hash['vdl2']['station'])
-        del(data_to_hash['vdl2']['t'])
-
-        # serialise & hash
-        msghash = hash(json.dumps(
-            data_to_hash,
-            separators=(',', ':'),
-            sort_keys=True,
-        ))
-
-        logger.log(logging.DEBUG - 5, f"hashed: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-
-        # check for (and drop) dupe messages if enabled
-        dropmsg = False
-        if enable_dedupe:
-            lck = lock.acquire(blocking=True, timeout=2)
-            if lck:
-                for rm in recent_message_queue:
-                    if msghash == rm[0]:
-                        if data_to_hash == rm[1]:
-                            logger.log(logging.DEBUG - 5, f"dropping duplicate message: {data_to_hash}, station: {data[0]['vdl2']['station']}, host: {data[1]}, port: {data[2]}, source: {data[3]}, msgtime_ns: {msgtime_ns}, msghash: {msghash}")
-                            COUNTERS.increment(f"duplicate_{protoname}")
-                            break
-                if not dropmsg:
-                    recent_message_queue.append((
-                        copy.deepcopy(msghash),
-                        copy.deepcopy(data_to_hash),
-                        copy.deepcopy(msgtime_ns),
-                    ))
-                lock.release()
-            else:
-                logger.error("Could not acquire lock!")
-
-        # put data in queue
-        if not dropmsg:
-            out_queue.put((
-                copy.deepcopy(data[0]),  # dict
-                copy.deepcopy(data[1]),  # host
-                copy.deepcopy(data[2]),  # port
-                copy.deepcopy(data[3]),  # source func
-                copy.deepcopy(msgtime_ns),
-                copy.deepcopy(msghash),
-                copy.deepcopy(data_to_hash),
-            ))
-
-
 def recent_message_queue_evictor(recent_message_queue: collections.deque, protoname: str, dedupe_window_secs: int):
     protoname = protoname.lower()
     logger = baselogger.getChild(f'recent_message_queue_evictor.{protoname}')
@@ -623,46 +907,6 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
                 logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
                 continue
         time.sleep(0.250)
-
-
-def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
-    """
-    Deserialise JSON.
-
-    Reads JSON objects from in_queue.
-    Attempts to deserialise. If successful, puts deserialised object into out_queue.
-
-    Intended to be run in a thread.
-    """
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'json_validator.{protoname}')
-    logger.debug("spawned")
-    # Set up counters
-    global COUNTERS
-    while True:
-        # pop data from queue
-        data = in_queue.get()
-        # attempt to deserialise
-        try:
-            j = json.loads(data[0])
-        except Exception as e:
-            # if an exception, log and continue (after finally:)
-            logger.error(f"invalid JSON received via {data[3]}")
-            logger.debug(f"invalid JSON received from {data[1]}:{data[2]} (via {data[3]}): {data[0]}, exception: {e}")
-            COUNTERS.increment(f'invalid_json_{protoname}')
-            continue
-        else:
-            # if no exception, put deserialised data onto out_queue
-            # logger.log(logging.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
-            out_queue.put((
-                copy.deepcopy(j),
-                copy.deepcopy(data[1]),
-                copy.deepcopy(data[2]),
-                copy.deepcopy(data[3]),
-            ))
-        finally:
-            # regardless of exception or not, tell in_queue that task is done
-            in_queue.task_done()
 
 
 def split_env_safely(
@@ -1060,7 +1304,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--verbose', '-v',
-        help='Increase log verbosity. -v = debug. -vv = trace (raw packets).',
+        help='Increase log verbosity. -v = debug. -vv = trace message paths. -vvv = full messages.',
         action='count',
         default=int(os.getenv("AR_VERBOSITY", 0)),
     )
@@ -1099,6 +1343,13 @@ if __name__ == "__main__":
         default=int(os.getenv("AR_THREADS_HASHER", os.cpu_count())),
     )
     parser.add_argument(
+        '--threads-deduper',
+        help=f'Number of threads for message dedupers (default: {os.cpu_count()})',
+        type=int,
+        nargs='?',
+        default=int(os.getenv("AR_THREADS_HASHER", os.cpu_count())),
+    )
+    parser.add_argument(
         '--threads-output-queue-populator',
         help=f'Number of threads for output queue populators (default: {os.cpu_count()})',
         type=int,
@@ -1108,7 +1359,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # configure logging: create trace level
-    logging.addLevelName(logging.DEBUG - 5, 'TRACE')
+    logging_TRACE = logging.DEBUG - 1
+    logging.addLevelName(logging_TRACE, 'TRACE')
     # configure logging: base logger
     baselogger = logging.getLogger('acars_router')
 
@@ -1173,43 +1425,28 @@ if __name__ == "__main__":
     COUNTERS.register_queue_list(output_vdlm2_queues)
 
     # define inbound message queues
-    # populate with tuples: (data, host, port, source,)
-    # where:
-    #   * data: acars/vdlm2 messages from socket (bytes)
-    #   * host: remote host (str)
-    #   * port: remote port (str)
-    #   * source: where the message was placed into the queue (str)
     inbound_acars_message_queue = ARQueue('inbound_acars_message_queue', 100)
     COUNTERS.register_queue(inbound_acars_message_queue)
     inbound_vdlm2_message_queue = ARQueue('inbound_vdlm2_message_queue', 100)
     COUNTERS.register_queue(inbound_vdlm2_message_queue)
 
     # define intermediate queue for deserialised messages
-    # populate with tuples: (data, host, port, source,)
-    # where:
-    #   * data: deserialised acars/vdlm2 messages (dict)
-    #   * host: remote host (str)
-    #   * port: remote port (str)
-    #   * source: where the message was placed into the queue (str)
     deserialised_acars_message_queue = ARQueue('deserialised_acars_message_queue', 100)
     COUNTERS.register_queue(deserialised_acars_message_queue)
     deserialised_vdlm2_message_queue = ARQueue('deserialised_vdlm2_message_queue', 100)
     COUNTERS.register_queue(deserialised_vdlm2_message_queue)
 
     # define intermediate queue for hashed messages
-    # populate with tuples: (data, host, port, source,)
-    # where:
-    #   * data: deserialised acars/vdlm2 messages (dict)
-    #   * host: remote host (str)
-    #   * port: remote port (str)
-    #   * source: where the message was placed into the queue (str)
-    #   * timestamp_ns: timestamp of receiving host (int)
-    #   * hash: hash() of unique data in message
-    #   * uniquedata: serialised unique data that hash is based on (int)
     hashed_acars_message_queue = ARQueue('hashed_acars_message_queue', 100)
     COUNTERS.register_queue(hashed_acars_message_queue)
     hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
     COUNTERS.register_queue(hashed_vdlm2_message_queue)
+
+    # define intermediate queue for deduped messages
+    deduped_acars_message_queue = ARQueue('deduped_acars_message_queue', 100)
+    COUNTERS.register_queue(deduped_acars_message_queue)
+    deduped_vdlm2_message_queue = ARQueue('deduped_vdlm2_message_queue', 100)
+    COUNTERS.register_queue(deduped_vdlm2_message_queue)
 
     # recent message buffers for dedupe
     recent_message_queue_acars = collections.deque()
@@ -1252,10 +1489,8 @@ if __name__ == "__main__":
             args=(
                 deserialised_acars_message_queue,
                 hashed_acars_message_queue,
-                recent_message_queue_acars,
                 "ACARS",
                 args.skew_window,
-                args.enable_dedupe,
             ),
             daemon=True,
         ).start()
@@ -1267,29 +1502,64 @@ if __name__ == "__main__":
             args=(
                 deserialised_vdlm2_message_queue,
                 hashed_vdlm2_message_queue,
-                recent_message_queue_vdlm2,
                 "VDLM2",
                 args.skew_window,
-                args.enable_dedupe,
             ),
             daemon=True,
         ).start()
 
-    # output queue populator: acars
-    for _ in range(args.threads_output_queue_populator):
-        threading.Thread(
-            target=output_queue_populator,
-            args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
-            daemon=True,
-        ).start()
+    if args.enable_dedupe:
 
-    # output queue populator: vdlm2
-    for _ in range(args.threads_output_queue_populator):
-        threading.Thread(
-            target=output_queue_populator,
-            args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
-            daemon=True,
-        ).start()
+        # if dedupe enabled: use dedupe queue & start dedupers
+
+        for _ in range(args.threads_deduper):
+            threading.Thread(
+                target=deduper,
+                args=(hashed_acars_message_queue, deduped_acars_message_queue, recent_message_queue_acars ,"ACARS",),
+                daemon=True,
+            ).start()
+
+        for _ in range(args.threads_deduper):
+            threading.Thread(
+                target=deduper,
+                args=(hashed_vdlm2_message_queue, deduped_vdlm2_message_queue, recent_message_queue_vdlm2 ,"VDLM2",),
+                daemon=True,
+            ).start()
+        
+        # output queue populator: acars
+        for _ in range(args.threads_output_queue_populator):
+            threading.Thread(
+                target=output_queue_populator,
+                args=(deduped_acars_message_queue, output_acars_queues, "ACARS",),
+                daemon=True,
+            ).start()
+
+        # output queue populator: vdlm2
+        for _ in range(args.threads_output_queue_populator):
+            threading.Thread(
+                target=output_queue_populator,
+                args=(deduped_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+                daemon=True,
+            ).start()
+
+    else:
+        # if dedupe disabled: bypass dedupe queue & don't start dedupers
+
+        # output queue populator: acars
+        for _ in range(args.threads_output_queue_populator):
+            threading.Thread(
+                target=output_queue_populator,
+                args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
+                daemon=True,
+            ).start()
+
+        # output queue populator: vdlm2
+        for _ in range(args.threads_output_queue_populator):
+            threading.Thread(
+                target=output_queue_populator,
+                args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+                daemon=True,
+            ).start()
 
     # Configure "log on first message" for ACARS
     threading.Thread(
