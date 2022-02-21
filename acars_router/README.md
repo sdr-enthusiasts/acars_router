@@ -22,7 +22,8 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | -------- | -------------------- | ----------- | --------|
 | `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | UDP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. | |
 | `--listen-tcp-vdlm2` | `AR_LISTEN_TCP_VDLM2` | TCP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. | |
-| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | Connect to "host:port" (over TCP) and receive VDLM2 messages. Can be specified multiple times to receive from multiple sources. | |
+| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | Connect to `host:port` (over TCP) and receive VDLM2 messages. Can be specified multiple times to receive from multiple sources. | |
+| `--receive-zmq-vdlm2` | `AR_RECV_ZMQ_VDLM2` | Connect to a ZeroMQ publisher at `host:port` (over TCP) and receive VDLM2 messages as a subscriber. Can be specified multiple times to receive from multiple sources. | |
 
 ### Output
 
@@ -49,6 +50,13 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | `--stats-every` | `AR_STATS_EVERY` | Print statistics every `N` minutes | `5` |
 | `-v` `--verbose` | `AR_VERBOSITY` | Increase log verbosity. `-v`/`AR_VERBOSITY=1` = Debug. `-vv`/`AR_VERBOSITY=2` = Trace (raw packets printed) | `0` (info) |
 
+### Deduplication
+
+| Argument | Environment Variable | Description | Default |
+| -------- | -------------------- | ----------- | --------|
+| `--enable-dedupe` | `AR_ENABLE_DEDUPE` | Enables message deduplication. | False |
+| `--dedupe-window` | `AR_DEDUPE_WINDOW` | The window in seconds for duplicate messages to be dropped. | `2` |
+
 ### Advanced
 
 | Argument | Environment Variable | Description | Default |
@@ -56,4 +64,5 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | `--skew-window` | `AR_SKEW_WINDOW` | Reject messages with a timestamp greater than +/- this many seconds. | 1 |
 | `--threads-json-deserialiser` | `AR_THREADS_JSON_DESERIALISER` | Number of threads for JSON deserialisers (per message protocol) | Number CPU cores |
 | `--threads-hasher` | `AR_THREADS_HASHER` | Number of threads for message hashers (per message protocol) | Number CPU cores |
+| `--threads-deduper` | `AR_THREADS_DEDUPER` | Number of threads for message dedupers | Number CPU cores |
 | `--threads-output-queue-populator` | `AR_OUTPUT_QUEUE_POPULATOR` | Number of threads for output queue populators (per message protocol) | Number CPU cores |
