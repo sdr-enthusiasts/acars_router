@@ -426,7 +426,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         else:
             
             # ensure json.loads resulted in a dict
-            if type(data['json']) not dict:
+            if type(data['json']) != dict:
                 logger.error(f"invalid JSON received via {data['src_name']}")
                 logger.debug(f"json.loads on raw_json returned non-dict object: {data}")
                 global COUNTERS
