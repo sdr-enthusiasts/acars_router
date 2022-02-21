@@ -1347,7 +1347,7 @@ if __name__ == "__main__":
         help=f'Number of threads for message dedupers (default: {os.cpu_count()})',
         type=int,
         nargs='?',
-        default=int(os.getenv("AR_THREADS_HASHER", os.cpu_count())),
+        default=int(os.getenv("AR_THREADS_DEDUPER", os.cpu_count())),
     )
     parser.add_argument(
         '--threads-output-queue-populator',
