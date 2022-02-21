@@ -13,6 +13,7 @@ import time
 import logging
 import collections
 import zmq
+import uuid
 
 
 ### HELPER CLASSES ###
@@ -147,7 +148,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         self.protoname = server.protoname
 
         # perform init of super class (socketserver.BaseRequestHandler)
-        super.__init__(self, request, client_address, server)
+        socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
 
