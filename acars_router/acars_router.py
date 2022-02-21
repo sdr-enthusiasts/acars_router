@@ -1351,7 +1351,7 @@ if __name__ == "__main__":
         help=f'Overrides station id/name with this value',
         type=str,
         nargs='?',
-        default=os.getenv("AR_OVERRIDE-STATION-NAME", None),
+        default=os.getenv("AR_OVERRIDE_STATION_NAME", None),
     )
     args = parser.parse_args()
 
