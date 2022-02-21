@@ -102,7 +102,7 @@ class ARCounters():
                 # if qs > 0:
                 logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
         for dq in self.standalone_deque:
-            # dqlen = len(dq[1])
+            dqlen = len(dq[1])
             # if dqlen > 0:
             logger.log(logging.DEBUG, f"Queue depth of {dq[0]}: {dqlen}")
 
