@@ -895,7 +895,7 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
             # evict items older than 2 seconds
             if recent_message_queue[0]['msgtime_ns'] <= (time.time_ns() - (dedupe_window_secs * 1e9)):
                 evictedmsg = recent_message_queue.popleft()
-                logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
+                logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg}")
                 continue
         time.sleep(0.250)
 
