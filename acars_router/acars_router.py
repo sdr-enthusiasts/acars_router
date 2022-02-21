@@ -176,7 +176,6 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         self.inbound_message_queue.put(incoming_data)
 
         # increment counters
-        global COUNTERS
         COUNTERS.increment(f'listen_udp_{self.protoname}')
 
 
@@ -233,7 +232,6 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             self.inbound_message_queue.put(incoming_data)
 
             # increment counters
-            global COUNTERS
             COUNTERS.increment(f'listen_tcp_{self.protoname}')
         
         # if broken out of the loop, then "connection lost"
@@ -312,7 +310,6 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                             inbound_message_queue.put(incoming_data)
 
                             # increment counters
-                            global COUNTERS
                             COUNTERS.increment(f'receive_tcp_{protoname}')
 
                         # if we received nothing, then "connection lost"
@@ -378,7 +375,6 @@ def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
             inbound_message_queue.put(incoming_data)
 
             # increment counters
-            global COUNTERS
             COUNTERS.increment(f'receive_zmq_{protoname}')
 
 
@@ -417,7 +413,6 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             logger.error(f"invalid JSON received via {data['src_name']}")
             logger.debug(f"invalid JSON received: {data}, exception: {e}")
 
-            global COUNTERS
             COUNTERS.increment(f'invalid_json_{protoname}')
             continue
 
@@ -429,7 +424,6 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             if type(data['json']) != dict:
                 logger.error(f"invalid JSON received via {data['src_name']}")
                 logger.debug(f"json.loads on raw_json returned non-dict object: {data}")
-                global COUNTERS
                 COUNTERS.increment(f'invalid_json_{protoname}')
                 continue
 
@@ -600,7 +594,6 @@ def deduper(
                         logger.log(logging_TRACE, f"in: {in_queue.name}; out: DROP; data: {data}")
 
                         # increment counters
-                        global COUNTERS
                         COUNTERS.increment(f"duplicate_{protoname}")
 
                         # tell following steps to drop the message & break out of for loop
@@ -887,7 +880,6 @@ def display_stats(
     """
     logger = baselogger.getChild('statistics')
     logger.debug("spawned")
-    global COUNTERS
     while True:
         time.sleep(mins * 60)
         COUNTERS.log(logger, loglevel)
@@ -897,8 +889,6 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
     protoname = protoname.lower()
     logger = baselogger.getChild(f'recent_message_queue_evictor.{protoname}')
     logger.debug("spawned")
-    # Set up counters
-    global COUNTERS
     while True:
         if len(recent_message_queue) > 0:
             # evict items older than 2 seconds
