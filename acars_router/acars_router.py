@@ -1346,6 +1346,13 @@ if __name__ == "__main__":
         nargs='?',
         default=int(os.getenv("AR_OUTPUT_QUEUE_POPULATOR", os.cpu_count())),
     )
+    parser.add_argument(
+        '--override-station-name',
+        help=f'Overrides station id/name with this value',
+        type=str,
+        nargs='?',
+        default=os.getenv("AR_OVERRIDE-STATION-NAME", None),
+    )
     args = parser.parse_args()
 
     # configure logging: create trace level
@@ -1520,7 +1527,7 @@ if __name__ == "__main__":
         for _ in range(args.threads_output_queue_populator):
             threading.Thread(
                 target=output_queue_populator,
-                args=(deduped_acars_message_queue, output_acars_queues, "ACARS",),
+                args=(deduped_acars_message_queue, output_acars_queues, "ACARS", args.override_station_name),
                 daemon=True,
             ).start()
 
@@ -1528,7 +1535,7 @@ if __name__ == "__main__":
         for _ in range(args.threads_output_queue_populator):
             threading.Thread(
                 target=output_queue_populator,
-                args=(deduped_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+                args=(deduped_vdlm2_message_queue, output_vdlm2_queues, "VDLM2", args.override_station_name),
                 daemon=True,
             ).start()
 
@@ -1539,7 +1546,7 @@ if __name__ == "__main__":
         for _ in range(args.threads_output_queue_populator):
             threading.Thread(
                 target=output_queue_populator,
-                args=(hashed_acars_message_queue, output_acars_queues, "ACARS",),
+                args=(hashed_acars_message_queue, output_acars_queues, "ACARS", args.override_station_name),
                 daemon=True,
             ).start()
 
@@ -1547,7 +1554,7 @@ if __name__ == "__main__":
         for _ in range(args.threads_output_queue_populator):
             threading.Thread(
                 target=output_queue_populator,
-                args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2",),
+                args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2", args.override_station_name),
                 daemon=True,
             ).start()
 
