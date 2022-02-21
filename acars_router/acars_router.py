@@ -1348,7 +1348,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--override-station-name',
-        help=f'Overrides station id/name with this value',
+        help='Overrides station id/name with this value',
         type=str,
         nargs='?',
         default=os.getenv("AR_OVERRIDE_STATION_NAME", None),
