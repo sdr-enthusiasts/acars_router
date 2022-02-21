@@ -506,9 +506,9 @@ def acars_hasher(
                             break
                 if not dropmsg:
                     recent_message_queue.append((
-                        msghash,
-                        data_to_hash,
-                        msgtime_ns,
+                        copy.deepcopy(msghash),
+                        copy.deepcopy(data_to_hash),
+                        copy.deepcopy(msgtime_ns),
                     ))
                 lock.release()
             else:
@@ -546,8 +546,7 @@ def vdlm2_hasher(
         in_queue.task_done()
 
         # create timestamp from t.sec & t.usec
-        msgtime_ns = int(data[0]['vdl2']['t']['sec']) * 1e9
-        msgtime_ns += int(data[0]['vdl2']['t']['usec']) * 1000
+        msgtime_ns = (int(data[0]['vdl2']['t']['sec']) * 1e9) + (int(data[0]['vdl2']['t']['usec']) * 1000)
 
         # drop messages with timestamp outside of max skew range
         if not within_acceptable_skew(msgtime_ns, skew_window_secs):
@@ -589,9 +588,9 @@ def vdlm2_hasher(
                             break
                 if not dropmsg:
                     recent_message_queue.append((
-                        msghash,
-                        data_to_hash,
-                        msgtime_ns,
+                        copy.deepcopy(msghash),
+                        copy.deepcopy(data_to_hash),
+                        copy.deepcopy(msgtime_ns),
                     ))
                 lock.release()
             else:
