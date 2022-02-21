@@ -418,7 +418,6 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             continue
 
         # if no exception, put deserialised data onto out_queue
-        # logger.log(logging.DEBUG - 5, f"JSON received from {data[1]}:{data[2]} (via {data[3]}): {j}")
         else:
             
             # ensure json.loads resulted in a dict
@@ -895,7 +894,7 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
             # evict items older than 2 seconds
             if recent_message_queue[0]['msgtime_ns'] <= (time.time_ns() - (dedupe_window_secs * 1e9)):
                 evictedmsg = recent_message_queue.popleft()
-                logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg}")
+                logger.log(logging_TRACE, f"evicted: {evictedmsg}")
                 continue
         time.sleep(0.250)
 
@@ -1375,9 +1374,9 @@ if __name__ == "__main__":
             '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s',
             r'%Y-%m-%d %H:%M:%S',
         )
-        baselogger.setLevel(logging.DEBUG - 5)
-        logger.setLevel(logging.DEBUG - 5)
-        logger_console_handler.setLevel(logging.DEBUG - 5)
+        baselogger.setLevel(logging_TRACE)
+        logger.setLevel(logging_TRACE)
+        logger_console_handler.setLevel(logging_TRACE)
         logger_console_handler.setFormatter(log_formatter)
         logger.debug(f"Command line arguments: {args}")
         logger.debug("TRACE logging enabled")
