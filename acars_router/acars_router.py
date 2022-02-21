@@ -1294,7 +1294,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--verbose', '-v',
-        help='Increase log verbosity. -v = debug. -vv = trace message paths. -vvv = full messages.',
+        help='Increase log verbosity. -v = debug. -vv = trace message paths.',
         action='count',
         default=int(os.getenv("AR_VERBOSITY", 0)),
     )
