@@ -49,7 +49,7 @@ services:
       - /var/log
 
   acars_router:
-    image: ghcr.io/sdr-enthusiasts/docker_acars_router:latest
+    image: ghcr.io/sdr-enthusiasts/acars_router:latest
     tty: true
     container_name: acars_router
     restart: always
