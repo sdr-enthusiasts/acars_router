@@ -10,40 +10,40 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 
 ### Input
 
-#### ACARS
+#### ACARS Input
 
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
-| `--listen-udp-acars` | `AR_LISTEN_UDP_ACARS` | UDP port to listen for ACARS messages. Can be specified multiple times to listen on multiple ports. | |
-| `--listen-tcp-acars` | `AR_LISTEN_TCP_ACARS` | TCP port to listen for ACARS messages. Can be specified multiple times to listen on multiple ports. | |
-| `--receive-tcp-acars` | `AR_RECV_TCP_ACARS` | Connect to "host:port" (over TCP) and receive ACARS messages. Can be specified multiple times to receive from multiple sources. | |
+| `--listen-udp-acars` | `AR_LISTEN_UDP_ACARS` | UDP port to listen for ACARS JSON messages. Can be specified multiple times to listen on multiple ports. | |
+| `--listen-tcp-acars` | `AR_LISTEN_TCP_ACARS` | TCP port to listen for ACARS JSON messages. Can be specified multiple times to listen on multiple ports. | |
+| `--receive-tcp-acars` | `AR_RECV_TCP_ACARS` | Connect to "host:port" (over TCP) and receive ACARS JSON messages. Can be specified multiple times to receive from multiple sources. | |
 
-#### VDLM2
+#### VDLM2 Input
 
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
-| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | UDP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. | |
-| `--listen-tcp-vdlm2` | `AR_LISTEN_TCP_VDLM2` | TCP port to listen for VDLM2 messages. Can be specified multiple times to listen on multiple ports. | |
-| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | Connect to `host:port` (over TCP) and receive VDLM2 messages. Can be specified multiple times to receive from multiple sources. | |
-| `--receive-zmq-vdlm2` | `AR_RECV_ZMQ_VDLM2` | Connect to a ZeroMQ publisher at `host:port` (over TCP) and receive VDLM2 messages as a subscriber. Can be specified multiple times to receive from multiple sources. | |
+| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | UDP port to listen for VDLM2 JSON messages. Can be specified multiple times to listen on multiple ports. | |
+| `--listen-tcp-vdlm2` | `AR_LISTEN_TCP_VDLM2` | TCP port to listen for VDLM2 JSON messages. Can be specified multiple times to listen on multiple ports. | |
+| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | Connect to `host:port` (over TCP) and receive VDLM2 JSON messages. Can be specified multiple times to receive from multiple sources. | |
+| `--receive-zmq-vdlm2` | `AR_RECV_ZMQ_VDLM2` | Connect to a ZeroMQ publisher at `host:port` (over TCP) and receive VDLM2 JSON messages as a subscriber. Can be specified multiple times to receive from multiple sources. | |
 
 ### Output
 
-#### ACARS
+#### ACARS Output
 
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
-| `--send-udp-acars` | `AR_SEND_UDP_ACARS` | Send ACARS messages via UDP datagram to `host:port`. Can be specified multiple times to send to multiple clients. | |
-| `--send-tcp-acars` | `AR_SEND_TCP_ACARS` | Send ACARS messages via TCP to `host:port`. Can be specified multiple times to send to multiple clients. | |
-| `--serve-tcp-acars` | `AR_SERVE_TCP_ACARS` | Serve ACARS messages on TCP `port`. Can be specified multiple times to serve on multiple ports. | |
+| `--send-udp-acars` | `AR_SEND_UDP_ACARS` | Send ACARS JSON messages via UDP datagram to `host:port`. Can be specified multiple times to send to multiple clients. | |
+| `--send-tcp-acars` | `AR_SEND_TCP_ACARS` | Send ACARS JSON messages via TCP to `host:port`. Can be specified multiple times to send to multiple clients. | |
+| `--serve-tcp-acars` | `AR_SERVE_TCP_ACARS` | Serve ACARS JSON messages on TCP `port`. Can be specified multiple times to serve on multiple ports. | |
 
-#### VDLM2
+#### VDLM2 Output
 
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
-| `--send-udp-vdlm2` | `AR_SEND_UDP_VDLM2` | Send VDLM2 messages via UDP datagram to `host:port`. Can be specified multiple times to send to multiple clients. | |
-| `--send-tcp-vdlm2` | `AR_SEND_TCP_VDLM2` | Send VDLM2 messages via TCP to `host:port`. Can be specified multiple times to send to multiple clients. | |
-| `--serve-tcp-vdlm2` | `AR_SERVE_TCP_VDLM2` | Serve VDLM2 messages on TCP `port`. Can be specified multiple times to serve on multiple ports. | |
+| `--send-udp-vdlm2` | `AR_SEND_UDP_VDLM2` | Send VDLM2 JSON messages via UDP datagram to `host:port`. Can be specified multiple times to send to multiple clients. | |
+| `--send-tcp-vdlm2` | `AR_SEND_TCP_VDLM2` | Send VDLM2 JSON messages via TCP to `host:port`. Can be specified multiple times to send to multiple clients. | |
+| `--serve-tcp-vdlm2` | `AR_SERVE_TCP_VDLM2` | Serve VDLM2 JSON messages on TCP `port`. Can be specified multiple times to serve on multiple ports. | |
 
 ### Logging
 
@@ -65,7 +65,7 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | -------- | -------------------- | ----------- | --------|
 | `--override-station-name` | `AR_OVERRIDE_STATION_NAME` | Overrides station id/name with this value | |
 
-### Advanced
+### Advanced Settings
 
 You should not have to modify any of these for normal operation.
 
