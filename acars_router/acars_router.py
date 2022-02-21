@@ -425,6 +425,7 @@ def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
     logger.debug("spawned")
     while True:
         data = in_queue.get()
+        in_queue.task_done()
         m = bytes(
             json.dumps(
                 data[0],
@@ -432,10 +433,9 @@ def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str):
                 sort_keys=True,
             ), 'utf-8')
         # TODO: change to TRACE level once stable
-        logger.log(logging.DEBUG - 5, f'{m}')
         for q in out_queues:
+            logger.log(logging.DEBUG, f'Populating output queue {q.name} with {m}')
             q.put(copy.deepcopy(m))
-        in_queue.task_done()
 
 
 def within_acceptable_skew(timestamp: int, skew_window_secs: int):
