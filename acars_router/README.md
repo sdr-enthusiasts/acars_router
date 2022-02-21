@@ -1,5 +1,7 @@
 # ACARS Router
 
+`acars_router` receives, validates, deduplicates, modifies and routes ACARS and VDLM2 JSON messages.
+
 ## Runtime Configuration
 
 `acars_router` can be configured via command line arguments or environment variables. Command line arguments take preference over environment variables.
@@ -57,7 +59,15 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | `--enable-dedupe` | `AR_ENABLE_DEDUPE` | Enables message deduplication. | False |
 | `--dedupe-window` | `AR_DEDUPE_WINDOW` | The window in seconds for duplicate messages to be dropped. | `2` |
 
+### Message Modification
+
+| Argument | Environment Variable | Description | Default |
+| -------- | -------------------- | ----------- | --------|
+| `--override-station-name` | `AR_OVERRIDE_STATION_NAME` | Overrides station id/name with this value | |
+
 ### Advanced
+
+You should not have to modify any of these for normal operation.
 
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
@@ -66,4 +76,37 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | `--threads-hasher` | `AR_THREADS_HASHER` | Number of threads for message hashers (per message protocol) | Number CPU cores |
 | `--threads-deduper` | `AR_THREADS_DEDUPER` | Number of threads for message dedupers | Number CPU cores |
 | `--threads-output-queue-populator` | `AR_OUTPUT_QUEUE_POPULATOR` | Number of threads for output queue populators (per message protocol) | Number CPU cores |
-| `--override-station-name` | `AR_OVERRIDE_STATION_NAME` | Overrides station id/name with this value | |
+
+## Internals
+
+A high-level overview of the `acars_router` internals:
+
+* Input
+  * `acars_router` can receive data from ACARS/VDLM2 providers:
+    * As a UDP server. `acarsdec`/`dumpvdlm2` can be configured to output UDP JSON by using the `--listen-udp-acars` and `--listen-udp-vdlm2` arguments respectively. This is the recommended way to receive data from `acarsdec`
+    * As a TCP server for applications that output TCP JSON. The `--listen-tcp-acars` and `--listen-tcp-vdlm2` arguments can be used.
+    * As a TCP client. `acars_router` can connect to a TCP server, and receive JSON. The arguments `--receive-tcp-acars` and `--receive-tcp-vdlm2` arguments can be used.
+    * For `dumpvdl2`, `acars_router` supports ZeroMQ, and can connect to `dumpvdl2` and receive zmq JSON messages. This is the recommended way to receive data from `dumpvdl2`.
+    * For each message received, a message object containing the raw JSON message (and some metadata) is then put into the `inbound_acars_message_queue` / `inbound_vdlm2_message_queue` for further processing.
+* Validation
+  * A pool of `json_validator` threads get messages from the inbound queues, and attempt to deserialise the JSON. The deserialised data is added to the message object, and the message object is then put into the `deserialised_acars_message_queue` / `deserialised_vdlm2_message_queue` for further processing.
+* Hashing
+  * The receive timestamp of the message object is reviewed. If the timestamp is outside +/- `--skew-window` seconds, the message is dropped.
+  * A pool of `acars_hasher`/`vdlm2_hasher` threads then get messages from the deserialised queues, and hash the non-feeder-specific data in each message object.
+  * The hash is added to the message object, and the message object is then put into the `hashed_acars_message_queue` / `hashed_vdlm2_message_queue` for further processing.
+* Deduplicating
+  * A pool of `deduper` threads then get messages from the hashed queues.
+  * The hash in the message object is checked against a list of hashes of all messages received in the last *N* seconds.
+  * If there is a match, the message is considered a duplicate, and is dropped.
+  * If there is not a match, the message hash is added to the list of messages received in the last *N* seconds, and then the message object is placed into the `deduped_acars_message_queue` / `deduped_vdlm2_message_queue`.
+  * An "evictor" process runs constantly, ensuring that message hashes in the recent message hash list do not exceed the `--dedupe-window` settings.
+* Outbound Queue Population
+  * When an output is configured with `--send-udp-acars`, `--send-tcp-acars`, `--send-udp-vdlm2` or `--send-tcp-vdlm2`, an output queue is created for each destination.
+  * When an output is configured with `--serve-tcp-acars` or `--serve-tcp-vdlm2`, an output queue is created for each host that connects.
+  * All of these output queues are kept in lists: `output_acars_queues` and `output_vdlm2_queues`.
+  * A pool of `output_queue_populator` threads receive messages from the dedupe message queues. The message object is duplicated for each output queue in the output queue lists, and placed onto the queues. If `--override-station-name` has been set, the JSON is modified accordingly.
+  * Each output queue is then processed by a TCP/UDP client/server and the processed JSON message is sent out.
+
+I have attempted to show this in a flow diagram:
+
+![Flowchart internals diagram](./internals.drawio.svg)
