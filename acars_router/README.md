@@ -66,3 +66,4 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | `--threads-hasher` | `AR_THREADS_HASHER` | Number of threads for message hashers (per message protocol) | Number CPU cores |
 | `--threads-deduper` | `AR_THREADS_DEDUPER` | Number of threads for message dedupers | Number CPU cores |
 | `--threads-output-queue-populator` | `AR_OUTPUT_QUEUE_POPULATOR` | Number of threads for output queue populators (per message protocol) | Number CPU cores |
+| `--override-station-name` | `AR_OVERRIDE_STATION_NAME` | Overrides station id/name with this value | |
