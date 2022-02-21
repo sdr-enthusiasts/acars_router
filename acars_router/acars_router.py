@@ -467,10 +467,10 @@ def acars_hasher(
         in_queue.task_done()
 
         # create timestamp (in nanoseconds from 
-        msgtime_ns = int(float(data['json']['timestamp']) * 1e9)
+        data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
 
         # drop messages with timestamp outside of max skew range
-        if not within_acceptable_skew(msgtime_ns, skew_window_secs):
+        if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
             logger.warning(f"message timestamp outside acceptable skew window: {data['json']['timestamp']} (now: {time.time()})")
             logger.debug(f"message timestamp outside acceptable skew window: {data}")
             continue
@@ -522,10 +522,10 @@ def vdlm2_hasher(
         in_queue.task_done()
 
         # create timestamp from t.sec & t.usec
-        msgtime_ns = (int(data['json']['vdl2']['t']['sec']) * 1e9) + (int(data['json']['vdl2']['t']['usec']) * 1000)
+        data['msgtime_ns'] = (int(data['json']['vdl2']['t']['sec']) * 1e9) + (int(data['json']['vdl2']['t']['usec']) * 1000)
 
         # drop messages with timestamp outside of max skew range
-        if not within_acceptable_skew(msgtime_ns, skew_window_secs):
+        if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
             logger.warning(f"message timestamp outside acceptable skew window: {data['json']['vdl2']['t']['sec'].data['json']['vdl2']['t']['usec']} (now: {time.time()})")
             logger.debug(f"message timestamp outside acceptable skew window: {data}")
             continue
@@ -893,7 +893,7 @@ def recent_message_queue_evictor(recent_message_queue: collections.deque, proton
     while True:
         if len(recent_message_queue) > 0:
             # evict items older than 2 seconds
-            if recent_message_queue[0][2] <= (time.time_ns() - (dedupe_window_secs * 1e9)):
+            if recent_message_queue[0]['msgtime_ns'] <= (time.time_ns() - (dedupe_window_secs * 1e9)):
                 evictedmsg = recent_message_queue.popleft()
                 logger.log(logging.DEBUG - 5, f"evicted: {evictedmsg[0]}")
                 continue
