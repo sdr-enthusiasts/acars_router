@@ -110,3 +110,12 @@ A high-level overview of the `acars_router` internals:
 I have attempted to show this in a flow diagram:
 
 ![Flowchart internals diagram](./internals.drawio.svg)
+
+## Interpreting Logs
+
+* With the default logging, the log level is informational and above. Log entries of levels `INFO`, `WARNING`, `ERROR` and `CRITICAL` are logged.
+* With `-v`/`AR_VERBOSITY=1` the `DEBUG` level is added, and log entries include the originating thread.
+  * Queue depths are logged in this level during scheduled statistics logging. During normal operation, all of these should be `0` (zero), with the exception of `recent_message_queue_acars` and `recent_message_queue_vdlm2`, which may be higher than zero - this is OK (as they contain a copy of message objects received in the past `--dedupe-window` / `AR_DEDUPE_WINDOW` seconds).
+* With `-vv`/`AR_VERBOSITY=2` the `TRACE` level is added, which prints the contents of the message object as it traverses through each process. This level is very noisy and is intended for application troubleshooting.
+  * As messages are received, they are given a UUID. This way, if odd message routing/processing behaviour is observed, the message object UUID can be found, the logs can be grepped for this UUID, and the logs will show how the message has been received and processed all the way through to being dropped or sent.
+
