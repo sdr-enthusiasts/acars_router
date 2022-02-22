@@ -141,7 +141,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
 
         # prepare logging
         self.logger = baselogger.getChild(f'input.udp.{server.protoname}')
-        self.logger.debug("spawned")
+        # self.logger.debug("spawned")
 
         # store variables in server object, so they can be accessed in handle() when message arrives
         self.inbound_message_queue = server.inbound_message_queue
