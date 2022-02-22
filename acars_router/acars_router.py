@@ -705,7 +705,7 @@ def UDPSender(host, port, output_queues: list, protoname: str):
 
         # try to send the message to the remote host
         try:
-            sock.sendto(data['out_json'], (host, port))
+            sock.sendto(f"{data['out_json']}\n", (host, port))
 
             # trace
             logger.log(logging_TRACE, f"in: {qname}; out: {host}:{port}/udp; data: {data}")
@@ -773,7 +773,7 @@ def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: 
 
         # try to send the message to the remote host
         try:
-            conn.sendall(data['out_json'])
+            conn.sendall(f"{data['out_json']}\n")
 
             # trace
             logger.log(logging_TRACE, f"in: {qname}; out: {host}:{port}/udp; data: {data}")
@@ -845,7 +845,7 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
 
                     # try to send the message to the remote host
                     try:
-                        sock.sendall(data['out_json'])
+                        sock.sendall(f"{data['out_json']}\n")
 
                     except Exception as e:
                         logger.error(f"error sending to {host}:{port}: {e}")
