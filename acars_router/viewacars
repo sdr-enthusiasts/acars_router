@@ -3,6 +3,7 @@
 import socket
 import argparse
 import logging
+import time
 
 if __name__ == "__main__":
 
@@ -11,7 +12,7 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
     host = "127.0.0.1"
-    port = "15550"
+    port = 15550
 
     # loop until the session is disconnected
     while True:
