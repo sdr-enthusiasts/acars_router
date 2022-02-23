@@ -5,7 +5,8 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
     AR_LISTEN_UDP_VDLM2=5555 \
     AR_LISTEN_TCP_VDLM2=5555 \
     AR_SERVE_TCP_ACARS=15550 \
-    AR_SERVE_TCP_VDLM2=15555
+    AR_SERVE_TCP_VDLM2=15555 \
+    PATH=/opt/acars_router:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 COPY acars_router/requirements.txt /opt/acars_router/requirements.txt
 

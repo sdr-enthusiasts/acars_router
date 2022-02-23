@@ -10,7 +10,7 @@ from pprint import pprint
 if __name__ == "__main__":
 
     host = "127.0.0.1"
-    port = 15550
+    port = 15555
 
     # configure logging: base logger
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
