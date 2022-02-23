@@ -51,7 +51,7 @@ if __name__ == "__main__":
                     try:
                         data = sock.recv(16384)
 
-                    except TimeoutError:
+                    except socket.timeout:
                         continue
 
                     except Exception as e:
