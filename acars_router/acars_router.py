@@ -406,16 +406,16 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
 
         # deal with multiple JSON messages that throw json.decoder.JSONDecodeError: Extra data: line L column N (char C)
         raw_json = copy.deepcopy(data['raw_json'])
-        
+
         # initially, we attempt to decode the whole message
         decode_to_char = len(raw_json)
-        
+
         # counter to prevent getting stuck in an infinite loop (shouldn't happen as everything is in try/except, but just to be sure)
         decode_attempts = 0
 
         # while there is data left to decode:
         while len(raw_json) > 0:
-            
+
             # attempt to deserialise
             try:
                 deserialised_json = json.loads(raw_json[:decode_to_char])
