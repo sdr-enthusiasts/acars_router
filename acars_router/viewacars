@@ -61,7 +61,7 @@ if __name__ == "__main__":
                         if data:
 
                             # trace logging
-                            logger.info(f"RX: {incoming_data}")
+                            logger.info(f"RX: {data}")
 
                         # if we received nothing, then "connection lost"
                         else:
