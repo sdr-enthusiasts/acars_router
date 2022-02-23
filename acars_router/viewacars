@@ -7,12 +7,12 @@ import time
 
 if __name__ == "__main__":
 
-    # configure logging: base logger
-    logger = logging.getLogger('acars_router')
-    logger.setLevel(logging.DEBUG)
-
     host = "127.0.0.1"
     port = 15550
+
+    # configure logging: base logger
+    logger = logging.getLogger(f'{host}:{port}')
+    logger.setLevel(logging.DEBUG)
 
     # loop until the session is disconnected
     while True:
@@ -61,7 +61,7 @@ if __name__ == "__main__":
                         if data:
 
                             # trace logging
-                            logger.info(f"in: {host}:{port}/tcp; out: {inbound_message_queue.name}; data: {incoming_data}")
+                            logger.info(f"RX: {incoming_data}")
 
                         # if we received nothing, then "connection lost"
                         else:
