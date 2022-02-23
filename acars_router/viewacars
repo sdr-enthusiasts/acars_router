@@ -11,6 +11,7 @@ if __name__ == "__main__":
     port = 15550
 
     # configure logging: base logger
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
     logger = logging.getLogger(f'{host}:{port}')
     logger.setLevel(logging.DEBUG)
 
