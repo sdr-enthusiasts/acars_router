@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+
+import socket
+import argparse
+import logging
+
+if __name__ == "__main__":
+
+    # configure logging: base logger
+    logger = logging.getLogger('acars_router')
+    logger.setLevel(logging.DEBUG)
+
+    host = "127.0.0.1"
+    port = "15550"
+
+    # loop until the session is disconnected
+    while True:
+
+        # prepare socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+
+            # set up socket
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+            # attempt connection
+            logger.debug("attempting to connect")
+
+            # set socket connect timeout
+            sock.settimeout(1)
+
+            # attempt to connect
+            try:
+                sock.connect((host, port))
+            except Exception as e:
+                logger.error(f"connection error: {e}")
+                time.sleep(1)
+
+            # if connected with no exception
+            else:
+                logger.info("connection established")
+                sock.settimeout(1)
+
+                # while connected
+                while True:
+
+                    # try to receive data
+                    try:
+                        data = sock.recv(16384)
+
+                    except TimeoutError:
+                        pass
+
+                    except Exception as e:
+                        logger.error(f"error receiving data: {e}")
+
+                    # if data received with no exception
+                    else:
+
+                        # if we received something
+                        if data:
+
+                            # prepare data to be enqueued into input queue
+                            print(data)
+
+                            # trace logging
+                            logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {inbound_message_queue.name}; data: {incoming_data}")
+
+                        # if we received nothing, then "connection lost"
+                        else:
+                            logger.info("connection lost")
+
+                            # close the socket
+                            sock.close()
+
+                            # sleep for a second (slow down reconnection attempts)
+                            time.sleep(1)
+
+                            # break out of inner loop, so reconnection can happen
+                            break

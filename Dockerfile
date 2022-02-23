@@ -29,7 +29,7 @@ RUN set -x && \
     # Simple date/time versioning
     date +%Y%m%d.%H%M > /CONTAINER_VERSION
 
-COPY acars_router/ /opt/acars_router
+COPY acars_router/ /opt/acars_router/
 
 ENTRYPOINT [ "python3" ]
 
