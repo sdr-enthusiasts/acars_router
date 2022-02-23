@@ -283,7 +283,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                     try:
                         data = sock.recv(16384)
 
-                    except TimeoutError:
+                    except socket.timeout:
                         continue
 
                     except Exception as e:
