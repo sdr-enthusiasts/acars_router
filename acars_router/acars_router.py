@@ -422,7 +422,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
 
             # if there is extra data, attempt to decode as much as we can next iteration of loop
             except json.decoder.JSONDecodeError as e:
-                logger.debug(f"message contains extra data: {data}: {e}, attempting to decode to offset {e.pos}")
+                logger.debug(f"message contains extra data: {data}: {e}, attempting to decode to character {e.pos}, then will attempt remaining data")
                 decode_to_char = e.pos
 
             # if an exception, log and continue
