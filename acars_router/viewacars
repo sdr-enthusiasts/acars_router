@@ -95,7 +95,11 @@ if __name__ == "__main__":
                                     # if it is a dict...
                                     else:
 
+                                        # print json
                                         pprint(deserialised_json)
+
+                                        # remove the json we've already serialised from the input
+                                        data = data[decode_to_char:]
 
                                 # ensure we're not stuck in an infinite loop (unlikely there'd be 100 parts of json in a message. I've only ever seen up to 2.)
                                 if decode_attempts > 100:
