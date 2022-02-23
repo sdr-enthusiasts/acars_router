@@ -404,34 +404,69 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         data = in_queue.get()
         in_queue.task_done()
 
-        # attempt to deserialise
-        try:
-            data['json'] = json.loads(data['raw_json'])
+        # deal with multiple JSON messages that throw json.decoder.JSONDecodeError: Extra data: line L column N (char C)
+        raw_json = copy.deepcopy(data['raw_json'])
+        
+        # initially, we attempt to decode the whole message
+        decode_to_char = len(raw_json)
+        
+        # counter to prevent getting stuck in an infinite loop (shouldn't happen as everything is in try/except, but just to be sure)
+        decode_attempts = 0
 
-        # if an exception, log and continue
-        except Exception as e:
+        # while there is data left to decode:
+        while len(raw_json) > 0:
+            
+            # attempt to deserialise
+            try:
+                deserialised_json = json.loads(raw_json[:decode_to_char])
 
-            logger.error(f"invalid JSON received via {data['src_name']}")
-            logger.debug(f"invalid JSON received: {data}, exception: {e}")
+            # if there is extra data, attempt to decode as much as we can next iteration of loop
+            except json.decoder.JSONDecodeError as e:
+                logger.debug(f"message contains extra data: {data}: {e}, attempting to decode to offset {e.pos}")
+                decode_to_char = e.pos
 
-            COUNTERS.increment(f'invalid_json_{protoname}')
-            continue
-
-        # if no exception, put deserialised data onto out_queue
-        else:
-
-            # ensure json.loads resulted in a dict
-            if type(data['json']) != dict:
+            # if an exception, log and continue
+            except Exception as e:
                 logger.error(f"invalid JSON received via {data['src_name']}")
-                logger.debug(f"invalid JSON received: json.loads on raw_json returned non-dict object: {data}")
+                logger.debug(f"invalid JSON received: {data}, exception: {e}")
                 COUNTERS.increment(f'invalid_json_{protoname}')
-                continue
+                break
 
-            # trace logging
-            logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+            else:
 
-            # enqueue the data
-            out_queue.put(data)
+                # ensure json.loads resulted in a dict
+                if type(deserialised_json) != dict:
+                    logger.error(f"invalid JSON received via {data['src_name']}")
+                    logger.debug(f"invalid JSON received: json.loads on raw_json returned non-dict object: {data}")
+                    COUNTERS.increment(f'invalid_json_{protoname}')
+
+                # if it is a dict...
+                else:
+
+                    # build output message object
+                    data_out = copy.deepcopy(data)
+
+                    # add deserialised_json
+                    data_out['json'] = deserialised_json
+
+                    # add the character offset from raw_json
+                    data_out['raw_json_char_offset'] = decode_to_char
+
+                    # trace logging
+                    logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+
+                    # enqueue the data
+                    out_queue.put(data_out)
+
+                    # remove the json we've already serialised from the input
+                    raw_json = raw_json[decode_to_char:]
+
+            # ensure we're not stuck in an infinite loop (unlikely there'd be 100 parts of json in a message. I've only ever seen up to 2.)
+            if decode_attempts > 100:
+                logger.error(f"infinite loop deserialising: {data}")
+                break
+            else:
+                decode_attempts += 1
 
 
 def within_acceptable_skew(timestamp: int, skew_window_secs: int):
