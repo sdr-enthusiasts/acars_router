@@ -432,6 +432,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
                 COUNTERS.increment(f'invalid_json_{protoname}')
                 break
 
+            # if there was no exception:
             else:
 
                 # ensure json.loads resulted in a dict
@@ -453,7 +454,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
                     data_out['raw_json_char_offset'] = decode_to_char
 
                     # trace logging
-                    logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+                    logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data_out}")
 
                     # enqueue the data
                     out_queue.put(data_out)
