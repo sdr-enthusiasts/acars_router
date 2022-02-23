@@ -52,7 +52,7 @@ if __name__ == "__main__":
                         data = sock.recv(16384)
 
                     except TimeoutError:
-                        pass
+                        continue
 
                     except Exception as e:
                         logger.error(f"error receiving data: {e}")
