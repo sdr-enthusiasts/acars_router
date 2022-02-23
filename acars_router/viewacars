@@ -60,11 +60,8 @@ if __name__ == "__main__":
                         # if we received something
                         if data:
 
-                            # prepare data to be enqueued into input queue
-                            print(data)
-
                             # trace logging
-                            logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {inbound_message_queue.name}; data: {incoming_data}")
+                            logger.info(f"in: {host}:{port}/tcp; out: {inbound_message_queue.name}; data: {incoming_data}")
 
                         # if we received nothing, then "connection lost"
                         else:
