@@ -24,7 +24,7 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | -------- | -------------------- | ----------- | --------|
 | `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | UDP port to listen for VDLM2 JSON messages. Can be specified multiple times to listen on multiple ports. | |
 | `--listen-tcp-vdlm2` | `AR_LISTEN_TCP_VDLM2` | TCP port to listen for VDLM2 JSON messages. Can be specified multiple times to listen on multiple ports. | |
-| `--listen-udp-vdlm2` | `AR_LISTEN_UDP_VDLM2` | Connect to `host:port` (over TCP) and receive VDLM2 JSON messages. Can be specified multiple times to receive from multiple sources. | |
+| `--receive-tcp-vdlm2` | `AR_RECV_TCP_VDLM2` | Connect to `host:port` (over TCP) and receive VDLM2 JSON messages. Can be specified multiple times to receive from multiple sources. | |
 | `--receive-zmq-vdlm2` | `AR_RECV_ZMQ_VDLM2` | Connect to a ZeroMQ publisher at `host:port` (over TCP) and receive VDLM2 JSON messages as a subscriber. Can be specified multiple times to receive from multiple sources. | |
 
 ### Output
