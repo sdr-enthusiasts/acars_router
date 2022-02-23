@@ -461,6 +461,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
 
                     # remove the json we've already serialised from the input
                     raw_json = raw_json[decode_to_char:]
+                    decode_to_char = len(raw_json)
 
             # ensure we're not stuck in an infinite loop (unlikely there'd be 100 parts of json in a message. I've only ever seen up to 2.)
             if decode_attempts > 100:
