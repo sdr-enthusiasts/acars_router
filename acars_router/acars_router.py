@@ -15,8 +15,6 @@ import time
 import uuid
 import zmq
 
-from pprint import pprint
-
 
 # HELPER CLASSES #
 
@@ -505,7 +503,7 @@ def acars_hasher(
         in_queue.task_done()
 
         # ensure message has a timestamp
-        if not 'timestamp' in data['json']:
+        if 'timestamp' not in data['json']:
             logger.error(f"message does not contain 'timestamp' field: {data['json']}, dropping message")
             continue
 
@@ -591,9 +589,9 @@ def vdlm2_hasher(
 
         # create timestamp:
         if data['format'] == "dumpvdl2":
-            
+
             # ensure message has a timestamp
-            if not 't' in data['json']['vdl2']:
+            if 't' not in data['json']['vdl2']:
                 logger.error(f"message does not contain 't' field: {data['json']}, dropping message")
                 continue
 
@@ -603,13 +601,12 @@ def vdlm2_hasher(
         elif data['format'] == "vdlm2dec":
 
             # ensure message has a timestamp
-            if not 'timestamp' in data['json']:
+            if 'timestamp' not in data['json']:
                 logger.error(f"message does not contain 'timestamp' field: {data['json']}, dropping message")
                 continue
-            
+
             # create timestamp (in nanoseconds) from message timestamp
             data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
-        
 
         # drop messages with timestamp outside of max skew range
         if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
