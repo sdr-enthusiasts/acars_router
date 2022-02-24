@@ -15,6 +15,8 @@ import time
 import uuid
 import zmq
 
+from pprint import pprint
+
 
 # HELPER CLASSES #
 
@@ -556,6 +558,9 @@ def vdlm2_hasher(
         # pop data from queue
         data = in_queue.get()
         in_queue.task_done()
+
+        # determine whether data is from dumpvdl2 (preferred) or vdlm2dec
+        pprint(data)
 
         # create timestamp from t.sec & t.usec
         data['msgtime_ns'] = (int(data['json']['vdl2']['t']['sec']) * 1e9) + (int(data['json']['vdl2']['t']['usec']) * 1000)
@@ -1310,7 +1315,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--send-tcp-vdlm2',
-        help='Send VDLM2 messages via TCP to "host:port". Can be specified multiple times to send to multiple clients.',
+        help='Send VDLM2 messages via TCP to "host:port[:format]". Can be specified multiple times to send to multiple clients.',
         type=str,
         nargs='*',
         default=split_env_safely('AR_SEND_TCP_VDLM2'),
