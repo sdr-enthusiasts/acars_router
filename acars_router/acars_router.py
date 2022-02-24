@@ -1001,6 +1001,58 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                 logger.info("connection lost")
 
 
+def ZMQServer(port: int, output_queues: list, protoname: str):
+    """
+    Process to send ACARS/VDLM2 messages to TCP clients.
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'output.zmqserver.{protoname}:{port}')
+    logger.debug("spawned")
+
+    # Create an output queue for this instance of the function & add to output queue
+    qname = f'output.zmqserver.{protoname}:{port}'
+    logger.debug(f"registering output queue: {qname}")
+    q = ARQueue(qname, 100)
+    output_queues.append(q)
+
+    # Set up zmq context
+    context = zmq.Context()
+
+    # This is our public endpoint for subscribers
+    backend = context.socket(zmq.PUB)
+    backend.bind(f"tcp://0.0.0.0:{port}")
+
+    # Loop to send messages from output queue
+    while True:
+
+        # Pop a message from the output queue
+        data = q.get()
+        q.task_done()
+
+        # try to send the message to the remote host
+        try:
+            backend.send_multipart(data['out_json'])
+
+            # trace
+            logger.log(logging_TRACE, f"in: {qname}; out: {port}/zmq; data: {data}")
+
+        except Exception as e:
+            logger.error(f"error sending: {e}")
+            break
+
+    # clean up
+    # remove this instance's queue from the output queue
+    logger.debug(f"deregistering output queue: {qname}")
+    output_queues.remove(q)
+    # delete our queue
+    del(q)
+
+    logger.info("server stopped")
+
+
 # HELPER FUNCTIONS #
 
 
@@ -1299,13 +1351,31 @@ def valid_args(args):
             logger.critical(f"serve_tcp_acars: invalid port: {i}")
             return False
 
+    # Check serve_zmq_acars, should be list of valid port numbers
+    for i in args.serve_zmq_acars:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except ValueError:
+            logger.critical(f"serve_tcp_acars: invalid port: {i}")
+            return False
+
     # Check serve_tcp_vdlm2, should be list of valid port numbers
-    for i in args.serve_tcp_acars:
+    for i in args.serve_tcp_vdlm2:
         try:
             if not valid_tcp_udp_port(int(i)):
                 raise ValueError
         except ValueError:
             logger.critical(f"serve_tcp_vdlm2: invalid port: {i}")
+            return False
+
+    # Check serve_zmq_vdlm2, should be list of valid port numbers
+    for i in args.serve_zmq_vdlm2:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except ValueError:
+            logger.critical(f"serve_zmq_vdlm2: invalid port: {i}")
             return False
 
     # Check stats_every, should be an int
@@ -1403,6 +1473,13 @@ if __name__ == "__main__":
         default=split_env_safely('AR_SERVE_TCP_ACARS'),
     )
     parser.add_argument(
+        '--serve-zmq-acars',
+        help='Serve ACARS messages as a ZeroMQ publisher on TCP "port". Can be specified multiple times to serve on multiple ports.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_SERVE_ZMQ_ACARS'),
+    )
+    parser.add_argument(
         '--send-udp-vdlm2',
         help='Send VDLM2 messages via UDP datagram to "host:port". Can be specified multiple times to send to multiple clients.',
         type=str,
@@ -1422,6 +1499,13 @@ if __name__ == "__main__":
         type=str,
         nargs='*',
         default=split_env_safely('AR_SERVE_TCP_VDLM2'),
+    )
+    parser.add_argument(
+        '--serve-zmq-vdlm2',
+        help='Serve VDLM2 messages as a ZeroMQ publisher on TCP "port". Can be specified multiple times to serve on multiple ports.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_SERVE_ZMQ_VDLM2'),
     )
     parser.add_argument(
         '--stats-every',
@@ -1726,6 +1810,24 @@ if __name__ == "__main__":
             target=TCPServerAcceptor,
             daemon=True,
             args=(int(port), output_vdlm2_queues, "VDLM2"),
+        ).start()
+
+    # acars zmq output (server)
+    for port in args.serve_zmq_acars:
+        logger.info(f'serving ACARS via ZMQ over TCP, port: {port}')
+        threading.Thread(
+            target=ZMQServer,
+            args=(port, output_acars_queues, "ACARS"),
+            daemon=True,
+        ).start()
+
+    # vdlm2 zmq output (server)
+    for port in args.serve_zmq_vdlm2:
+        logger.info(f'serving VDLM2 via ZMQ over TCP, port: {port}')
+        threading.Thread(
+            target=ZMQServer,
+            args=(port, output_vdlm2_queues, "VDLM2"),
+            daemon=True,
         ).start()
 
     # acars udp output (sender)
