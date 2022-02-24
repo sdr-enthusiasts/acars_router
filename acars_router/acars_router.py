@@ -504,12 +504,17 @@ def acars_hasher(
         data = in_queue.get()
         in_queue.task_done()
 
+        # ensure message has a timestamp
+        if not 'timestamp' in data['json']:
+            logger.error(f"message does not contain 'timestamp' field: {data['json']}, dropping message")
+            continue
+
         # create timestamp (in nanoseconds) from message timestamp
         data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
 
         # drop messages with timestamp outside of max skew range
         if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
-            logger.warning(f"message timestamp outside acceptable skew window: {data['json']['timestamp']} (now: {time.time()})")
+            logger.error(f"message timestamp outside acceptable skew window: {data['json']['timestamp']} (now: {time.time()}), dropping message")
             logger.debug(f"message timestamp outside acceptable skew window: {data}")
             continue
 
@@ -517,11 +522,26 @@ def acars_hasher(
         data_to_hash = copy.deepcopy(data['json'])
 
         # remove feeder-specific data so we only hash data unique to the message
-        del(data_to_hash['error'])
-        del(data_to_hash['level'])
-        del(data_to_hash['station_id'])
-        del(data_to_hash['timestamp'])
-        del(data_to_hash['channel'])
+        if 'error' in data_to_hash:
+            del(data_to_hash['error'])
+        else:
+            logger.warning(f"message does not contain expected 'error' field: {data_to_hash}")
+        if 'level' in data_to_hash:
+            del(data_to_hash['level'])
+        else:
+            logger.warning(f"message does not contain expected 'level' field: {data_to_hash}")
+        if 'station_id' in data_to_hash:
+            del(data_to_hash['station_id'])
+        else:
+            logger.warning(f"message does not contain expected 'station_id' field: {data_to_hash}")
+        if 'timestamp' in data_to_hash:
+            del(data_to_hash['timestamp'])
+        else:
+            logger.warning(f"message does not contain expected 'timestamp' field: {data_to_hash}")
+        if 'channel' in data_to_hash:
+            del(data_to_hash['channel'])
+        else:
+            logger.warning(f"message does not contain expected 'channel' field: {data_to_hash}")
 
         # store hashed data in message object
         data['hashed_data'] = json.dumps(
