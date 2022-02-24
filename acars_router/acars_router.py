@@ -586,7 +586,7 @@ def vdlm2_hasher(
         if 'vdl2' in data['json']:
             if 'app' in data['json']['vdl2']:
                 if 'name' in data['json']['vdl2']['app']:
-                    if data['json']['vdl2']['app'].lower() == "dumpvdl2":
+                    if data['json']['vdl2']['app']['name'].lower() == "dumpvdl2":
                         data['format'] = "dumpvdl2"
 
         # create timestamp:
