@@ -1031,6 +1031,7 @@ def ZMQServer(port: int, output_queues: list, protoname: str):
 
         # try to send the message to the remote host
         try:
+            print(type(data['out_json']))
             backend.send_multipart(data['out_json'])
 
             # trace
