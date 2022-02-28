@@ -179,8 +179,11 @@ if __name__ == "__main__":
             # For each json message inside the zmq message
             for data in message:
 
+                # deserialise json
+                deserialised_json = json.loads(data)
+                
                 # print json
-                pprint(data)
+                pprint(deserialised_json)
 
     else:
 
