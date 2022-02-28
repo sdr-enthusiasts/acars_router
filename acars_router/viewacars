@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="View ACARS frames")
 
-    parser.add_argument(,
+    parser.add_argument(
         '--host',
         nargs='?',
         default="127.0.0.1",
