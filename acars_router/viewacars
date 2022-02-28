@@ -155,7 +155,7 @@ if __name__ == "__main__":
                                 # break out of inner loop, so reconnection can happen
                                 break
 
-    elif proto == "udp":
+    elif proto == "zmq":
 
         # Prepare zmq context and sockets
         context = zmq.Context()
