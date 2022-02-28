@@ -9,115 +9,178 @@ from pprint import pprint
 
 if __name__ == "__main__":
 
-    host = "127.0.0.1"
-    port = 15550
+    parser = argparse.ArgumentParser(description="View ACARS frames")
+
+    parser.add_argument(,
+        '--host',
+        nargs='?',
+        default="127.0.0.1",
+        type=str,
+        help="Hostname (default: 127.0.0.1)",
+    )
+
+    parser.add_argument(
+        '--port',
+        nargs='?',
+        default=15550,
+        type=str,
+        help="Port (default: 15550)",
+    )
+
+    parser.add_argument(
+        '--protocol',
+        nargs='?',
+        default="tcp",
+        type=str,
+        choices=["tcp", "zmq"],
+        help="Protocol (default: tcp)",
+    )
+
+    args = parser.parse_args()
+
+    host = args.host
+    port = args.post
+    proto = args.protocol
 
     # configure logging: base logger
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
-    logger = logging.getLogger(f'{host}:{port}')
+    logger = logging.getLogger(f'input.{proto}.{host}:{port}')
     logger.setLevel(logging.DEBUG)
 
-    # loop until the session is disconnected
-    while True:
+    if proto == "tcp":
 
-        # prepare socket
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        # loop until the session is disconnected
+        while True:
 
-            # set up socket
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # prepare socket
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 
-            # attempt connection
-            logger.debug("attempting to connect")
+                # set up socket
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            # set socket connect timeout
-            sock.settimeout(1)
+                # attempt connection
+                logger.debug("attempting to connect")
 
-            # attempt to connect
-            try:
-                sock.connect((host, port))
-            except Exception as e:
-                logger.error(f"connection error: {e}")
-                time.sleep(1)
-
-            # if connected with no exception
-            else:
-                logger.info("connection established")
+                # set socket connect timeout
                 sock.settimeout(1)
 
-                # while connected
-                while True:
+                # attempt to connect
+                try:
+                    sock.connect((host, port))
+                except Exception as e:
+                    logger.error(f"connection error: {e}")
+                    time.sleep(1)
 
-                    # try to receive data
-                    try:
-                        data = sock.recv(16384)
+                # if connected with no exception
+                else:
+                    logger.info("connection established")
+                    sock.settimeout(1)
 
-                    except socket.timeout:
-                        continue
+                    # while connected
+                    while True:
 
-                    except Exception as e:
-                        logger.error(f"error receiving data: {e}")
+                        # try to receive data
+                        try:
+                            data = sock.recv(16384)
 
-                    # if data received with no exception
-                    else:
+                        except socket.timeout:
+                            continue
 
-                        # if we received something
-                        if data:
+                        except Exception as e:
+                            logger.error(f"error receiving data: {e}")
 
-                            # initially, we attempt to decode the whole message
-                            decode_to_char = len(data)
+                        # if data received with no exception
+                        else:
 
-                            # counter to prevent getting stuck in an infinite loop (shouldn't happen as everything is in try/except, but just to be sure)
-                            decode_attempts = 0
+                            # if we received something
+                            if data:
 
-                            # while there is data left to decode:
-                            while len(data) > 0:
+                                # initially, we attempt to decode the whole message
+                                decode_to_char = len(data)
 
-                                # attempt to deserialise
-                                try:
-                                    deserialised_json = json.loads(data[:decode_to_char])
+                                # counter to prevent getting stuck in an infinite loop (shouldn't happen as everything is in try/except, but just to be sure)
+                                decode_attempts = 0
 
-                                # if there is extra data, attempt to decode as much as we can next iteration of loop
-                                except json.decoder.JSONDecodeError as e:
-                                    decode_to_char = e.pos
+                                # while there is data left to decode:
+                                while len(data) > 0:
 
-                                # if an exception, log and continue
-                                except Exception as e:
-                                    logger.error(f"invalid JSON received: {data}, exception: {e}")
-                                    break
+                                    # attempt to deserialise
+                                    try:
+                                        deserialised_json = json.loads(data[:decode_to_char])
 
-                                # if there was no exception:
-                                else:
+                                    # if there is extra data, attempt to decode as much as we can next iteration of loop
+                                    except json.decoder.JSONDecodeError as e:
+                                        decode_to_char = e.pos
 
-                                    # ensure json.loads resulted in a dict
-                                    if type(deserialised_json) != dict:
-                                        logger.debug(f"invalid JSON received: json.loads on raw_json returned non-dict object: {data}")
+                                    # if an exception, log and continue
+                                    except Exception as e:
+                                        logger.error(f"invalid JSON received: {data}, exception: {e}")
+                                        break
 
-                                    # if it is a dict...
+                                    # if there was no exception:
                                     else:
 
-                                        # print json
-                                        pprint(deserialised_json)
+                                        # ensure json.loads resulted in a dict
+                                        if type(deserialised_json) != dict:
+                                            logger.debug(f"invalid JSON received: json.loads on raw_json returned non-dict object: {data}")
 
-                                        # remove the json we've already serialised from the input
-                                        data = data[decode_to_char:]
-                                        decode_to_char = len(data)
+                                        # if it is a dict...
+                                        else:
 
-                                # ensure we're not stuck in an infinite loop (unlikely there'd be 100 parts of json in a message. I've only ever seen up to 2.)
-                                if decode_attempts > 100:
-                                    logger.error(f"infinite loop deserialising: {data}")
-                                    break
-                                else:
-                                    decode_attempts += 1
+                                            # print json
+                                            pprint(deserialised_json)
 
-                        # if we received nothing, then "connection lost"
-                        else:
-                            logger.info("connection lost")
+                                            # remove the json we've already serialised from the input
+                                            data = data[decode_to_char:]
+                                            decode_to_char = len(data)
 
-                            # close the socket
-                            sock.close()
+                                    # ensure we're not stuck in an infinite loop (unlikely there'd be 100 parts of json in a message. I've only ever seen up to 2.)
+                                    if decode_attempts > 100:
+                                        logger.error(f"infinite loop deserialising: {data}")
+                                        break
+                                    else:
+                                        decode_attempts += 1
 
-                            # sleep for a second (slow down reconnection attempts)
-                            time.sleep(1)
+                            # if we received nothing, then "connection lost"
+                            else:
+                                logger.info("connection lost")
 
-                            # break out of inner loop, so reconnection can happen
-                            break
+                                # close the socket
+                                sock.close()
+
+                                # sleep for a second (slow down reconnection attempts)
+                                time.sleep(1)
+
+                                # break out of inner loop, so reconnection can happen
+                                break
+
+    elif proto == "udp":
+
+        # Prepare zmq context and sockets
+        context = zmq.Context()
+
+        # This program is a SUBscripber. dumpvdl2 is a PUBlisher.
+        subscriber = context.socket(zmq.SUB)
+
+        # Connect to dumpvdl2 zmq server
+        subscriber.connect(f"tcp://{host}:{port}")
+
+        # Subscribe for everything
+        subscriber.setsockopt(zmq.SUBSCRIBE, b'')
+
+        # Receive messages forever
+        while True:
+
+            # Receive all parts of a zmq message
+            message = subscriber.recv_multipart()
+
+            # For each json message inside the zmq message
+            for data in message:
+
+                # print json
+                pprint(data)
+
+    else:
+
+        logger.critial(f"Unsupported protocol: {proto}")
+        sys.exit(1)
