@@ -21,6 +21,10 @@ done <./test_data/"$1".patched
 jq -M . < ./test_data/"$1".patched > /tmp/"$1".udp.out.reference.reformatted
 jq -M . < /tmp/"$1".zmqserver.out > /tmp/"$1".zmqserver.out.reformatted
 
+echo "DEBUGGING"
+cat /tmp/"$1".zmqserver.out
+echo "END DEBUGGING"
+
 # Check output
 diff /tmp/"$1".udp.out.reference.reformatted /tmp/"$1".zmqserver.out.reformatted
 exit $?
