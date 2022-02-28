@@ -422,7 +422,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
 
             # if there is extra data, attempt to decode as much as we can next iteration of loop
             except json.decoder.JSONDecodeError as e:
-                logger.debug(f"message contains extra data: {data}: {e}, attempting to decode to character {e.pos}, then will attempt remaining data")
+                logger.log(logging_TRACE, f"message contains extra data: {data}: {e}, attempting to decode to character {e.pos}, then will attempt remaining data")
                 decode_to_char = e.pos
 
             # if an exception, log and continue
@@ -502,12 +502,17 @@ def acars_hasher(
         data = in_queue.get()
         in_queue.task_done()
 
+        # ensure message has a timestamp
+        if 'timestamp' not in data['json']:
+            logger.error(f"message does not contain 'timestamp' field: {data['json']}, dropping message")
+            continue
+
         # create timestamp (in nanoseconds) from message timestamp
         data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
 
         # drop messages with timestamp outside of max skew range
         if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
-            logger.warning(f"message timestamp outside acceptable skew window: {data['json']['timestamp']} (now: {time.time()})")
+            logger.error(f"message timestamp outside acceptable skew window: {data['json']['timestamp']} (now: {time.time()}), dropping message")
             logger.debug(f"message timestamp outside acceptable skew window: {data}")
             continue
 
@@ -515,11 +520,26 @@ def acars_hasher(
         data_to_hash = copy.deepcopy(data['json'])
 
         # remove feeder-specific data so we only hash data unique to the message
-        del(data_to_hash['error'])
-        del(data_to_hash['level'])
-        del(data_to_hash['station_id'])
-        del(data_to_hash['timestamp'])
-        del(data_to_hash['channel'])
+        if 'error' in data_to_hash:
+            del(data_to_hash['error'])
+        else:
+            logger.debug(f"message does not contain expected 'error' field: {data_to_hash}")
+        if 'level' in data_to_hash:
+            del(data_to_hash['level'])
+        else:
+            logger.debug(f"message does not contain expected 'level' field: {data_to_hash}")
+        if 'station_id' in data_to_hash:
+            del(data_to_hash['station_id'])
+        else:
+            logger.debug(f"message does not contain expected 'station_id' field: {data_to_hash}")
+        if 'timestamp' in data_to_hash:
+            del(data_to_hash['timestamp'])
+        else:
+            logger.debug(f"message does not contain expected 'timestamp' field: {data_to_hash}")
+        if 'channel' in data_to_hash:
+            del(data_to_hash['channel'])
+        else:
+            logger.debug(f"message does not contain expected 'channel' field: {data_to_hash}")
 
         # store hashed data in message object
         data['hashed_data'] = json.dumps(
@@ -557,8 +577,36 @@ def vdlm2_hasher(
         data = in_queue.get()
         in_queue.task_done()
 
-        # create timestamp from t.sec & t.usec
-        data['msgtime_ns'] = (int(data['json']['vdl2']['t']['sec']) * 1e9) + (int(data['json']['vdl2']['t']['usec']) * 1000)
+        # determine whether data is from dumpvdl2 (preferred) or vdlm2dec
+        data['format'] = "unknown"
+        if 'timestamp' in data['json']:
+            data['format'] = "vdlm2dec"
+        if 'vdl2' in data['json']:
+            if 'app' in data['json']['vdl2']:
+                if 'name' in data['json']['vdl2']['app']:
+                    if data['json']['vdl2']['app']['name'].lower() == "dumpvdl2":
+                        data['format'] = "dumpvdl2"
+
+        # create timestamp:
+        if data['format'] == "dumpvdl2":
+
+            # ensure message has a timestamp
+            if 't' not in data['json']['vdl2']:
+                logger.error(f"message does not contain 't' field: {data['json']}, dropping message")
+                continue
+
+            # create timestamp from t.sec & t.usec
+            data['msgtime_ns'] = (int(data['json']['vdl2']['t']['sec']) * 1e9) + (int(data['json']['vdl2']['t']['usec']) * 1000)
+
+        elif data['format'] == "vdlm2dec":
+
+            # ensure message has a timestamp
+            if 'timestamp' not in data['json']:
+                logger.error(f"message does not contain 'timestamp' field: {data['json']}, dropping message")
+                continue
+
+            # create timestamp (in nanoseconds) from message timestamp
+            data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
 
         # drop messages with timestamp outside of max skew range
         if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
@@ -570,14 +618,64 @@ def vdlm2_hasher(
         data_to_hash = copy.deepcopy(data['json'])
 
         # remove feeder-specific data so we only hash data unique to the message
-        del(data_to_hash['vdl2']['app'])
-        del(data_to_hash['vdl2']['freq_skew'])
-        del(data_to_hash['vdl2']['hdr_bits_fixed'])
-        del(data_to_hash['vdl2']['noise_level'])
-        del(data_to_hash['vdl2']['octets_corrected_by_fec'])
-        del(data_to_hash['vdl2']['sig_level'])
-        del(data_to_hash['vdl2']['station'])
-        del(data_to_hash['vdl2']['t'])
+        if data['format'] == "dumpvdl2":
+
+            if 'app' in data_to_hash['vdl2']:
+                del(data_to_hash['vdl2']['app'])
+            else:
+                logger.debug(f"message does not contain expected 'app' field: {data_to_hash}")
+            if 'freq_skew' in data_to_hash['vdl2']:
+                del(data_to_hash['vdl2']['freq_skew'])
+            else:
+                logger.debug(f"message does not contain expected 'freq_skew' field: {data_to_hash}")
+            if 'hdr_bits_fixed' in data_to_hash['vdl2']:
+                del(data_to_hash['vdl2']['hdr_bits_fixed'])
+            else:
+                logger.debug(f"message does not contain expected 'hdr_bits_fixed' field: {data_to_hash}")
+            if 'noise_level' in data_to_hash['vdl2']:
+                del(data_to_hash['vdl2']['noise_level'])
+            else:
+                logger.debug(f"message does not contain expected 'noise_level' field: {data_to_hash}")
+            if 'octets_corrected_by_fec' in data_to_hash['vdl2']:
+                del(data_to_hash['vdl2']['octets_corrected_by_fec'])
+            else:
+                logger.debug(f"message does not contain expected 'octets_corrected_by_fec' field: {data_to_hash}")
+            if 'sig_level' in data_to_hash['vdl2']:
+                del(data_to_hash['vdl2']['sig_level'])
+            else:
+                logger.debug(f"message does not contain expected 'sig_level' field: {data_to_hash}")
+            if 'station' in data_to_hash['vdl2']:
+                del(data_to_hash['vdl2']['station'])
+            else:
+                logger.debug(f"message does not contain expected 'station' field: {data_to_hash}")
+            if 't' in data_to_hash['vdl2']:
+                del(data_to_hash['vdl2']['t'])
+            else:
+                logger.debug(f"message does not contain expected 't' field: {data_to_hash}")
+
+        elif data['format'] == "vdlm2dec":
+
+            # remove feeder-specific data so we only hash data unique to the message
+            if 'error' in data_to_hash:
+                del(data_to_hash['error'])
+            else:
+                logger.debug(f"message does not contain expected 'error' field: {data_to_hash}")
+            if 'level' in data_to_hash:
+                del(data_to_hash['level'])
+            else:
+                logger.debug(f"message does not contain expected 'level' field: {data_to_hash}")
+            if 'station_id' in data_to_hash:
+                del(data_to_hash['station_id'])
+            else:
+                logger.debug(f"message does not contain expected 'station_id' field: {data_to_hash}")
+            if 'timestamp' in data_to_hash:
+                del(data_to_hash['timestamp'])
+            else:
+                logger.debug(f"message does not contain expected 'timestamp' field: {data_to_hash}")
+            if 'channel' in data_to_hash:
+                del(data_to_hash['channel'])
+            else:
+                logger.debug(f"message does not contain expected 'channel' field: {data_to_hash}")
 
         # store hashed data in message object
         data['hashed_data'] = json.dumps(
@@ -900,6 +998,58 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                 logger.info("connection lost")
 
 
+def ZMQServer(port: int, output_queues: list, protoname: str):
+    """
+    Process to send ACARS/VDLM2 messages to TCP clients.
+    Intended to be run in a thread.
+    """
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild(f'output.zmqserver.{protoname}:{port}')
+    logger.debug("spawned")
+
+    # Create an output queue for this instance of the function & add to output queue
+    qname = f'output.zmqserver.{protoname}:{port}'
+    logger.debug(f"registering output queue: {qname}")
+    q = ARQueue(qname, 100)
+    output_queues.append(q)
+
+    # Set up zmq context
+    context = zmq.Context()
+
+    # This is our public endpoint for subscribers
+    backend = context.socket(zmq.PUB)
+    backend.bind(f"tcp://0.0.0.0:{port}")
+
+    # Loop to send messages from output queue
+    while True:
+
+        # Pop a message from the output queue
+        data = q.get()
+        q.task_done()
+
+        # try to send the message to the remote host
+        try:
+            backend.send_multipart([data['out_json'], ])
+
+            # trace
+            logger.log(logging_TRACE, f"in: {qname}; out: {port}/zmq; data: {data}")
+
+        except Exception as e:
+            logger.error(f"error sending: {e}")
+            break
+
+    # clean up
+    # remove this instance's queue from the output queue
+    logger.debug(f"deregistering output queue: {qname}")
+    output_queues.remove(q)
+    # delete our queue
+    del(q)
+
+    logger.info("server stopped")
+
+
 # HELPER FUNCTIONS #
 
 
@@ -1198,13 +1348,31 @@ def valid_args(args):
             logger.critical(f"serve_tcp_acars: invalid port: {i}")
             return False
 
+    # Check serve_zmq_acars, should be list of valid port numbers
+    for i in args.serve_zmq_acars:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except ValueError:
+            logger.critical(f"serve_tcp_acars: invalid port: {i}")
+            return False
+
     # Check serve_tcp_vdlm2, should be list of valid port numbers
-    for i in args.serve_tcp_acars:
+    for i in args.serve_tcp_vdlm2:
         try:
             if not valid_tcp_udp_port(int(i)):
                 raise ValueError
         except ValueError:
             logger.critical(f"serve_tcp_vdlm2: invalid port: {i}")
+            return False
+
+    # Check serve_zmq_vdlm2, should be list of valid port numbers
+    for i in args.serve_zmq_vdlm2:
+        try:
+            if not valid_tcp_udp_port(int(i)):
+                raise ValueError
+        except ValueError:
+            logger.critical(f"serve_zmq_vdlm2: invalid port: {i}")
             return False
 
     # Check stats_every, should be an int
@@ -1302,6 +1470,13 @@ if __name__ == "__main__":
         default=split_env_safely('AR_SERVE_TCP_ACARS'),
     )
     parser.add_argument(
+        '--serve-zmq-acars',
+        help='Serve ACARS messages as a ZeroMQ publisher on TCP "port". Can be specified multiple times to serve on multiple ports.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_SERVE_ZMQ_ACARS'),
+    )
+    parser.add_argument(
         '--send-udp-vdlm2',
         help='Send VDLM2 messages via UDP datagram to "host:port". Can be specified multiple times to send to multiple clients.',
         type=str,
@@ -1310,7 +1485,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--send-tcp-vdlm2',
-        help='Send VDLM2 messages via TCP to "host:port". Can be specified multiple times to send to multiple clients.',
+        help='Send VDLM2 messages via TCP to "host:port[:format]". Can be specified multiple times to send to multiple clients.',
         type=str,
         nargs='*',
         default=split_env_safely('AR_SEND_TCP_VDLM2'),
@@ -1321,6 +1496,13 @@ if __name__ == "__main__":
         type=str,
         nargs='*',
         default=split_env_safely('AR_SERVE_TCP_VDLM2'),
+    )
+    parser.add_argument(
+        '--serve-zmq-vdlm2',
+        help='Serve VDLM2 messages as a ZeroMQ publisher on TCP "port". Can be specified multiple times to serve on multiple ports.',
+        type=str,
+        nargs='*',
+        default=split_env_safely('AR_SERVE_ZMQ_VDLM2'),
     )
     parser.add_argument(
         '--stats-every',
@@ -1625,6 +1807,24 @@ if __name__ == "__main__":
             target=TCPServerAcceptor,
             daemon=True,
             args=(int(port), output_vdlm2_queues, "VDLM2"),
+        ).start()
+
+    # acars zmq output (server)
+    for port in args.serve_zmq_acars:
+        logger.info(f'serving ACARS via ZMQ over TCP, port: {port}')
+        threading.Thread(
+            target=ZMQServer,
+            args=(port, output_acars_queues, "ACARS"),
+            daemon=True,
+        ).start()
+
+    # vdlm2 zmq output (server)
+    for port in args.serve_zmq_vdlm2:
+        logger.info(f'serving VDLM2 via ZMQ over TCP, port: {port}')
+        threading.Thread(
+            target=ZMQServer,
+            args=(port, output_vdlm2_queues, "VDLM2"),
+            daemon=True,
         ).start()
 
     # acars udp output (sender)
