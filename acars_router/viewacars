@@ -38,6 +38,12 @@ if __name__ == "__main__":
         help="Protocol (default: tcp)",
     )
 
+    parser.add_argument(
+        '--pretty',
+        action=store_true,
+        default=False,
+    )
+
     args = parser.parse_args()
 
     host = args.host
@@ -130,7 +136,10 @@ if __name__ == "__main__":
                                         else:
 
                                             # print json
-                                            pprint(deserialised_json)
+                                            if args.pretty:
+                                                pprint(deserialised_json)
+                                            else:
+                                                print(deserialised_json)
 
                                             # remove the json we've already serialised from the input
                                             data = data[decode_to_char:]
@@ -183,7 +192,10 @@ if __name__ == "__main__":
                 deserialised_json = json.loads(data)
                 
                 # print json
-                pprint(deserialised_json)
+                if args.pretty:
+                    pprint(deserialised_json)
+                else:
+                    print(deserialised_json)
 
     else:
 
