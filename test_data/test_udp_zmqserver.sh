@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# TODO: Fix this test.
+
 set -xe
 
 PORT1=$(shuf -i 7000-7999 -n 1)
