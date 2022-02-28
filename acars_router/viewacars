@@ -139,7 +139,11 @@ if __name__ == "__main__":
                                             if args.pretty:
                                                 pprint(deserialised_json)
                                             else:
-                                                print(deserialised_json)
+                                                print(json.dumps(
+                                                    deserialised_json,
+                                                    separators=(',', ':'),
+                                                    sort_keys=True,
+                                                ))
 
                                             # remove the json we've already serialised from the input
                                             data = data[decode_to_char:]
@@ -195,7 +199,11 @@ if __name__ == "__main__":
                 if args.pretty:
                     pprint(deserialised_json)
                 else:
-                    print(deserialised_json)
+                    print(json.dumps(
+                        deserialised_json,
+                        separators=(',', ':'),
+                        sort_keys=True,
+                    ))
 
     else:
 
