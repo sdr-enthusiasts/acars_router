@@ -39,7 +39,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     host = args.host
-    port = args.post
+    port = args.port
     proto = args.protocol
 
     # configure logging: base logger
