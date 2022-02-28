@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '--pretty',
-        action=store_true,
+        action='store_true',
         default=False,
     )
 
