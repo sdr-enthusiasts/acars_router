@@ -36,6 +36,7 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | `--send-udp-acars` | `AR_SEND_UDP_ACARS` | Send ACARS JSON messages via UDP datagram to `host:port`. Can be specified multiple times to send to multiple clients. | |
 | `--send-tcp-acars` | `AR_SEND_TCP_ACARS` | Send ACARS JSON messages via TCP to `host:port`. Can be specified multiple times to send to multiple clients. | |
 | `--serve-tcp-acars` | `AR_SERVE_TCP_ACARS` | Serve ACARS JSON messages on TCP `port`. Can be specified multiple times to serve on multiple ports. | |
+| `--serve-zmq-acars` | `AR_SERVE_ZMQ_ACARS` | Serve ACARS messages as a ZeroMQ publisher on TCP `port`. Can be specified multiple times to serve on multiple ports. | |
 
 #### VDLM2 Output
 
@@ -44,6 +45,7 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | `--send-udp-vdlm2` | `AR_SEND_UDP_VDLM2` | Send VDLM2 JSON messages via UDP datagram to `host:port`. Can be specified multiple times to send to multiple clients. | |
 | `--send-tcp-vdlm2` | `AR_SEND_TCP_VDLM2` | Send VDLM2 JSON messages via TCP to `host:port`. Can be specified multiple times to send to multiple clients. | |
 | `--serve-tcp-vdlm2` | `AR_SERVE_TCP_VDLM2` | Serve VDLM2 JSON messages on TCP `port`. Can be specified multiple times to serve on multiple ports. | |
+| `--serve-zmq-vdlm2` | `AR_SERVE_ZMQ_VDLM2` | Serve VDLM2 messages as a ZeroMQ publisher on TCP `port`. Can be specified multiple times to serve on multiple ports. | |
 
 ### Logging
 
@@ -103,6 +105,7 @@ A high-level overview of the `acars_router` internals:
 * Outbound Queue Population
   * When an output is configured with `--send-udp-acars`, `--send-tcp-acars`, `--send-udp-vdlm2` or `--send-tcp-vdlm2`, an output queue is created for each destination.
   * When an output is configured with `--serve-tcp-acars` or `--serve-tcp-vdlm2`, an output queue is created for each host that connects.
+  * When an output is configured with `--serve-zmq-acars` or `--serve-zmq-vdlm2`, ZMQ handles per-connection queueing, so a single output queue for each is created.
   * All of these output queues are kept in lists: `output_acars_queues` and `output_vdlm2_queues`.
   * A pool of `output_queue_populator` threads receive messages from the dedupe message queues. The message object is duplicated for each output queue in the output queue lists, and placed onto the queues. If `--override-station-name` has been set, the JSON is modified accordingly.
   * Each output queue is then processed by a TCP/UDP client/server and the processed JSON message is sent out.
