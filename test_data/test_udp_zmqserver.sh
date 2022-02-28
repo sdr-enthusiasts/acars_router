@@ -9,7 +9,7 @@ python3 ./acars_router/acars_router.py -vv --skew-window 300 --listen-udp-"$1" "
 sleep 1
 
 # Process to receive output
-viewacars --port "${PORT1}" --protocol zmq > /tmp/"$1".zmqserver.out &
+python3 ./acars_router/viewacars --port "${PORT1}" --protocol zmq | tee /tmp/"$1".zmqserver.out &
 sleep 1
 
 # Send test data thru acars_router
