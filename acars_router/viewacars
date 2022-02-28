@@ -7,6 +7,7 @@ import time
 import json
 from pprint import pprint
 import sys
+import zmq
 
 if __name__ == "__main__":
 
