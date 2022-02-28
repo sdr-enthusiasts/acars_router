@@ -75,7 +75,7 @@ jobs:
         run: ./test_data/clean_up_after_test.sh
 
       - name: "ACARS: Test UDP Listen -> ZMQ Serve"
-        run: ./test_udp_zmqserver.sh
+        run: ./test_udp_zmqserver.sh acars
       - name: Clean up between tests
         run: ./test_data/clean_up_after_test.sh acars
 
@@ -100,7 +100,7 @@ jobs:
         run: ./test_data/clean_up_after_test.sh
 
       - name: "ACARS: Test UDP Listen -> ZMQ Serve"
-        run: ./test_data/test_udp_zmqserver.sh
+        run: ./test_data/test_udp_zmqserver.sh vdlm2
       - name: Clean up between tests
         run: ./test_data/clean_up_after_test.sh vdlm2
 
