@@ -11,7 +11,7 @@ import zmq
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="View ACARS frames")
+    parser = argparse.ArgumentParser(description="View ACARS/VDLM2 frames received via TCP/ZMQ")
 
     parser.add_argument(
         '--host',
