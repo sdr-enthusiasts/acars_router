@@ -1322,7 +1322,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"send_udp_acars: invalid port: {port}")
@@ -1344,7 +1344,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"send_tcp_acars: invalid port: {port}")
@@ -1366,7 +1366,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"send_udp_vdlm2: invalid port: {port}")
@@ -1388,7 +1388,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"send_tcp_vdlm2: invalid port: {port}")
