@@ -75,6 +75,8 @@ class ARCounters():
 
             # prepare output with counters
             output_dict = {
+                'messages_received_total_acars': self.listen_udp_acars + self.listen_tcp_acars + self.receive_tcp_acars
+                'messages_received_total_vdlm2': self.listen_udp_vdlm2 + self.listen_tcp_vdlm2 + self.receive_tcp_vdlm2 + self.receive_zmq_vdlm2
                 'messages_received_by_listen_udp_acars': self.listen_udp_acars,
                 'messages_received_by_listen_tcp_acars': self.listen_tcp_acars,
                 'messages_received_by_receive_tcp_acars': self.receive_tcp_acars,
