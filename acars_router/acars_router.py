@@ -112,7 +112,6 @@ class ARCounters():
             with open(self.stats_file, 'w') as f:
                 f.write(output_json)
 
-
     def log(self, logger: logging.Logger, level: int):
         if self.listen_udp_acars > 0:
             logger.log(level, f"ACARS messages via UDP listen: {self.listen_udp_acars}")
