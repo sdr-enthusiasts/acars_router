@@ -70,6 +70,47 @@ class ARCounters():
         self.standalone_queues = list()
         self.standalone_deque = list()
 
+    def save_stats_file(self):
+        if self.stats_file:
+
+            # prepare output with counters
+            output_dict = {
+                'messages_received_by_listen_udp_acars': self.listen_udp_acars,
+                'messages_received_by_listen_tcp_acars': self.listen_tcp_acars,
+                'messages_received_by_receive_tcp_acars': self.receive_tcp_acars,
+                'messages_received_by_listen_udp_vdlm2': self.listen_udp_vdlm2,
+                'messages_received_by_listen_tcp_vdlm2': self.listen_tcp_vdlm2,
+                'messages_received_by_receive_tcp_vdlm2': self.receive_tcp_vdlm2,
+                'messages_received_by_receive_zmq_vdlm2': self.receive_zmq_vdlm2,
+                'messages_received_invalid_json_acars': self.invalid_json_acars,
+                'messages_received_invalid_json_vdlm2': self.invalid_json_vdlm2,
+                'messages_received_duplicate_acars': self.duplicate_acars,
+                'messages_received_duplicate_vdlm2': self.duplicate_vdlm2,
+            }
+
+            # prepare output with queue depths
+            for q in self.standalone_queues:
+                logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
+                output_dict[f'{q.name}'] = int(f'{q.qsize()}')
+            for queue_list in self.queue_lists:
+                for q in queue_list:
+                    output_dict[f'{q.name}'] = int(f'{q.qsize()}')
+            for dq in self.standalone_deque:
+                dqlen = len(dq[1])
+                output_dict[f'{dq[0]}'] = int(f'{dqlen}')
+
+            # turn dict into json
+            output_json = json.dumps(
+                output_dict,
+                separators=(',', ':'),
+                sort_keys=True,
+            )
+
+            # write file
+            with open(self.stats_file, 'w') as f:
+                f.write(output_json)
+
+
     def log(self, logger: logging.Logger, level: int):
         if self.listen_udp_acars > 0:
             logger.log(level, f"ACARS messages via UDP listen: {self.listen_udp_acars}")
@@ -94,7 +135,7 @@ class ARCounters():
         if self.duplicate_vdlm2 > 0:
             logger.log(level, f"Duplicate VDLM2 messages dropped: {self.duplicate_vdlm2}")
 
-        # Log queue depths (TODO: should probably be debug level)
+        # Log queue depths
         for q in self.standalone_queues:
             # qs = q.qsize()
             # if qs > 0:
