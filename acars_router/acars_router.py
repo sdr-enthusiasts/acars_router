@@ -1449,6 +1449,12 @@ def valid_args(args):
         logger.critical(f"verbose: invalid value: {args.verbose}")
         return False
 
+    # Check stats_file
+    # Ensure directory exists
+    if os.path.isdir(os.path.dirname(args.stats_file)):
+        logger.critical(f"stats_file: is not a directory: {os.path.dirname(args.stats_file)}")
+        return False
+
     # If we're here, all arguments are good
     return True
 
