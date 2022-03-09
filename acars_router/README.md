@@ -52,6 +52,7 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
 | `--stats-every` | `AR_STATS_EVERY` | Print statistics every `N` minutes | `5` |
+| `--stats-file` | `AR_STATS_FILE` | Logs statistics (in JSON format) to this file every 10 seconds | |
 | `-v` `--verbose` | `AR_VERBOSITY` | Increase log verbosity. `-v`/`AR_VERBOSITY=1` = Debug. `-vv`/`AR_VERBOSITY=2` = Trace (raw packets printed) | `0` (info) |
 
 ### Deduplication
@@ -122,3 +123,15 @@ I have attempted to show this in a flow diagram:
 * With `-vv`/`AR_VERBOSITY=2` the `TRACE` level is added, which prints the contents of the message object as it traverses through each process. This level is very noisy and is intended for application troubleshooting.
   * As messages are received, they are given a UUID. This way, if odd message routing/processing behaviour is observed, the message object UUID can be found, the logs can be grepped for this UUID, and the logs will show how the message has been received and processed all the way through to being dropped or sent.
 
+## Telegraf Integration
+
+[Telegraf](https://www.influxdata.com/time-series-platform/telegraf/) can ingest statistics from the file produced by `--stats-file` / `AR_STATS_FILE`.
+
+An example telegraf configuration is:
+
+```toml
+[[inputs.file]]
+  files = [ "/run/acars_router/stats.json" ]
+  name_override = "acars_router"
+  data_format = "json"
+```
