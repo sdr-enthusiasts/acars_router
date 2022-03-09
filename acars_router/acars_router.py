@@ -141,6 +141,10 @@ class ARCounters():
             logger.log(level, f"Duplicate ACARS messages dropped: {self.duplicate_acars}")
         if self.duplicate_vdlm2 > 0:
             logger.log(level, f"Duplicate VDLM2 messages dropped: {self.duplicate_vdlm2}")
+        if self.skew_exceeded_acars > 0:
+            logger.log(level, f"Skew exceeded ACARS messages dropped: {self.skew_exceeded_acars}")
+        if self.skew_exceeded_vdlm2 > 0:
+            logger.log(level, f"Skew exceeded VDLM2 messages dropped: {self.skew_exceeded_vdlm2}")
 
         # Log queue depths
         for q in self.standalone_queues:
