@@ -1239,7 +1239,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"receive_tcp_acars: invalid port: {port}")
