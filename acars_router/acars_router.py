@@ -1194,8 +1194,12 @@ def valid_tcp_udp_port(num: int):
     """
     Returns True if num is a valid TCP/UDP port number, else return False.
     """
+    print(type(num))
+    print(num)
     if type(num) == int:
+        print("first if true")
         if 1 >= int(num) <= 65535:
+            print("second if true")
             return True
     return False
 
