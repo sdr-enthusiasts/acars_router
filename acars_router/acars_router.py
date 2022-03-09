@@ -32,7 +32,10 @@ class ARCounters():
     """
     A class to be used for counters
     """
-    def __init__(self):
+    def __init__(self, stats_file: str = None):
+
+        # Stats file
+        self.stats_file = stats_file
 
         # ACARS messages received via udp
         self.listen_udp_acars = 0
@@ -1624,11 +1627,13 @@ if __name__ == "__main__":
         logger_console_handler.setFormatter(log_formatter)
 
     # sanity check input, if invalid then bail out
-    if not valid_args:
+    if not valid_args(args):
         sys.exit(1)
 
     # initialise counters
-    COUNTERS = ARCounters()
+    COUNTERS = ARCounters(
+        stats_file=args.stats_file,
+    )
 
     # initialise threading lock
     lock = threading.Lock()
