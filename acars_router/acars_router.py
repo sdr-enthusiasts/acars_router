@@ -66,6 +66,10 @@ class ARCounters():
         self.duplicate_acars = 0
         self.duplicate_vdlm2 = 0
 
+        # messages outside skew window
+        self.skew_exceeded_acars = 0
+        self.skew_exceeded_vdlm2 = 0
+
         self.queue_lists = list()
         self.standalone_queues = list()
         self.standalone_deque = list()
@@ -88,6 +92,8 @@ class ARCounters():
                 'messages_received_invalid_json_vdlm2': self.invalid_json_vdlm2,
                 'messages_received_duplicate_acars': self.duplicate_acars,
                 'messages_received_duplicate_vdlm2': self.duplicate_vdlm2,
+                'messages_received_skew_exceeded_acars': self.skew_exceeded_acars,
+                'messages_received_skew_exceeded_vdlm2': self.skew_exceeded_vdlm2,
             }
 
             # prepare output with queue depths
@@ -559,6 +565,8 @@ def acars_hasher(
         if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
             logger.error(f"message timestamp outside acceptable skew window: {data['json']['timestamp']} (now: {time.time()}), dropping message")
             logger.debug(f"message timestamp outside acceptable skew window: {data}")
+            # increment counters
+            COUNTERS.increment(f'skew_exceeded_{protoname}')
             continue
 
         # copy object so we don't molest original data
