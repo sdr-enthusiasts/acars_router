@@ -93,13 +93,13 @@ class ARCounters():
             # prepare output with queue depths
             for q in self.standalone_queues:
                 logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
-                output_dict[f'{q.name}'] = int(f'{q.qsize()}')
+                output_dict[f'queue_depth_{q.name}'] = int(f'{q.qsize()}')
             for queue_list in self.queue_lists:
                 for q in queue_list:
-                    output_dict[f'{q.name}'] = int(f'{q.qsize()}')
+                    output_dict[f'queue_depth_{q.name}'] = int(f'{q.qsize()}')
             for dq in self.standalone_deque:
                 dqlen = len(dq[1])
-                output_dict[f'{dq[0]}'] = int(f'{dqlen}')
+                output_dict[f'queue_depth_{dq[0]}'] = int(f'{dqlen}')
 
             # turn dict into json
             output_json = json.dumps(
