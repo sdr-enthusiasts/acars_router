@@ -1055,6 +1055,22 @@ def ZMQServer(port: int, output_queues: list, protoname: str):
 
 # HELPER FUNCTIONS #
 
+def save_stats_file(
+    secs: int = 10,
+):
+    """
+    Saves the status of the global counters into JSON file
+    Intended to be run in a thread, as this function will run forever.
+
+    Arguments:
+    mins -- the number of minutes between logging stats
+    """
+    logger = baselogger.getChild('save_stats_file')
+    logger.debug("spawned")
+    while True:
+        time.sleep(secs)
+        COUNTERS.save_stats_file()
+
 
 def display_stats(
     mins: int = 5,
@@ -1068,7 +1084,7 @@ def display_stats(
     mins -- the number of minutes between logging stats
     loglevel -- the log level to use when logging statistics
     """
-    logger = baselogger.getChild('statistics')
+    logger = baselogger.getChild('display_stats')
     logger.debug("spawned")
     while True:
         time.sleep(mins * 60)
@@ -1638,11 +1654,16 @@ if __name__ == "__main__":
     # initialise threading lock
     lock = threading.Lock()
 
-    # Start stats thread
+    # Start stats threads
     threading.Thread(
         target=display_stats,
         daemon=True,
         args=(args.stats_every,),
+    ).start()
+    threading.Thread(
+        target=save_stats_file,
+        daemon=True,
+        args=(10,),
     ).start()
 
     # Prepare output queues
