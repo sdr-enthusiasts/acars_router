@@ -1452,9 +1452,7 @@ def valid_args(args):
     # Check stats_file
     # Ensure directory exists if variable is set
     if args.stats_file:
-        print(f"os.path.isdir: {os.path.isdir(os.path.dirname(args.stats_file))}")
-        print(f"os.path.isdir: {os.path.ismount(os.path.dirname(args.stats_file))}")
-        if os.path.isdir(os.path.dirname(args.stats_file)) or os.path.ismount(os.path.dirname(args.stats_file)):
+        if not (os.path.isdir(os.path.dirname(args.stats_file)) or os.path.ismount(os.path.dirname(args.stats_file))):
             logger.critical(f"stats_file: is not a directory: {os.path.dirname(args.stats_file)}")
             return False
 
