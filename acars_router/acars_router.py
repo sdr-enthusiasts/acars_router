@@ -1194,12 +1194,8 @@ def valid_tcp_udp_port(num: int):
     """
     Returns True if num is a valid TCP/UDP port number, else return False.
     """
-    print(type(num))
-    print(num)
     if type(num) == int:
-        print("first if true")
         if 1 <= int(num) <= 65535:
-            print("second if true")
             return True
     return False
 
@@ -1232,26 +1228,26 @@ def valid_args(args):
             return False
 
     # Check receive_tcp_acars, should be a list of host:port
-    for i in args.listen_tcp_acars:
+    for i in args.receive_tcp_acars:
         # try to split host:port
         try:
             host = i.split(':')[0]
             port = i.split(':')[1]
         except IndexError:
-            logger.critical(f"listen_tcp_acars: host:port expected, got: {i}")
+            logger.critical(f"receive_tcp_acars: host:port expected, got: {i}")
             return False
         # ensure port valid
         try:
             if not valid_tcp_udp_port(port):
                 raise ValueError
         except ValueError:
-            logger.critical(f"listen_tcp_acars: invalid port: {port}")
+            logger.critical(f"receive_tcp_acars: invalid port: {port}")
             return False
         # warn if host appears wrong
         try:
             socket.gethostbyname(host)
         except socket.gaierror:
-            logger.warning(f"listen_tcp_acars: host appears invalid or unresolvable: {host}")
+            logger.warning(f"receive_tcp_acars: host appears invalid or unresolvable: {host}")
 
     # Check listen_udp_vdlm2, should be list of valid port numbers
     for i in args.listen_udp_vdlm2:
