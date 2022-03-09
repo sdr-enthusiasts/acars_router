@@ -1572,6 +1572,13 @@ if __name__ == "__main__":
         nargs='?',
         default=os.getenv("AR_OVERRIDE_STATION_NAME", None),
     )
+    parser.add_argument(
+        '--stats-file',
+        help='Write a JSON-format stats file',
+        type=str,
+        nargs='?',
+        default=os.getenv("AR_STATS_FILE", None),
+    )
     args = parser.parse_args()
 
     # configure logging: create trace level
