@@ -32,7 +32,10 @@ class ARCounters():
     """
     A class to be used for counters
     """
-    def __init__(self):
+    def __init__(self, stats_file: str = None):
+
+        # Stats file
+        self.stats_file = stats_file
 
         # ACARS messages received via udp
         self.listen_udp_acars = 0
@@ -67,6 +70,48 @@ class ARCounters():
         self.standalone_queues = list()
         self.standalone_deque = list()
 
+    def save_stats_file(self):
+        if self.stats_file:
+
+            # prepare output with counters
+            output_dict = {
+                'messages_received_total_acars': self.listen_udp_acars + self.listen_tcp_acars + self.receive_tcp_acars,
+                'messages_received_total_vdlm2': self.listen_udp_vdlm2 + self.listen_tcp_vdlm2 + self.receive_tcp_vdlm2 + self.receive_zmq_vdlm2,
+                'messages_received_by_listen_udp_acars': self.listen_udp_acars,
+                'messages_received_by_listen_tcp_acars': self.listen_tcp_acars,
+                'messages_received_by_receive_tcp_acars': self.receive_tcp_acars,
+                'messages_received_by_listen_udp_vdlm2': self.listen_udp_vdlm2,
+                'messages_received_by_listen_tcp_vdlm2': self.listen_tcp_vdlm2,
+                'messages_received_by_receive_tcp_vdlm2': self.receive_tcp_vdlm2,
+                'messages_received_by_receive_zmq_vdlm2': self.receive_zmq_vdlm2,
+                'messages_received_invalid_json_acars': self.invalid_json_acars,
+                'messages_received_invalid_json_vdlm2': self.invalid_json_vdlm2,
+                'messages_received_duplicate_acars': self.duplicate_acars,
+                'messages_received_duplicate_vdlm2': self.duplicate_vdlm2,
+            }
+
+            # prepare output with queue depths
+            for q in self.standalone_queues:
+                logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
+                output_dict[f'queue_depth_{q.name}'] = int(f'{q.qsize()}')
+            for queue_list in self.queue_lists:
+                for q in queue_list:
+                    output_dict[f'queue_depth_{q.name}'] = int(f'{q.qsize()}')
+            for dq in self.standalone_deque:
+                dqlen = len(dq[1])
+                output_dict[f'queue_depth_{dq[0]}'] = int(f'{dqlen}')
+
+            # turn dict into json
+            output_json = json.dumps(
+                output_dict,
+                separators=(',', ':'),
+                sort_keys=True,
+            )
+
+            # write file
+            with open(self.stats_file, 'w') as f:
+                f.write(output_json)
+
     def log(self, logger: logging.Logger, level: int):
         if self.listen_udp_acars > 0:
             logger.log(level, f"ACARS messages via UDP listen: {self.listen_udp_acars}")
@@ -91,7 +136,7 @@ class ARCounters():
         if self.duplicate_vdlm2 > 0:
             logger.log(level, f"Duplicate VDLM2 messages dropped: {self.duplicate_vdlm2}")
 
-        # Log queue depths (TODO: should probably be debug level)
+        # Log queue depths
         for q in self.standalone_queues:
             # qs = q.qsize()
             # if qs > 0:
@@ -1052,6 +1097,22 @@ def ZMQServer(port: int, output_queues: list, protoname: str):
 
 # HELPER FUNCTIONS #
 
+def save_stats_file(
+    secs: int = 10,
+):
+    """
+    Saves the status of the global counters into JSON file
+    Intended to be run in a thread, as this function will run forever.
+
+    Arguments:
+    mins -- the number of minutes between logging stats
+    """
+    logger = baselogger.getChild('save_stats_file')
+    logger.debug("spawned")
+    while True:
+        time.sleep(secs)
+        COUNTERS.save_stats_file()
+
 
 def display_stats(
     mins: int = 5,
@@ -1065,7 +1126,7 @@ def display_stats(
     mins -- the number of minutes between logging stats
     loglevel -- the log level to use when logging statistics
     """
-    logger = baselogger.getChild('statistics')
+    logger = baselogger.getChild('display_stats')
     logger.debug("spawned")
     while True:
         time.sleep(mins * 60)
@@ -1135,7 +1196,7 @@ def valid_tcp_udp_port(num: int):
     Returns True if num is a valid TCP/UDP port number, else return False.
     """
     if type(num) == int:
-        if 1 >= int(num) <= 65535:
+        if 1 <= int(num) <= 65535:
             return True
     return False
 
@@ -1168,26 +1229,26 @@ def valid_args(args):
             return False
 
     # Check receive_tcp_acars, should be a list of host:port
-    for i in args.listen_tcp_acars:
+    for i in args.receive_tcp_acars:
         # try to split host:port
         try:
             host = i.split(':')[0]
             port = i.split(':')[1]
         except IndexError:
-            logger.critical(f"listen_tcp_acars: host:port expected, got: {i}")
+            logger.critical(f"receive_tcp_acars: host:port expected, got: {i}")
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
-            logger.critical(f"listen_tcp_acars: invalid port: {port}")
+            logger.critical(f"receive_tcp_acars: invalid port: {port}")
             return False
         # warn if host appears wrong
         try:
             socket.gethostbyname(host)
         except socket.gaierror:
-            logger.warning(f"listen_tcp_acars: host appears invalid or unresolvable: {host}")
+            logger.warning(f"receive_tcp_acars: host appears invalid or unresolvable: {host}")
 
     # Check listen_udp_vdlm2, should be list of valid port numbers
     for i in args.listen_udp_vdlm2:
@@ -1218,7 +1279,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"receive_tcp_vdlm2: invalid port: {port}")
@@ -1240,7 +1301,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"receive_zmq_vdlm2: invalid port: {port}")
@@ -1262,7 +1323,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"send_udp_acars: invalid port: {port}")
@@ -1284,7 +1345,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"send_tcp_acars: invalid port: {port}")
@@ -1306,7 +1367,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"send_udp_vdlm2: invalid port: {port}")
@@ -1328,7 +1389,7 @@ def valid_args(args):
             return False
         # ensure port valid
         try:
-            if not valid_tcp_udp_port(port):
+            if not valid_tcp_udp_port(int(port)):
                 raise ValueError
         except ValueError:
             logger.critical(f"send_tcp_vdlm2: invalid port: {port}")
@@ -1388,6 +1449,13 @@ def valid_args(args):
     except ValueError:
         logger.critical(f"verbose: invalid value: {args.verbose}")
         return False
+
+    # Check stats_file
+    # Ensure directory exists if variable is set
+    if args.stats_file:
+        if not (os.path.isdir(os.path.dirname(args.stats_file)) or os.path.ismount(os.path.dirname(args.stats_file))):
+            logger.critical(f"stats_file: is not a directory: {os.path.dirname(args.stats_file)}")
+            return False
 
     # If we're here, all arguments are good
     return True
@@ -1572,6 +1640,13 @@ if __name__ == "__main__":
         nargs='?',
         default=os.getenv("AR_OVERRIDE_STATION_NAME", None),
     )
+    parser.add_argument(
+        '--stats-file',
+        help='Write a JSON-format stats file',
+        type=str,
+        nargs='?',
+        default=os.getenv("AR_STATS_FILE", None),
+    )
     args = parser.parse_args()
 
     # configure logging: create trace level
@@ -1617,20 +1692,27 @@ if __name__ == "__main__":
         logger_console_handler.setFormatter(log_formatter)
 
     # sanity check input, if invalid then bail out
-    if not valid_args:
+    if not valid_args(args):
         sys.exit(1)
 
     # initialise counters
-    COUNTERS = ARCounters()
+    COUNTERS = ARCounters(
+        stats_file=args.stats_file,
+    )
 
     # initialise threading lock
     lock = threading.Lock()
 
-    # Start stats thread
+    # Start stats threads
     threading.Thread(
         target=display_stats,
         daemon=True,
         args=(args.stats_every,),
+    ).start()
+    threading.Thread(
+        target=save_stats_file,
+        daemon=True,
+        args=(10,),
     ).start()
 
     # Prepare output queues
