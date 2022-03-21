@@ -30,7 +30,7 @@ RUN set -x && \
     apt-get autoremove -y && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/* && \
     # Simple date/time versioning
-    date +%Y%m%d.%H%M > /CONTAINER_VERSION
+    date +%Y%m%d.%H%M > /IMAGE_VERSION
 
 COPY acars_router/ /opt/acars_router/
 
