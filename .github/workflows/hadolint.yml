@@ -22,5 +22,8 @@ jobs:
           format: tty
           # DL3003: Use WORKDIR to switch to a directory
           #   - Ignored because we use pushd/popd to move around the image without creating extra layers.
-          # --ignore DL3003 --ignore DL3006 --ignore DL3010 --ignore DL4001 --ignore DL3007 --ignore DL3008 --ignore SC2068 --ignore DL3007 --ignore SC1091 --ignore DL3013 --ignore DL3010
-          ignore: DL3003 
+          # DL3008: Pin versions in apt get install
+          #   - No.
+          # DL3013: Pin versions in pip
+          #   - No.
+          ignore: DL3003 DL3008 DL3013
