@@ -26,4 +26,4 @@ jobs:
           #   - No.
           # DL3013: Pin versions in pip
           #   - No.
-          ignore: '"DL3003" "DL3008" "DL3013"'
+          ignore: DL3003,DL3008,DL3013
