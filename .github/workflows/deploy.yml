@@ -24,7 +24,7 @@ on:
 jobs:
 
   workflow-dispatch:
-    name: Triggered via Workflow Dispatch?
+    name: Workflow Dispatch
     # only run this step if workflow dispatch triggered
     # log the reason the workflow dispatch was triggered
     if: |
@@ -37,6 +37,7 @@ jobs:
           INPUTS_REASON: ${{ github.event.inputs.reason }}
         run: |
           echo "Workflow dispatch reason: $INPUTS_REASON"
+          echo "::notice title=${{ github.job }}: Workflow Dispatch Reason::${INPUTS_REASON}"
 
   deploy:
     name: Deploy

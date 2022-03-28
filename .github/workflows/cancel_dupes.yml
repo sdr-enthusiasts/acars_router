@@ -4,7 +4,7 @@ on:
     workflows:
       - 'Pull Request'
       - 'Deploy'
-      - 'Linting (Non-Image)'
+      - 'Linting (Hadolint)'
     types: ['requested']
 
 jobs:
