@@ -266,7 +266,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         while True:
 
             # read data from socket
-            data = self.request.recv(16384)
+            data = self.request.recv(65527)
 
             # if nothing returned from the socket, then "disconnect"
             if not data:
@@ -336,7 +336,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
 
                     # try to receive data
                     try:
-                        data = sock.recv(16384)
+                        data = sock.recv(65527)
 
                     except socket.timeout:
                         continue
@@ -854,7 +854,7 @@ def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str, 
                 data['json'],
                 separators=(',', ':'),
                 sort_keys=True,
-            ), 'utf-8')
+            ) + '\n', 'utf-8')
 
         # put copy of message into each output queue
         for output_queue in out_queues:
@@ -897,7 +897,16 @@ def UDPSender(host, port, output_queues: list, protoname: str):
 
         # try to send the message to the remote host
         try:
-            sock.sendto(data['out_json'], (host, port))
+            msg = data['out_json']
+            # UDP in python only works up to 8192 bytes, send message in chunks if necessary
+            # this only works if the receiver can reassemble the messages and the order
+            # stays correct while in transit
+            data_sent = 0
+            total = len(msg)
+            chunk_size = 8192
+            while data_sent < total:
+                sock.sendto(msg[data_sent:(data_sent + chunk_size)], (host, port))
+                data_sent += chunk_size
 
             # trace
             logger.log(logging_TRACE, f"in: {qname}; out: {host}:{port}/udp; data: {data}")
