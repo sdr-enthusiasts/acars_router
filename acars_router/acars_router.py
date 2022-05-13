@@ -883,37 +883,48 @@ def UDPSender(host, port, output_queues: list, protoname: str):
     q = ARQueue(qname, 100)
     output_queues.append(q)
 
-    # Set up socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.settimeout(1)
-
-    # Loop to send messages from output queue
+    suppress_errors_until = 0
+    suppress_duration = 15
     while True:
+        # Set up socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.settimeout(1)
 
-        # Pop a message from the output queue
-        data = q.get()
-        q.task_done()
+        # Loop to send messages from output queue
+        while True:
 
-        # try to send the message to the remote host
-        try:
-            msg = data['out_json']
-            # UDP in python only works up to 8192 bytes, send message in chunks if necessary
-            # this only works if the receiver can reassemble the messages and the order
-            # stays correct while in transit
-            data_sent = 0
-            total = len(msg)
-            chunk_size = 8192
-            while data_sent < total:
-                sock.sendto(msg[data_sent:(data_sent + chunk_size)], (host, port))
-                data_sent += chunk_size
+            # Pop a message from the output queue
+            data = q.get()
+            q.task_done()
 
-            # trace
-            logger.log(logging_TRACE, f"in: {qname}; out: {host}:{port}/udp; data: {data}")
+            # try to send the message to the remote host
+            try:
+                msg = data['out_json']
+                # UDP in python only works up to 8192 bytes, send message in chunks if necessary
+                # this only works if the receiver can reassemble the messages and the order
+                # stays correct while in transit
+                data_sent = 0
+                total = len(msg)
+                chunk_size = 8192
+                while data_sent < total:
+                    sock.sendto(msg[data_sent:(data_sent + chunk_size)], (host, port))
+                    data_sent += chunk_size
 
-        except Exception as e:
-            logger.error(f"error sending to {host}:{port}: {e}")
-            break
+                # trace
+                logger.log(logging_TRACE, f"in: {qname}; out: {host}:{port}/udp; data: {data}")
+
+            except Exception as e:
+
+                now = time.time()
+                if now > suppress_errors_until:
+                    logger.error(f"error sending to {host}:{port}: {e} (suppressing for {suppress_duration} seconds)")
+                    suppress_errors_until = now + suppress_duration
+
+                # break inside loop, set up a new socket
+                break
+
+        sock.close()
 
     # clean up
     # remove this instance's queue from the output queue
