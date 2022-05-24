@@ -202,6 +202,9 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         self.inbound_message_queue = server.inbound_message_queue
         self.protoname = server.protoname
 
+        self.partial = ''
+        self.partial_address = ''
+
         # perform init of super class (socketserver.BaseRequestHandler)
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
@@ -213,17 +216,37 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         host = self.client_address[0]
         port = self.client_address[1]
 
+        address = (host, port)
+
         # prepare logging
         self.logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
 
-        # prepare data to be enqueued into input queue
-        incoming_data = {
-            'raw_json': copy.deepcopy(data),            # raw json data
-            'src_host': copy.deepcopy(host),            # src host
-            'src_port': copy.deepcopy(port),            # src port
-            'src_name': f'input.udp.{self.protoname}',  # function originating the data
-            'msg_uuid': uuid.uuid1(),                   # unique identifier for this message
-        }
+        if self.partial_address == address:
+            reassembled = self.partial + data
+        else:
+            reassembled = data
+
+        if reassembled[-1] != '\n':
+            try:
+                json.loads(reassembled)
+            except:
+                self.partial = reassembled
+                self.partial_address = address
+                return
+
+        self.partial = ''
+
+        lines = reassembled.splitlines()
+
+        for line in lines:
+            # prepare data to be enqueued into input queue
+            incoming_data = {
+                'raw_json': copy.deepcopy(line),            # raw json data
+                'src_host': copy.deepcopy(host),            # src host
+                'src_port': copy.deepcopy(port),            # src port
+                'src_name': f'input.udp.{self.protoname}',  # function originating the data
+                'msg_uuid': uuid.uuid1(),                   # unique identifier for this message
+            }
 
         # trace logging
         self.logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
@@ -262,6 +285,8 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
         self.logger.info("connection established")
 
+        partial = ''
+
         # loop until the session is disconnected (we receive no data)
         while True:
 
@@ -272,14 +297,28 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             if not data:
                 break
 
-            # prepare data to be enqueued into input queue
-            incoming_data = {
-                'raw_json': copy.deepcopy(data),                                # raw json data
-                'src_host': copy.deepcopy(host),                                # src host
-                'src_port': copy.deepcopy(port),                                # src port
-                'src_name': f'input.tcpserver.{self.protoname}.{host}:{port}',  # function originating the data
-                'msg_uuid': uuid.uuid1(),                                       # unique identifier for this message
-            }
+            reassembled = partial + data
+
+            if reassembled[-1] != '\n':
+                try:
+                    json.loads(reassembled)
+                except:
+                    partial = reassembled
+                    continue
+
+            partial = ''
+
+            lines = reassembled.splitlines()
+
+            for line in lines:
+                # prepare data to be enqueued into input queue
+                incoming_data = {
+                    'raw_json': copy.deepcopy(line),                                # raw json data
+                    'src_host': copy.deepcopy(host),                                # src host
+                    'src_port': copy.deepcopy(port),                                # src port
+                    'src_name': f'input.tcpserver.{self.protoname}.{host}:{port}',  # function originating the data
+                    'msg_uuid': uuid.uuid1(),                                       # unique identifier for this message
+                }
 
             # trace logging
             self.logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
