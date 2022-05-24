@@ -1639,31 +1639,31 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--threads-json-deserialiser',
-        help=f'Number of threads for JSON deserialisers (default: {os.cpu_count()})',
+        help=f'Number of threads for JSON deserialisers (default: {1})',
         type=int,
         nargs='?',
-        default=int(os.getenv("AR_THREADS_JSON_DESERIALISER", os.cpu_count())),
+        default=int(os.getenv("AR_THREADS_JSON_DESERIALISER", 1)),
     )
     parser.add_argument(
         '--threads-hasher',
-        help=f'Number of threads for message hashers (default: {os.cpu_count()})',
+        help=f'Number of threads for message hashers (default: {1})',
         type=int,
         nargs='?',
-        default=int(os.getenv("AR_THREADS_HASHER", os.cpu_count())),
+        default=int(os.getenv("AR_THREADS_HASHER", 1)),
     )
     parser.add_argument(
         '--threads-deduper',
-        help=f'Number of threads for message dedupers (default: {os.cpu_count()})',
+        help=f'Number of threads for message dedupers (default: {1})',
         type=int,
         nargs='?',
-        default=int(os.getenv("AR_THREADS_DEDUPER", os.cpu_count())),
+        default=int(os.getenv("AR_THREADS_DEDUPER", 1)),
     )
     parser.add_argument(
         '--threads-output-queue-populator',
-        help=f'Number of threads for output queue populators (default: {os.cpu_count()})',
+        help=f'Number of threads for output queue populators (default: {1})',
         type=int,
         nargs='?',
-        default=int(os.getenv("AR_OUTPUT_QUEUE_POPULATOR", os.cpu_count())),
+        default=int(os.getenv("AR_OUTPUT_QUEUE_POPULATOR", 1)),
     )
     parser.add_argument(
         '--override-station-name',
