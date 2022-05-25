@@ -219,15 +219,18 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
 
         data = data.decode()
 
+        reassembled = data
         partial = udp_partial_dict.get(address)
         if partial:
             # delete from partial dict
             del udp_partial_dict[address]
 
             logger.debug(f"reassembly: {address} (partial len: {len(partial)}, data len: {len(data)}")
-            reassembled = partial + data
-        else:
-            reassembled = data
+            try:
+                reassembled = partial + data
+                json.loads(reassembled.splitlines()[0])
+            except json.JSONDecodeError as e:
+                logger.log(logging_TRACE, f"reassembly failed: {e}")
 
         if reassembled[-1] != '\n':
             try:
@@ -288,7 +291,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
         self.logger.info("connection established")
 
-        partial = ''
+        partial = None
 
         # loop until the session is disconnected (we receive no data)
         while True:
@@ -302,7 +305,13 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
 
             data = data.decode()
 
-            reassembled = partial + data
+            reassembled = data
+            if partial is not None:
+                try:
+                    reassembled = partial + data
+                    json.loads(reassembled.splitlines()[0])
+                except json.JSONDecodeError as e:
+                    logger.log(logging_TRACE, f"reassembly failed: {e}")
 
             if reassembled[-1] != '\n':
                 try:
@@ -312,7 +321,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                     partial = reassembled
                     continue
 
-            partial = ''
+            partial = None
 
             lines = reassembled.splitlines()
 
