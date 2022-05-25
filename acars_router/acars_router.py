@@ -190,21 +190,14 @@ class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
         self.protoname = protoname.lower()
         socketserver.UDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=bind_and_activate)
 
+udp_partial_dict = {}
 
 class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded UDP server to receive ACARS/VDLM2 messages """
     def __init__(self, request, client_address, server):
-
-        # prepare logging
-        self.logger = baselogger.getChild(f'input.udp.{server.protoname}')
-        # self.logger.debug("spawned")
-
         # store variables in server object, so they can be accessed in handle() when message arrives
         self.inbound_message_queue = server.inbound_message_queue
         self.protoname = server.protoname
-
-        self.partial = ''
-        self.partial_address = ''
 
         # perform init of super class (socketserver.BaseRequestHandler)
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
@@ -220,12 +213,17 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         address = (host, port)
 
         # prepare logging
-        self.logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
+        logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
 
         data = data.decode()
 
-        if self.partial_address == address:
-            reassembled = self.partial + data
+        partial = udp_partial_dict.get(address)
+        if partial:
+            # delete from partial dict
+            del udp_partial_dict[address]
+
+            logger.debug(f"reassembly: {address} (partial len: {len(partial)}, data len: {len(data)}")
+            reassembled = partial + data
         else:
             reassembled = data
 
@@ -233,12 +231,11 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
             try:
                 json.loads(reassembled)
             except json.JSONDecodeError as e:
-                self.logger.log(logging_TRACE, f"attempting reassembly due to json decode error: {e} data: {reassembled}")
-                self.partial = reassembled
-                self.partial_address = address
+                logger.log(logging_TRACE, f"probably a partial message: {e}")
+                logger.debug(f"saving {len(reassembled)} bytes from {address} in udp_partial_dict")
+                # add to partial dict
+                udp_partial_dict[address] = reassembled
                 return
-
-        self.partial = ''
 
         lines = reassembled.splitlines()
 
@@ -253,7 +250,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
             }
 
         # trace logging
-        self.logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
+        logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
 
         # enqueue the data
         self.inbound_message_queue.put(incoming_data)
@@ -2130,5 +2127,11 @@ if __name__ == "__main__":
         ).start()
 
     # Main loop
+    next_udp_partial_clear = 0
     while True:
         time.sleep(10)
+        now = time.time()
+        if now > next_udp_partial_clear:
+            udp_partial_dict.clear()
+            # clear partial dict every 10 mins
+            next_udp_partial_clear = now + 600
