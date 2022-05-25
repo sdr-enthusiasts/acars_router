@@ -809,6 +809,7 @@ def deduper(
     out_queue: ARQueue,
     recent_message_queue: collections.deque,
     protoname: str,
+    dedupe_window_secs: float,
 ):
     protoname = protoname.lower()
 
@@ -827,6 +828,13 @@ def deduper(
         dropmsg = False
         lck = lock.acquire()
         if lck:
+
+            # evict items older than 2 seconds
+            evict_cutoff = (time.time_ns() - (dedupe_window_secs * 1e9))
+            while len(recent_message_queue) > 0 and recent_message_queue[0]['msgtime_ns'] <= evict_cutoff:
+                evictedmsg = recent_message_queue.popleft()
+                logger.log(logging_TRACE, f"evicted: {evictedmsg}")
+
             for recent_message in recent_message_queue:
 
                 # if the hash matches...
@@ -1216,20 +1224,6 @@ def display_stats(
     while True:
         time.sleep(mins * 60)
         COUNTERS.log(logger, loglevel)
-
-
-def recent_message_queue_evictor(recent_message_queue: collections.deque, protoname: str, dedupe_window_secs: int):
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'recent_message_queue_evictor.{protoname}')
-    logger.debug("spawned")
-    while True:
-        if len(recent_message_queue) > 0:
-            # evict items older than 2 seconds
-            if recent_message_queue[0]['msgtime_ns'] <= (time.time_ns() - (dedupe_window_secs * 1e9)):
-                evictedmsg = recent_message_queue.popleft()
-                logger.log(logging_TRACE, f"evicted: {evictedmsg}")
-                continue
-        time.sleep(0.250)
 
 
 def split_env_safely(
@@ -1827,24 +1821,6 @@ if __name__ == "__main__":
     deduped_vdlm2_message_queue = ARQueue('deduped_vdlm2_message_queue', 100)
     COUNTERS.register_queue(deduped_vdlm2_message_queue)
 
-    # recent message buffers for dedupe
-    recent_message_queue_acars = collections.deque()
-    COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
-    recent_message_queue_vdlm2 = collections.deque()
-    COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
-
-    # recent message buffers evictor threads
-    threading.Thread(
-        target=recent_message_queue_evictor,
-        args=(recent_message_queue_acars, "acars", args.dedupe_window),
-        daemon=True,
-    ).start()
-    threading.Thread(
-        target=recent_message_queue_evictor,
-        args=(recent_message_queue_vdlm2, "vdlm2", args.dedupe_window),
-        daemon=True,
-    ).start()
-
     # acars json deserialiser threads
     for _ in range(args.threads_json_deserialiser):
         threading.Thread(
@@ -1889,19 +1865,25 @@ if __name__ == "__main__":
 
     if args.enable_dedupe:
 
+        # recent message buffers for dedupe
+        recent_message_queue_acars = collections.deque()
+        COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
+        recent_message_queue_vdlm2 = collections.deque()
+        COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
+
         # if dedupe enabled: use dedupe queue & start dedupers
 
         for _ in range(args.threads_deduper):
             threading.Thread(
                 target=deduper,
-                args=(hashed_acars_message_queue, deduped_acars_message_queue, recent_message_queue_acars, "ACARS",),
+                args=(hashed_acars_message_queue, deduped_acars_message_queue, recent_message_queue_acars, "ACARS", args.dedupe_window),
                 daemon=True,
             ).start()
 
         for _ in range(args.threads_deduper):
             threading.Thread(
                 target=deduper,
-                args=(hashed_vdlm2_message_queue, deduped_vdlm2_message_queue, recent_message_queue_vdlm2, "VDLM2",),
+                args=(hashed_vdlm2_message_queue, deduped_vdlm2_message_queue, recent_message_queue_vdlm2, "VDLM2", args.dedupe_window),
                 daemon=True,
             ).start()
 
