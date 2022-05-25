@@ -1544,13 +1544,16 @@ def valid_args(args):
     # If we're here, all arguments are good
     return True
 
+
 def sigterm_exit(signum, frame):
     sys.stderr.write("acars_router: caught SIGTERM, exiting!!\n")
     sys.exit()
 
+
 def sigint_exit(signum, frame):
     sys.stderr.write("acars_router: caught SIGINT, exiting!!\n")
     sys.exit()
+
 
 if __name__ == "__main__":
 
