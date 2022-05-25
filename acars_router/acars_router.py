@@ -526,29 +526,37 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
 
             # attempt to deserialise
             try:
-                deserialised_json = json.loads(raw_json[:decode_to_char])
+                to_decode = raw_json[:decode_to_char]
+                deserialised_json = json.loads(to_decode)
 
             # if there is extra data, attempt to decode as much as we can next iteration of loop
             except json.JSONDecodeError as e:
                 logger.log(logging_TRACE, f"message contains extra data: {data}: {e}, attempting to decode to character {e.pos}, then will attempt remaining data")
-                if e.pos == 0 or e.pos >= decode_to_char:
-                    logger.error(f"json decoding failed at a position that makes reattempt impossible: invalid JSON received via {data['src_name']} e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} raw_json: {raw_json}")
+                if e.pos > 0 and e.pos < decode_to_char:
+                    decode_to_char = e.pos
+                    continue
+                else:
+                    logger.error(f"json decoding failed, reattempt impossible: invalid JSON received via {data['src_name']} (possible reason: UDP packet loss, consider using TCP)")
+                    logger.debug(f"e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} to_decode: {to_decode}")
+                    COUNTERS.increment(f'invalid_json_{protoname}')
                     break
-                decode_to_char = e.pos
-                continue
 
             # if an exception, log and continue
             except Exception as e:
-                logger.error(f"invalid JSON received via {data['src_name']} exception: {e} raw_json: {raw_json}")
+                logger.error(f"invalid JSON received via {data['src_name']} exception: {e} to_decode: {to_decode}")
                 COUNTERS.increment(f'invalid_json_{protoname}')
                 break
 
             # if there was no exception:
 
+            # remove the json we've already serialised from the input
+            raw_json = raw_json[decode_to_char:]
+            decode_to_char = len(raw_json)
+
             # ensure json.loads resulted in a dict
             if type(deserialised_json) != dict:
-                logger.error(f"invalid JSON received via {data['src_name']}")
-                logger.debug(f"invalid JSON received: json.loads on raw_json returned non-dict object: {data}")
+                logger.error(f"invalid JSON received via {data['src_name']} json.loads returned non-dict object")
+                logger.debug(f"to_decode: {to_decode}")
                 COUNTERS.increment(f'invalid_json_{protoname}')
 
             # if it is a dict...
@@ -557,21 +565,17 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
                 # build output message object
                 data_out = copy.deepcopy(data)
 
+                # add part of raw json which was decoded
+                data_out['raw_json'] = to_decode
+
                 # add deserialised_json
                 data_out['json'] = deserialised_json
-
-                # add the character offset from raw_json
-                data_out['raw_json_char_offset'] = decode_to_char
 
                 # trace logging
                 logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data_out}")
 
                 # enqueue the data
                 out_queue.put(data_out)
-
-                # remove the json we've already serialised from the input
-                raw_json = raw_json[decode_to_char:]
-                decode_to_char = len(raw_json)
 
 
 def within_acceptable_skew(timestamp: int, skew_window_secs: int):
