@@ -221,6 +221,8 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         # prepare logging
         self.logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
 
+        data = data.decode()
+
         if self.partial_address == address:
             reassembled = self.partial + data
         else:
@@ -230,7 +232,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
             try:
                 json.loads(reassembled)
             except json.JSONDecodeError as e:
-                self.logger.log(logging_TRACE, f"attempting reassembly due to json decode error: {e} data: {incoming_data}")
+                self.logger.log(logging_TRACE, f"attempting reassembly due to json decode error: {e} data: {reassembled}")
                 self.partial = reassembled
                 self.partial_address = address
                 return
@@ -298,13 +300,15 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             if not data:
                 break
 
+            data = data.decode()
+
             reassembled = partial + data
 
             if reassembled[-1] != '\n':
                 try:
                     json.loads(reassembled)
                 except json.JSONDecodeError as e:
-                    self.logger.log(logging_TRACE, f"attempting reassembly due to json decode error: {e} data: {incoming_data}")
+                    self.logger.log(logging_TRACE, f"attempting reassembly due to json decode error: {e} data: {reassembled}")
                     partial = reassembled
                     continue
 
