@@ -221,6 +221,8 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         # prepare logging
         self.logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
 
+        data = data.decode()
+
         if self.partial_address == address:
             reassembled = self.partial + data
         else:
@@ -297,6 +299,8 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             # if nothing returned from the socket, then "disconnect"
             if not data:
                 break
+
+            data = data.decode()
 
             reassembled = partial + data
 
