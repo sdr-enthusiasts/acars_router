@@ -14,6 +14,7 @@ import threading
 import time
 import uuid
 import zmq
+import signal
 
 
 # HELPER CLASSES #
@@ -1539,8 +1540,18 @@ def valid_args(args):
     # If we're here, all arguments are good
     return True
 
+def sigterm_exit(signum, frame):
+    sys.stderr.write("acars_router: caught SIGTERM, exiting!!\n")
+    sys.exit()
+
+def sigint_exit(signum, frame):
+    sys.stderr.write("acars_router: caught SIGINT, exiting!!\n")
+    sys.exit()
 
 if __name__ == "__main__":
+
+    signal.signal(signal.SIGINT, sigint_exit)
+    signal.signal(signal.SIGTERM, sigterm_exit)
 
     # Command line / OS Env
     parser = argparse.ArgumentParser(
