@@ -14,6 +14,7 @@ import threading
 import time
 import uuid
 import zmq
+import signal
 
 
 # HELPER CLASSES #
@@ -530,8 +531,8 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
             # if there is extra data, attempt to decode as much as we can next iteration of loop
             except json.JSONDecodeError as e:
                 logger.log(logging_TRACE, f"message contains extra data: {data}: {e}, attempting to decode to character {e.pos}, then will attempt remaining data")
-                if e.pos >= decode_to_char:
-                    logger.error(f"json decoding failed at impossible index: invalid JSON received via {data['src_name']} e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} raw_json: {raw_json}")
+                if e.pos == 0 or e.pos >= decode_to_char:
+                    logger.error(f"json decoding failed at a position that makes reattempt impossible: invalid JSON received via {data['src_name']} e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} raw_json: {raw_json}")
                     break
                 decode_to_char = e.pos
                 continue
@@ -1539,8 +1540,18 @@ def valid_args(args):
     # If we're here, all arguments are good
     return True
 
+def sigterm_exit(signum, frame):
+    sys.stderr.write("acars_router: caught SIGTERM, exiting!!\n")
+    sys.exit()
+
+def sigint_exit(signum, frame):
+    sys.stderr.write("acars_router: caught SIGINT, exiting!!\n")
+    sys.exit()
 
 if __name__ == "__main__":
+
+    signal.signal(signal.SIGINT, sigint_exit)
+    signal.signal(signal.SIGTERM, sigterm_exit)
 
     # Command line / OS Env
     parser = argparse.ArgumentParser(
