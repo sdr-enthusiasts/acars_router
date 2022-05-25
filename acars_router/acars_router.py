@@ -202,6 +202,9 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         self.inbound_message_queue = server.inbound_message_queue
         self.protoname = server.protoname
 
+        self.partial = ''
+        self.partial_address = ''
+
         # perform init of super class (socketserver.BaseRequestHandler)
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
@@ -213,17 +216,37 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         host = self.client_address[0]
         port = self.client_address[1]
 
+        address = (host, port)
+
         # prepare logging
         self.logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
 
-        # prepare data to be enqueued into input queue
-        incoming_data = {
-            'raw_json': copy.deepcopy(data),            # raw json data
-            'src_host': copy.deepcopy(host),            # src host
-            'src_port': copy.deepcopy(port),            # src port
-            'src_name': f'input.udp.{self.protoname}',  # function originating the data
-            'msg_uuid': uuid.uuid1(),                   # unique identifier for this message
-        }
+        if self.partial_address == address:
+            reassembled = self.partial + data
+        else:
+            reassembled = data
+
+        if reassembled[-1] != '\n':
+            try:
+                json.loads(reassembled)
+            except:
+                self.partial = reassembled
+                self.partial_address = address
+                return
+
+        self.partial = ''
+
+        lines = reassembled.splitlines()
+
+        for line in lines:
+            # prepare data to be enqueued into input queue
+            incoming_data = {
+                'raw_json': copy.deepcopy(line),            # raw json data
+                'src_host': copy.deepcopy(host),            # src host
+                'src_port': copy.deepcopy(port),            # src port
+                'src_name': f'input.udp.{self.protoname}',  # function originating the data
+                'msg_uuid': uuid.uuid1(),                   # unique identifier for this message
+            }
 
         # trace logging
         self.logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
@@ -262,6 +285,8 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
         self.logger.info("connection established")
 
+        partial = ''
+
         # loop until the session is disconnected (we receive no data)
         while True:
 
@@ -272,14 +297,28 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
             if not data:
                 break
 
-            # prepare data to be enqueued into input queue
-            incoming_data = {
-                'raw_json': copy.deepcopy(data),                                # raw json data
-                'src_host': copy.deepcopy(host),                                # src host
-                'src_port': copy.deepcopy(port),                                # src port
-                'src_name': f'input.tcpserver.{self.protoname}.{host}:{port}',  # function originating the data
-                'msg_uuid': uuid.uuid1(),                                       # unique identifier for this message
-            }
+            reassembled = partial + data
+
+            if reassembled[-1] != '\n':
+                try:
+                    json.loads(reassembled)
+                except:
+                    partial = reassembled
+                    continue
+
+            partial = ''
+
+            lines = reassembled.splitlines()
+
+            for line in lines:
+                # prepare data to be enqueued into input queue
+                incoming_data = {
+                    'raw_json': copy.deepcopy(line),                                # raw json data
+                    'src_host': copy.deepcopy(host),                                # src host
+                    'src_port': copy.deepcopy(port),                                # src port
+                    'src_name': f'input.tcpserver.{self.protoname}.{host}:{port}',  # function originating the data
+                    'msg_uuid': uuid.uuid1(),                                       # unique identifier for this message
+                }
 
             # trace logging
             self.logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
@@ -459,7 +498,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         data = in_queue.get()
         in_queue.task_done()
 
-        # deal with multiple JSON messages that throw json.decoder.JSONDecodeError: Extra data: line L column N (char C)
+        # deal with multiple JSON messages that throw json.JSONDecodeError: Extra data: line L column N (char C)
         raw_json = copy.deepcopy(data['raw_json'])
 
         # initially, we attempt to decode the whole message
@@ -471,59 +510,61 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
         # while there is data left to decode:
         while len(raw_json) > 0:
 
+            # ensure we're not stuck in an infinite loop (unlikely there'd be 100 parts of json in a message. I've only ever seen up to 2.)
+            if decode_attempts > 100:
+                logger.error(f"infinite loop deserialising; raw_json: {raw_json}")
+                break
+            else:
+                decode_attempts += 1
+
             # attempt to deserialise
             try:
                 deserialised_json = json.loads(raw_json[:decode_to_char])
 
             # if there is extra data, attempt to decode as much as we can next iteration of loop
-            except json.decoder.JSONDecodeError as e:
+            except json.JSONDecodeError as e:
                 logger.log(logging_TRACE, f"message contains extra data: {data}: {e}, attempting to decode to character {e.pos}, then will attempt remaining data")
+                if e.pos >= decode_to_char:
+                    logger.error(f"json decoding failed at impossible index: invalid JSON received via {data['src_name']} e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} raw_json: {raw_json}")
+                    break
                 decode_to_char = e.pos
+                continue
 
             # if an exception, log and continue
             except Exception as e:
-                logger.error(f"invalid JSON received via {data['src_name']}")
-                logger.debug(f"invalid JSON received: {data}, exception: {e}")
+                logger.error(f"invalid JSON received via {data['src_name']} exception: {e} raw_json: {raw_json}")
                 COUNTERS.increment(f'invalid_json_{protoname}')
                 break
 
             # if there was no exception:
+
+            # ensure json.loads resulted in a dict
+            if type(deserialised_json) != dict:
+                logger.error(f"invalid JSON received via {data['src_name']}")
+                logger.debug(f"invalid JSON received: json.loads on raw_json returned non-dict object: {data}")
+                COUNTERS.increment(f'invalid_json_{protoname}')
+
+            # if it is a dict...
             else:
 
-                # ensure json.loads resulted in a dict
-                if type(deserialised_json) != dict:
-                    logger.error(f"invalid JSON received via {data['src_name']}")
-                    logger.debug(f"invalid JSON received: json.loads on raw_json returned non-dict object: {data}")
-                    COUNTERS.increment(f'invalid_json_{protoname}')
+                # build output message object
+                data_out = copy.deepcopy(data)
 
-                # if it is a dict...
-                else:
+                # add deserialised_json
+                data_out['json'] = deserialised_json
 
-                    # build output message object
-                    data_out = copy.deepcopy(data)
+                # add the character offset from raw_json
+                data_out['raw_json_char_offset'] = decode_to_char
 
-                    # add deserialised_json
-                    data_out['json'] = deserialised_json
+                # trace logging
+                logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data_out}")
 
-                    # add the character offset from raw_json
-                    data_out['raw_json_char_offset'] = decode_to_char
+                # enqueue the data
+                out_queue.put(data_out)
 
-                    # trace logging
-                    logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data_out}")
-
-                    # enqueue the data
-                    out_queue.put(data_out)
-
-                    # remove the json we've already serialised from the input
-                    raw_json = raw_json[decode_to_char:]
-                    decode_to_char = len(raw_json)
-
-            # ensure we're not stuck in an infinite loop (unlikely there'd be 100 parts of json in a message. I've only ever seen up to 2.)
-            if decode_attempts > 100:
-                logger.error(f"infinite loop deserialising: {data}")
-                break
-            else:
-                decode_attempts += 1
+                # remove the json we've already serialised from the input
+                raw_json = raw_json[decode_to_char:]
+                decode_to_char = len(raw_json)
 
 
 def within_acceptable_skew(timestamp: int, skew_window_secs: int):
@@ -666,7 +707,7 @@ def vdlm2_hasher(
             data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
 
         # drop messages with timestamp outside of max skew range
-        if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
+        if 'msgtime_ns' in data and not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
             logger.warning(f"message timestamp outside acceptable skew window: {data['json']['vdl2']['t']['sec'].data['json']['vdl2']['t']['usec']} (now: {time.time()})")
             logger.debug(f"message timestamp outside acceptable skew window: {data}")
             continue
