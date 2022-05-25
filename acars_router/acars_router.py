@@ -147,6 +147,8 @@ class ARCounters():
         if self.skew_exceeded_vdlm2 > 0:
             logger.log(level, f"Skew exceeded VDLM2 messages dropped: {self.skew_exceeded_vdlm2}")
 
+        logger.log(logging.DEBUG, f"Active threads: {threading.active_count()}")
+
         # Log queue depths
         for q in self.standalone_queues:
             # qs = q.qsize()
