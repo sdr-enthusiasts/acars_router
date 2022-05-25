@@ -495,9 +495,10 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     logger = baselogger.getChild(f'json_validator.{protoname}')
     logger.debug("spawned")
 
+    message_count = 0
+
     # pop items off queue forever
     while True:
-
         # pop data from queue (blocks until an item can be popped)
         data = in_queue.get()
         in_queue.task_done()
@@ -558,6 +559,9 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
 
             # if it is a dict...
             else:
+                if message_count == 0:
+                    logger.info(f"Receiving {protoname} messages!")
+                message_count += 1
 
                 # build output message object
                 data_out = copy.deepcopy(data)
@@ -1255,23 +1259,6 @@ def env_true_false(
         return False
 
 
-def log_on_first_message(out_queues: list, protoname: str):
-    """
-    Logs when the first message is received.
-    Intended to be run in a thread.
-    """
-    logger = baselogger.getChild(f'first_message.{protoname}')
-    logger.debug("spawned")
-    # Create an output queue for this instance of the function & add to output queue
-    q = ARQueue(f'first_message.{protoname}', 100)
-    out_queues.append(q)
-    q.get()
-    q.task_done()
-    logger.info(f"Receiving {protoname} messages!")
-    out_queues.remove(q)
-    del(q)
-
-
 def valid_tcp_udp_port(num: int):
     """
     Returns True if num is a valid TCP/UDP port number, else return False.
@@ -1952,20 +1939,6 @@ if __name__ == "__main__":
                 args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2", args.override_station_name),
                 daemon=True,
             ).start()
-
-    # Configure "log on first message" for ACARS
-    threading.Thread(
-        target=log_on_first_message,
-        args=(output_acars_queues, "ACARS"),
-        daemon=True,
-    ).start()
-
-    # Configure "log on first message" for VDLM2
-    threading.Thread(
-        target=log_on_first_message,
-        args=(output_vdlm2_queues, "VDLM2"),
-        daemon=True,
-    ).start()
 
     # acars tcp output (server)
     for port in args.serve_tcp_acars:
