@@ -147,6 +147,8 @@ class ARCounters():
         if self.skew_exceeded_vdlm2 > 0:
             logger.log(level, f"Skew exceeded VDLM2 messages dropped: {self.skew_exceeded_vdlm2}")
 
+        logger.log(logging.DEBUG, f"Active threads: {threading.active_count()}")
+
         # Log queue depths
         for q in self.standalone_queues:
             # qs = q.qsize()
@@ -191,20 +193,15 @@ class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
         socketserver.UDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate=bind_and_activate)
 
 
+udp_partial_dict = {}
+
+
 class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
     """ Multi-threaded UDP server to receive ACARS/VDLM2 messages """
     def __init__(self, request, client_address, server):
-
-        # prepare logging
-        self.logger = baselogger.getChild(f'input.udp.{server.protoname}')
-        # self.logger.debug("spawned")
-
         # store variables in server object, so they can be accessed in handle() when message arrives
         self.inbound_message_queue = server.inbound_message_queue
         self.protoname = server.protoname
-
-        self.partial = ''
-        self.partial_address = ''
 
         # perform init of super class (socketserver.BaseRequestHandler)
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
@@ -220,25 +217,32 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
         address = (host, port)
 
         # prepare logging
-        self.logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
+        logger = baselogger.getChild(f'input.udp.{self.protoname}.{host}:{port}')
 
         data = data.decode()
 
-        if self.partial_address == address:
-            reassembled = self.partial + data
-        else:
-            reassembled = data
+        reassembled = data
+        partial = udp_partial_dict.get(address)
+        if partial:
+            # delete from partial dict
+            del udp_partial_dict[address]
+
+            logger.debug(f"reassembly: {address} (partial len: {len(partial)}, data len: {len(data)}")
+            try:
+                reassembled = partial + data
+                json.loads(reassembled.splitlines()[0])
+            except json.JSONDecodeError as e:
+                logger.log(logging_TRACE, f"reassembly failed: {e}")
 
         if reassembled[-1] != '\n':
             try:
                 json.loads(reassembled)
             except json.JSONDecodeError as e:
-                self.logger.log(logging_TRACE, f"attempting reassembly due to json decode error: {e} data: {reassembled}")
-                self.partial = reassembled
-                self.partial_address = address
+                logger.log(logging_TRACE, f"probably a partial message: {e}")
+                logger.debug(f"saving {len(reassembled)} bytes from {address} in udp_partial_dict")
+                # add to partial dict
+                udp_partial_dict[address] = reassembled
                 return
-
-        self.partial = ''
 
         lines = reassembled.splitlines()
 
@@ -253,7 +257,7 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
             }
 
         # trace logging
-        self.logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
+        logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
 
         # enqueue the data
         self.inbound_message_queue.put(incoming_data)
@@ -289,7 +293,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
         self.logger.info("connection established")
 
-        partial = ''
+        partial = None
 
         # loop until the session is disconnected (we receive no data)
         while True:
@@ -303,7 +307,13 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
 
             data = data.decode()
 
-            reassembled = partial + data
+            reassembled = data
+            if partial is not None:
+                try:
+                    reassembled = partial + data
+                    json.loads(reassembled.splitlines()[0])
+                except json.JSONDecodeError as e:
+                    logger.log(logging_TRACE, f"reassembly failed: {e}")
 
             if reassembled[-1] != '\n':
                 try:
@@ -313,7 +323,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                     partial = reassembled
                     continue
 
-            partial = ''
+            partial = None
 
             lines = reassembled.splitlines()
 
@@ -498,9 +508,10 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
     logger = baselogger.getChild(f'json_validator.{protoname}')
     logger.debug("spawned")
 
+    message_count = 0
+
     # pop items off queue forever
     while True:
-
         # pop data from queue (blocks until an item can be popped)
         data = in_queue.get()
         in_queue.task_done()
@@ -526,52 +537,59 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
 
             # attempt to deserialise
             try:
-                deserialised_json = json.loads(raw_json[:decode_to_char])
+                to_decode = raw_json[:decode_to_char]
+                deserialised_json = json.loads(to_decode)
 
             # if there is extra data, attempt to decode as much as we can next iteration of loop
             except json.JSONDecodeError as e:
                 logger.log(logging_TRACE, f"message contains extra data: {data}: {e}, attempting to decode to character {e.pos}, then will attempt remaining data")
-                if e.pos == 0 or e.pos >= decode_to_char:
-                    logger.error(f"json decoding failed at a position that makes reattempt impossible: invalid JSON received via {data['src_name']} e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} raw_json: {raw_json}")
+                if e.pos > 0 and e.pos < decode_to_char:
+                    decode_to_char = e.pos
+                    continue
+                else:
+                    logger.error(f"json decoding failed, reattempt impossible: invalid JSON received via {data['src_name']} (possible reason: UDP packet loss, consider using TCP)")
+                    logger.debug(f"e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} to_decode: {to_decode}")
+                    COUNTERS.increment(f'invalid_json_{protoname}')
                     break
-                decode_to_char = e.pos
-                continue
 
             # if an exception, log and continue
             except Exception as e:
-                logger.error(f"invalid JSON received via {data['src_name']} exception: {e} raw_json: {raw_json}")
+                logger.error(f"invalid JSON received via {data['src_name']} exception: {e} to_decode: {to_decode}")
                 COUNTERS.increment(f'invalid_json_{protoname}')
                 break
 
             # if there was no exception:
 
+            # remove the json we've already serialised from the input
+            raw_json = raw_json[decode_to_char:]
+            decode_to_char = len(raw_json)
+
             # ensure json.loads resulted in a dict
             if type(deserialised_json) != dict:
-                logger.error(f"invalid JSON received via {data['src_name']}")
-                logger.debug(f"invalid JSON received: json.loads on raw_json returned non-dict object: {data}")
+                logger.error(f"invalid JSON received via {data['src_name']} json.loads returned non-dict object")
+                logger.debug(f"to_decode: {to_decode}")
                 COUNTERS.increment(f'invalid_json_{protoname}')
 
             # if it is a dict...
             else:
+                if message_count == 0:
+                    logger.info(f"Receiving {protoname} messages!")
+                message_count += 1
 
                 # build output message object
                 data_out = copy.deepcopy(data)
 
+                # add part of raw json which was decoded
+                data_out['raw_json'] = to_decode
+
                 # add deserialised_json
                 data_out['json'] = deserialised_json
-
-                # add the character offset from raw_json
-                data_out['raw_json_char_offset'] = decode_to_char
 
                 # trace logging
                 logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data_out}")
 
                 # enqueue the data
                 out_queue.put(data_out)
-
-                # remove the json we've already serialised from the input
-                raw_json = raw_json[decode_to_char:]
-                decode_to_char = len(raw_json)
 
 
 def within_acceptable_skew(timestamp: int, skew_window_secs: int):
@@ -804,6 +822,7 @@ def deduper(
     out_queue: ARQueue,
     recent_message_queue: collections.deque,
     protoname: str,
+    dedupe_window_secs: float,
 ):
     protoname = protoname.lower()
 
@@ -822,6 +841,13 @@ def deduper(
         dropmsg = False
         lck = lock.acquire()
         if lck:
+
+            # evict items older than 2 seconds
+            evict_cutoff = (time.time_ns() - (dedupe_window_secs * 1e9))
+            while len(recent_message_queue) > 0 and recent_message_queue[0]['msgtime_ns'] <= evict_cutoff:
+                evictedmsg = recent_message_queue.popleft()
+                logger.log(logging_TRACE, f"evicted: {evictedmsg}")
+
             for recent_message in recent_message_queue:
 
                 # if the hash matches...
@@ -1213,20 +1239,6 @@ def display_stats(
         COUNTERS.log(logger, loglevel)
 
 
-def recent_message_queue_evictor(recent_message_queue: collections.deque, protoname: str, dedupe_window_secs: int):
-    protoname = protoname.lower()
-    logger = baselogger.getChild(f'recent_message_queue_evictor.{protoname}')
-    logger.debug("spawned")
-    while True:
-        if len(recent_message_queue) > 0:
-            # evict items older than 2 seconds
-            if recent_message_queue[0]['msgtime_ns'] <= (time.time_ns() - (dedupe_window_secs * 1e9)):
-                evictedmsg = recent_message_queue.popleft()
-                logger.log(logging_TRACE, f"evicted: {evictedmsg}")
-                continue
-        time.sleep(0.250)
-
-
 def split_env_safely(
     env: str,
     sep: str = ';',
@@ -1252,23 +1264,6 @@ def env_true_false(
         return True
     else:
         return False
-
-
-def log_on_first_message(out_queues: list, protoname: str):
-    """
-    Logs when the first message is received.
-    Intended to be run in a thread.
-    """
-    logger = baselogger.getChild(f'first_message.{protoname}')
-    logger.debug("spawned")
-    # Create an output queue for this instance of the function & add to output queue
-    q = ARQueue(f'first_message.{protoname}', 100)
-    out_queues.append(q)
-    q.get()
-    q.task_done()
-    logger.info(f"Receiving {protoname} messages!")
-    out_queues.remove(q)
-    del(q)
 
 
 def valid_tcp_udp_port(num: int):
@@ -1540,13 +1535,16 @@ def valid_args(args):
     # If we're here, all arguments are good
     return True
 
+
 def sigterm_exit(signum, frame):
     sys.stderr.write("acars_router: caught SIGTERM, exiting!!\n")
     sys.exit()
 
+
 def sigint_exit(signum, frame):
     sys.stderr.write("acars_router: caught SIGINT, exiting!!\n")
     sys.exit()
+
 
 if __name__ == "__main__":
 
@@ -1836,24 +1834,6 @@ if __name__ == "__main__":
     deduped_vdlm2_message_queue = ARQueue('deduped_vdlm2_message_queue', 100)
     COUNTERS.register_queue(deduped_vdlm2_message_queue)
 
-    # recent message buffers for dedupe
-    recent_message_queue_acars = collections.deque()
-    COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
-    recent_message_queue_vdlm2 = collections.deque()
-    COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
-
-    # recent message buffers evictor threads
-    threading.Thread(
-        target=recent_message_queue_evictor,
-        args=(recent_message_queue_acars, "acars", args.dedupe_window),
-        daemon=True,
-    ).start()
-    threading.Thread(
-        target=recent_message_queue_evictor,
-        args=(recent_message_queue_vdlm2, "vdlm2", args.dedupe_window),
-        daemon=True,
-    ).start()
-
     # acars json deserialiser threads
     for _ in range(args.threads_json_deserialiser):
         threading.Thread(
@@ -1898,19 +1878,25 @@ if __name__ == "__main__":
 
     if args.enable_dedupe:
 
+        # recent message buffers for dedupe
+        recent_message_queue_acars = collections.deque()
+        COUNTERS.register_deque("recent_message_queue_acars", recent_message_queue_acars)
+        recent_message_queue_vdlm2 = collections.deque()
+        COUNTERS.register_deque("recent_message_queue_vdlm2", recent_message_queue_vdlm2)
+
         # if dedupe enabled: use dedupe queue & start dedupers
 
         for _ in range(args.threads_deduper):
             threading.Thread(
                 target=deduper,
-                args=(hashed_acars_message_queue, deduped_acars_message_queue, recent_message_queue_acars, "ACARS",),
+                args=(hashed_acars_message_queue, deduped_acars_message_queue, recent_message_queue_acars, "ACARS", args.dedupe_window),
                 daemon=True,
             ).start()
 
         for _ in range(args.threads_deduper):
             threading.Thread(
                 target=deduper,
-                args=(hashed_vdlm2_message_queue, deduped_vdlm2_message_queue, recent_message_queue_vdlm2, "VDLM2",),
+                args=(hashed_vdlm2_message_queue, deduped_vdlm2_message_queue, recent_message_queue_vdlm2, "VDLM2", args.dedupe_window),
                 daemon=True,
             ).start()
 
@@ -1948,20 +1934,6 @@ if __name__ == "__main__":
                 args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2", args.override_station_name),
                 daemon=True,
             ).start()
-
-    # Configure "log on first message" for ACARS
-    threading.Thread(
-        target=log_on_first_message,
-        args=(output_acars_queues, "ACARS"),
-        daemon=True,
-    ).start()
-
-    # Configure "log on first message" for VDLM2
-    threading.Thread(
-        target=log_on_first_message,
-        args=(output_vdlm2_queues, "VDLM2"),
-        daemon=True,
-    ).start()
 
     # acars tcp output (server)
     for port in args.serve_tcp_acars:
@@ -2123,5 +2095,11 @@ if __name__ == "__main__":
         ).start()
 
     # Main loop
+    next_udp_partial_clear = 0
     while True:
         time.sleep(10)
+        now = time.time()
+        if now > next_udp_partial_clear:
+            udp_partial_dict.clear()
+            # clear partial dict every 10 mins
+            next_udp_partial_clear = now + 600
