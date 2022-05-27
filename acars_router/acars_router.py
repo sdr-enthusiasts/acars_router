@@ -628,105 +628,7 @@ def acars_hasher(
         data = in_queue.get()
         in_queue.task_done()
 
-        # ensure message has a timestamp
-        if 'timestamp' not in data['json']:
-            logger.error(f"message does not contain 'timestamp' field: {data['json']}, dropping message")
-            continue
-
-        # create timestamp (in nanoseconds) from message timestamp
-        data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
-
-        # drop messages with timestamp outside of max skew range
-        if not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
-            logger.error(f"message timestamp outside acceptable skew window: {data['json']['timestamp']} (now: {time.time()}), dropping message")
-            logger.debug(f"message timestamp outside acceptable skew window: {data}")
-            # increment counters
-            COUNTERS.increment(f'skew_exceeded_{protoname}')
-            continue
-
-        # copy object so we don't molest original data
-        data_to_hash = copy.deepcopy(data['json'])
-
-        # remove feeder-specific data so we only hash data unique to the message
-        if 'error' in data_to_hash:
-            del(data_to_hash['error'])
-        else:
-            logger.debug(f"message does not contain expected 'error' field: {data_to_hash}")
-        if 'level' in data_to_hash:
-            del(data_to_hash['level'])
-        else:
-            logger.debug(f"message does not contain expected 'level' field: {data_to_hash}")
-        if 'station_id' in data_to_hash:
-            del(data_to_hash['station_id'])
-        else:
-            logger.debug(f"message does not contain expected 'station_id' field: {data_to_hash}")
-        if 'timestamp' in data_to_hash:
-            del(data_to_hash['timestamp'])
-        else:
-            logger.debug(f"message does not contain expected 'timestamp' field: {data_to_hash}")
-        if 'channel' in data_to_hash:
-            del(data_to_hash['channel'])
-        else:
-            logger.debug(f"message does not contain expected 'channel' field: {data_to_hash}")
-
-        # store hashed data in message object
-        data['hashed_data'] = json.dumps(
-            data_to_hash,
-            separators=(',', ':'),
-            sort_keys=True,
-        )
-
-        # store hash
-        data['hash'] = hash(data['hashed_data'])
-
-        # trace logging
-        logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
-
-        # enqueue the data
-        out_queue.put(data)
-
-
-def vdlm2_hasher(
-    in_queue: ARQueue,
-    out_queue: ARQueue,
-    protoname: str,
-    skew_window_secs: int,
-):
-    protoname = protoname.lower()
-
-    # prepare logging
-    logger = baselogger.getChild('vdlm2_hasher')
-    logger.debug("spawned")
-
-    # hash items "forever"
-    while True:
-
-        # pop data from queue
-        data = in_queue.get()
-        in_queue.task_done()
-
-        # determine whether data is from dumpvdl2 (preferred) or vdlm2dec
-        data['format'] = "unknown"
-        if 'timestamp' in data['json']:
-            data['format'] = "vdlm2dec"
-        if 'vdl2' in data['json']:
-            if 'app' in data['json']['vdl2']:
-                if 'name' in data['json']['vdl2']['app']:
-                    if data['json']['vdl2']['app']['name'].lower() == "dumpvdl2":
-                        data['format'] = "dumpvdl2"
-
-        # create timestamp:
-        if data['format'] == "dumpvdl2":
-
-            # ensure message has a timestamp
-            if 't' not in data['json']['vdl2']:
-                logger.error(f"message does not contain 't' field: {data['json']}, dropping message")
-                continue
-
-            # create timestamp from t.sec & t.usec
-            data['msgtime_ns'] = (int(data['json']['vdl2']['t']['sec']) * 1e9) + (int(data['json']['vdl2']['t']['usec']) * 1000)
-
-        elif data['format'] == "vdlm2dec":
+        try:
 
             # ensure message has a timestamp
             if 'timestamp' not in data['json']:
@@ -736,52 +638,16 @@ def vdlm2_hasher(
             # create timestamp (in nanoseconds) from message timestamp
             data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
 
-        # drop messages with timestamp outside of max skew range
-        if 'msgtime_ns' in data and not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
-            logger.warning(f"message timestamp outside acceptable skew window: {data['json']['vdl2']['t']['sec'].data['json']['vdl2']['t']['usec']} (now: {time.time()})")
-            logger.debug(f"message timestamp outside acceptable skew window: {data}")
-            continue
+            # drop messages with timestamp outside of max skew range
+            if 'msgtime_ns' in data and not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
+                logger.warning(f"message timestamp outside acceptable skew window: {data['msgtime_ns'] * 1e-9} (now: {time.time()})")
+                logger.debug(f"message timestamp outside acceptable skew window: {data}")
+                # increment counters
+                COUNTERS.increment(f'skew_exceeded_{protoname}')
+                continue
 
-        # copy object so we don't molest original data
-        data_to_hash = copy.deepcopy(data['json'])
-
-        # remove feeder-specific data so we only hash data unique to the message
-        if data['format'] == "dumpvdl2":
-
-            if 'app' in data_to_hash['vdl2']:
-                del(data_to_hash['vdl2']['app'])
-            else:
-                logger.debug(f"message does not contain expected 'app' field: {data_to_hash}")
-            if 'freq_skew' in data_to_hash['vdl2']:
-                del(data_to_hash['vdl2']['freq_skew'])
-            else:
-                logger.debug(f"message does not contain expected 'freq_skew' field: {data_to_hash}")
-            if 'hdr_bits_fixed' in data_to_hash['vdl2']:
-                del(data_to_hash['vdl2']['hdr_bits_fixed'])
-            else:
-                logger.debug(f"message does not contain expected 'hdr_bits_fixed' field: {data_to_hash}")
-            if 'noise_level' in data_to_hash['vdl2']:
-                del(data_to_hash['vdl2']['noise_level'])
-            else:
-                logger.debug(f"message does not contain expected 'noise_level' field: {data_to_hash}")
-            if 'octets_corrected_by_fec' in data_to_hash['vdl2']:
-                del(data_to_hash['vdl2']['octets_corrected_by_fec'])
-            else:
-                logger.debug(f"message does not contain expected 'octets_corrected_by_fec' field: {data_to_hash}")
-            if 'sig_level' in data_to_hash['vdl2']:
-                del(data_to_hash['vdl2']['sig_level'])
-            else:
-                logger.debug(f"message does not contain expected 'sig_level' field: {data_to_hash}")
-            if 'station' in data_to_hash['vdl2']:
-                del(data_to_hash['vdl2']['station'])
-            else:
-                logger.debug(f"message does not contain expected 'station' field: {data_to_hash}")
-            if 't' in data_to_hash['vdl2']:
-                del(data_to_hash['vdl2']['t'])
-            else:
-                logger.debug(f"message does not contain expected 't' field: {data_to_hash}")
-
-        elif data['format'] == "vdlm2dec":
+            # copy object so we don't molest original data
+            data_to_hash = copy.deepcopy(data['json'])
 
             # remove feeder-specific data so we only hash data unique to the message
             if 'error' in data_to_hash:
@@ -805,21 +671,166 @@ def vdlm2_hasher(
             else:
                 logger.debug(f"message does not contain expected 'channel' field: {data_to_hash}")
 
-        # store hashed data in message object
-        data['hashed_data'] = json.dumps(
-            data_to_hash,
-            separators=(',', ':'),
-            sort_keys=True,
-        )
+            # store hashed data in message object
+            data['hashed_data'] = json.dumps(
+                data_to_hash,
+                separators=(',', ':'),
+                sort_keys=True,
+            )
 
-        # store hash
-        data['hash'] = hash(data['hashed_data'])
+            # store hash
+            data['hash'] = hash(data['hashed_data'])
 
-        # trace logging
-        logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+            # trace logging
+            logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
 
-        # enqueue the data
-        out_queue.put(data)
+            # enqueue the data
+            out_queue.put(data)
+
+        except Exception as e:
+            logger.error(f"Exception when hashing this message: {data.get('json')}\n{e}")
+            break
+
+
+def vdlm2_hasher(
+    in_queue: ARQueue,
+    out_queue: ARQueue,
+    protoname: str,
+    skew_window_secs: int,
+):
+    protoname = protoname.lower()
+
+    # prepare logging
+    logger = baselogger.getChild('vdlm2_hasher')
+    logger.debug("spawned")
+
+    # hash items "forever"
+    while True:
+
+        # pop data from queue
+        data = in_queue.get()
+        in_queue.task_done()
+
+        try:
+            # determine whether data is from dumpvdl2 (preferred) or vdlm2dec
+            data['format'] = "unknown"
+            if 'timestamp' in data['json']:
+                data['format'] = "vdlm2dec"
+            if 'vdl2' in data['json']:
+                if 'app' in data['json']['vdl2']:
+                    if 'name' in data['json']['vdl2']['app']:
+                        if data['json']['vdl2']['app']['name'].lower() == "dumpvdl2":
+                            data['format'] = "dumpvdl2"
+
+            # create timestamp:
+            if data['format'] == "dumpvdl2":
+
+                # ensure message has a timestamp
+                if 't' not in data['json']['vdl2']:
+                    logger.error(f"message does not contain 't' field: {data['json']}, dropping message")
+                    continue
+
+                # create timestamp from t.sec & t.usec
+                data['msgtime_ns'] = (int(data['json']['vdl2']['t']['sec']) * 1e9) + (int(data['json']['vdl2']['t']['usec']) * 1000)
+
+            elif data['format'] == "vdlm2dec":
+
+                # ensure message has a timestamp
+                if 'timestamp' not in data['json']:
+                    logger.error(f"message does not contain 'timestamp' field: {data['json']}, dropping message")
+                    continue
+
+                # create timestamp (in nanoseconds) from message timestamp
+                data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
+
+            # drop messages with timestamp outside of max skew range
+            if 'msgtime_ns' in data and not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
+                logger.warning(f"message timestamp outside acceptable skew window: {data['msgtime_ns'] * 1e-9} (now: {time.time()})")
+                logger.debug(f"message timestamp outside acceptable skew window: {data}")
+                continue
+
+            # copy object so we don't molest original data
+            data_to_hash = copy.deepcopy(data['json'])
+
+            # remove feeder-specific data so we only hash data unique to the message
+            if data['format'] == "dumpvdl2":
+
+                if 'app' in data_to_hash['vdl2']:
+                    del(data_to_hash['vdl2']['app'])
+                else:
+                    logger.debug(f"message does not contain expected 'app' field: {data_to_hash}")
+                if 'freq_skew' in data_to_hash['vdl2']:
+                    del(data_to_hash['vdl2']['freq_skew'])
+                else:
+                    logger.debug(f"message does not contain expected 'freq_skew' field: {data_to_hash}")
+                if 'hdr_bits_fixed' in data_to_hash['vdl2']:
+                    del(data_to_hash['vdl2']['hdr_bits_fixed'])
+                else:
+                    logger.debug(f"message does not contain expected 'hdr_bits_fixed' field: {data_to_hash}")
+                if 'noise_level' in data_to_hash['vdl2']:
+                    del(data_to_hash['vdl2']['noise_level'])
+                else:
+                    logger.debug(f"message does not contain expected 'noise_level' field: {data_to_hash}")
+                if 'octets_corrected_by_fec' in data_to_hash['vdl2']:
+                    del(data_to_hash['vdl2']['octets_corrected_by_fec'])
+                else:
+                    logger.debug(f"message does not contain expected 'octets_corrected_by_fec' field: {data_to_hash}")
+                if 'sig_level' in data_to_hash['vdl2']:
+                    del(data_to_hash['vdl2']['sig_level'])
+                else:
+                    logger.debug(f"message does not contain expected 'sig_level' field: {data_to_hash}")
+                if 'station' in data_to_hash['vdl2']:
+                    del(data_to_hash['vdl2']['station'])
+                else:
+                    logger.debug(f"message does not contain expected 'station' field: {data_to_hash}")
+                if 't' in data_to_hash['vdl2']:
+                    del(data_to_hash['vdl2']['t'])
+                else:
+                    logger.debug(f"message does not contain expected 't' field: {data_to_hash}")
+
+            elif data['format'] == "vdlm2dec":
+
+                # remove feeder-specific data so we only hash data unique to the message
+                if 'error' in data_to_hash:
+                    del(data_to_hash['error'])
+                else:
+                    logger.debug(f"message does not contain expected 'error' field: {data_to_hash}")
+                if 'level' in data_to_hash:
+                    del(data_to_hash['level'])
+                else:
+                    logger.debug(f"message does not contain expected 'level' field: {data_to_hash}")
+                if 'station_id' in data_to_hash:
+                    del(data_to_hash['station_id'])
+                else:
+                    logger.debug(f"message does not contain expected 'station_id' field: {data_to_hash}")
+                if 'timestamp' in data_to_hash:
+                    del(data_to_hash['timestamp'])
+                else:
+                    logger.debug(f"message does not contain expected 'timestamp' field: {data_to_hash}")
+                if 'channel' in data_to_hash:
+                    del(data_to_hash['channel'])
+                else:
+                    logger.debug(f"message does not contain expected 'channel' field: {data_to_hash}")
+
+            # store hashed data in message object
+            data['hashed_data'] = json.dumps(
+                data_to_hash,
+                separators=(',', ':'),
+                sort_keys=True,
+            )
+
+            # store hash
+            data['hash'] = hash(data['hashed_data'])
+
+            # trace logging
+            logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
+
+            # enqueue the data
+            out_queue.put(data)
+
+        except Exception as e:
+            logger.error(f"Exception when hashing this message: {data.get('json')}\n{e}")
+            break
 
 
 def deduper(
