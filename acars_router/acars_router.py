@@ -75,6 +75,8 @@ class ARCounters():
         self.standalone_queues = list()
         self.standalone_deque = list()
 
+        self.last_thread_count = 0
+
     def save_stats_file(self):
         if self.stats_file:
 
@@ -147,22 +149,25 @@ class ARCounters():
         if self.skew_exceeded_vdlm2 > 0:
             logger.log(level, f"Skew exceeded VDLM2 messages dropped: {self.skew_exceeded_vdlm2}")
 
-        logger.log(logging.DEBUG, f"Active threads: {threading.active_count()}")
+        thread_count = threading.active_count()
+        if thread_count != self.last_thread_count:
+            self.last_thread_count = thread_count
+            logger.log(level, f"Active threads: {thread_count}")
 
-        # Log queue depths
+        # Log queue depths (only if non zero)
         for q in self.standalone_queues:
-            # qs = q.qsize()
-            # if qs > 0:
-            logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
+            qs = q.qsize()
+            if qs > 0:
+                logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
         for queue_list in self.queue_lists:
             for q in queue_list:
-                # qs = q.qsize()
-                # if qs > 0:
-                logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
+                qs = q.qsize()
+                if qs > 0:
+                    logger.log(logging.DEBUG, f"Queue depth of {q.name}: {q.qsize()}")
         for dq in self.standalone_deque:
             dqlen = len(dq[1])
-            # if dqlen > 0:
-            logger.log(logging.DEBUG, f"Queue depth of {dq[0]}: {dqlen}")
+            if dqlen > 0:
+                logger.log(logging.DEBUG, f"Queue depth of {dq[0]}: {dqlen}")
 
     def register_queue_list(self, qlist: list):
         self.queue_lists.append(qlist)
