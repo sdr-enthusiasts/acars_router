@@ -8,7 +8,7 @@ PORT1=$(shuf -i 7000-7999 -n 1)
 PORT2=$(shuf -i 8000-8999 -n 1)
 
 # Start acars_router
-python3 ./acars_router/acars_router.py -vv --skew-window 300 --listen-udp-"$1" "${PORT2}" --serve-zmq-"$1" "${PORT1}" &
+python3 ./acars_router/acars_router.py -vv --add-proxy-id=false --skew-window 300 --listen-udp-"$1" "${PORT2}" --serve-zmq-"$1" "${PORT1}" &
 sleep 1
 
 # Process to receive output
