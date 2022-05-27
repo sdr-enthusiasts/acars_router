@@ -67,6 +67,7 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 | Argument | Environment Variable | Description | Default |
 | -------- | -------------------- | ----------- | --------|
 | `--override-station-name` | `AR_OVERRIDE_STATION_NAME` | Overrides station id/name with this value | |
+| `--add-proxy-id` | `AR_ADD_PROXY_ID` | `AR_ADD_PROXY_ID` | Adds in additional metadata to the output to indicate that `acars_router` proxied the data | `true` |
 
 ### Advanced Settings
 
