@@ -16,6 +16,7 @@ import uuid
 import zmq
 import signal
 
+global_queue_size = 100
 
 # HELPER CLASSES #
 
@@ -970,7 +971,7 @@ def UDPSender(host, port, output_queues: list, protoname: str):
     # Create an output queue for this instance of the function & add to output queue
     qname = f'output.udp.{protoname}.{host}:{port}'
     logger.debug(f"registering output queue: {qname}")
-    q = ARQueue(qname, 100)
+    q = ARQueue(qname, global_queue_size)
     output_queues.append(q)
 
     suppress_errors_until = 0
@@ -1060,7 +1061,7 @@ def TCPServer(conn: socket.socket, addr: tuple, output_queues: list, protoname: 
     # Create an output queue for this instance of the function & add to output queue
     qname = f'output.tcpserver.{protoname}.{host}:{port}'
     logger.debug(f"registering output queue: {qname}")
-    q = ARQueue(qname, 100)
+    q = ARQueue(qname, global_queue_size)
     output_queues.append(q)
 
     # Set up socket
@@ -1154,7 +1155,7 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
 
         # Create an output queue for this instance of the function & add to output queue
         qname = f'output.tcpclient.{protoname}.{host}:{port}'
-        q = ARQueue(qname, 100)
+        q = ARQueue(qname, global_queue_size)
 
         logger.debug(f"registering output queue: {qname}")
         output_queues.append(q)
@@ -1200,7 +1201,7 @@ def ZMQServer(port: int, output_queues: list, protoname: str):
     # Create an output queue for this instance of the function & add to output queue
     qname = f'output.zmqserver.{protoname}:{port}'
     logger.debug(f"registering output queue: {qname}")
-    q = ARQueue(qname, 100)
+    q = ARQueue(qname, global_queue_size)
     output_queues.append(q)
 
     # Set up zmq context
@@ -1848,27 +1849,27 @@ if __name__ == "__main__":
     COUNTERS.register_queue_list(output_vdlm2_queues)
 
     # define inbound message queues
-    inbound_acars_message_queue = ARQueue('inbound_acars_message_queue', 100)
+    inbound_acars_message_queue = ARQueue('inbound_acars_message_queue', global_queue_size)
     COUNTERS.register_queue(inbound_acars_message_queue)
-    inbound_vdlm2_message_queue = ARQueue('inbound_vdlm2_message_queue', 100)
+    inbound_vdlm2_message_queue = ARQueue('inbound_vdlm2_message_queue', global_queue_size)
     COUNTERS.register_queue(inbound_vdlm2_message_queue)
 
     # define intermediate queue for deserialised messages
-    deserialised_acars_message_queue = ARQueue('deserialised_acars_message_queue', 100)
+    deserialised_acars_message_queue = ARQueue('deserialised_acars_message_queue', global_queue_size)
     COUNTERS.register_queue(deserialised_acars_message_queue)
-    deserialised_vdlm2_message_queue = ARQueue('deserialised_vdlm2_message_queue', 100)
+    deserialised_vdlm2_message_queue = ARQueue('deserialised_vdlm2_message_queue', global_queue_size)
     COUNTERS.register_queue(deserialised_vdlm2_message_queue)
 
     # define intermediate queue for hashed messages
-    hashed_acars_message_queue = ARQueue('hashed_acars_message_queue', 100)
+    hashed_acars_message_queue = ARQueue('hashed_acars_message_queue', global_queue_size)
     COUNTERS.register_queue(hashed_acars_message_queue)
-    hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', 100)
+    hashed_vdlm2_message_queue = ARQueue('hashed_vdlm2_message_queue', global_queue_size)
     COUNTERS.register_queue(hashed_vdlm2_message_queue)
 
     # define intermediate queue for deduped messages
-    deduped_acars_message_queue = ARQueue('deduped_acars_message_queue', 100)
+    deduped_acars_message_queue = ARQueue('deduped_acars_message_queue', global_queue_size)
     COUNTERS.register_queue(deduped_acars_message_queue)
-    deduped_vdlm2_message_queue = ARQueue('deduped_vdlm2_message_queue', 100)
+    deduped_vdlm2_message_queue = ARQueue('deduped_vdlm2_message_queue', global_queue_size)
     COUNTERS.register_queue(deduped_vdlm2_message_queue)
 
     # acars json deserialiser threads
