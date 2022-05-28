@@ -1221,43 +1221,44 @@ def ZMQServer(port: int, output_queues: list, protoname: str):
     logger = baselogger.getChild(f'output.zmqserver.{protoname}:{port}')
     logger.debug("spawned")
 
-    # Create an output queue for this instance of the function & add to output queue
-    qname = f'output.zmqserver.{protoname}:{port}'
-    logger.debug(f"registering output queue: {qname}")
-    q = ARQueue(qname, global_queue_size)
-    output_queues.append(q)
-
-    # Set up zmq context
-    context = zmq.Context()
-
-    # This is our public endpoint for subscribers
-    backend = context.socket(zmq.PUB)
-    backend.bind(f"tcp://0.0.0.0:{port}")
-
-    # Loop to send messages from output queue
     while True:
+        # Create an output queue for this instance of the function & add to output queue
+        qname = f'output.zmqserver.{protoname}:{port}'
+        logger.debug(f"registering output queue: {qname}")
+        q = ARQueue(qname, global_queue_size)
+        output_queues.append(q)
 
-        # Pop a message from the output queue
-        data = q.get()
-        q.task_done()
+        # Set up zmq context
+        context = zmq.Context()
 
-        # try to send the message to the remote host
-        try:
-            backend.send_multipart([data['out_json'], ])
+        # This is our public endpoint for subscribers
+        backend = context.socket(zmq.PUB)
+        backend.bind(f"tcp://0.0.0.0:{port}")
 
-            # trace
-            logger.log(logging_TRACE, f"in: {qname}; out: {port}/zmq; data: {data}")
+        # Loop to send messages from output queue
+        while True:
 
-        except Exception as e:
-            logger.error(f"error sending: {e}")
-            break
+            # Pop a message from the output queue
+            data = q.get()
+            q.task_done()
 
-    # clean up
-    # remove this instance's queue from the output queue
-    logger.debug(f"deregistering output queue: {qname}")
-    output_queues.remove(q)
-    # delete our queue
-    del(q)
+            # try to send the message to the remote host
+            try:
+                backend.send_multipart([data['out_json'], ])
+
+                # trace
+                logger.log(logging_TRACE, f"in: {qname}; out: {port}/zmq; data: {data}")
+
+            except Exception as e:
+                logger.error(f"error sending: {e}")
+                break
+
+        # clean up
+        # remove this instance's queue from the output queue
+        logger.debug(f"deregistering output queue: {qname}")
+        output_queues.remove(q)
+        # delete our queue
+        del(q)
 
     logger.info("server stopped")
 
