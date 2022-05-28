@@ -762,6 +762,9 @@ def vdlm2_hasher(
                 # create timestamp (in nanoseconds) from message timestamp
                 data['msgtime_ns'] = int(float(data['json']['timestamp']) * 1e9)
 
+            else:
+                logger.error(f"unknown vdl message format: {data['json']}")
+
             # drop messages with timestamp outside of max skew range
             if 'msgtime_ns' in data and not within_acceptable_skew(data['msgtime_ns'], skew_window_secs):
                 logger.warning(f"message timestamp outside acceptable skew window: {data['msgtime_ns'] * 1e-9} (now: {time.time()})")
