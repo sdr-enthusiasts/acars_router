@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from distutils.util import strtobool
 import collections
 import copy
 import json
@@ -1815,11 +1816,16 @@ if __name__ == "__main__":
         default=os.getenv("AR_STATS_FILE", None),
     )
 
+    # Arguement to toggle the output of proxy information
+    # We can't use default argprase bool operations (action=set_true/false) and using the presence
+    # of a flag to toggle behavior from the default
+    # because we need to be able to use an ENV variable to flag the value for running
+    # in Docker.
+
     parser.add_argument(
         '--add-proxy-id',
         help='Add a proxy id to the JSON message',
-        type=bool,
-        default=os.getenv("AR_ADD_PROXY_ID", True)
+        type=lambda x:bool(strtobool(x)), nargs='?', const=True, default=os.getenv("AR_ADD_PROXY_ID", True)
     )
 
     args = parser.parse_args()
