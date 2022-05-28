@@ -1107,62 +1107,83 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
     logger = baselogger.getChild(f'output.tcpclient.{protoname}.{host}:{port}')
     logger.debug("spawned")
 
-    # Loop to send messages from output queue
+    sock = None
+    next_reconnect = 0
+    # Loop connect
     while True:
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if sock is not None:
+            try:
+                sock.close()
+            except Exception as e:
+                logger.error(f"socket error: {e}")
 
+
+        now = time.time()
+        wait_time = next_reconnect - now
+        if wait_time > 0:
+            time.sleep(wait_time)
+
+        # make sure we don't reconnect too quickly
+        next_reconnect = now + 10
+
+        try:
+            # create socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except Exception as e:
+            logger.error(f"socket error: {e}")
+            continue
+
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             # set socket timeout to 5 seconds
             sock.settimeout(5)
 
             # attempt connection
-            try:
-                sock.connect((host, port))
+            sock.connect((host, port))
 
-            except ConnectionRefusedError:
-                logger.error("connection refused")
-                time.sleep(10)
+        except ConnectionRefusedError:
+            logger.error("connection refused")
+            continue
+
+        except Exception as e:
+            logger.error(f"connection error: {e}")
+            continue
+
+        logger.info("connection established")
+
+        # Create an output queue for this instance of the function & add to output queue
+        qname = f'output.tcpclient.{protoname}.{host}:{port}'
+        q = ARQueue(qname, 100)
+
+        logger.debug(f"registering output queue: {qname}")
+        output_queues.append(q)
+
+        # Loop to send messages from output queue
+        while True:
+
+            # Pop a message from the output queue
+            data = q.get()
+            q.task_done()
+
+            # try to send the message to the remote host
+            try:
+                sock.sendall(data['out_json'])
 
             except Exception as e:
-                logger.error(f"connection error: {e}")
-                time.sleep(10)
+                logger.error(f"error sending to {host}:{port}: {e}")
+                break
 
-            else:
-                logger.info("connection established")
+        # finally, let the user know client has disconnected
+        logger.info("connection lost")
 
-                # Create an output queue for this instance of the function & add to output queue
-                qname = f'output.tcpclient.{protoname}.{host}:{port}'
-                q = ARQueue(qname, 100)
-                output_queues.append(q)
+        # clean up
+        # remove this instance's queue from the output queue
+        logger.debug(f"deregistering output queue: {qname}")
+        output_queues.remove(q)
 
-                # put socket in blocking mode
-                sock.settimeout(None)
-
-                while True:
-
-                    # Pop a message from the output queue
-                    data = q.get()
-                    q.task_done()
-
-                    # try to send the message to the remote host
-                    try:
-                        sock.sendall(data['out_json'])
-
-                    except Exception as e:
-                        logger.error(f"error sending to {host}:{port}: {e}")
-                        break
-
-                # clean up
-                # remove this instance's queue from the output queue
-                logger.debug(f"deregistering output queue: {qname}")
-                output_queues.remove(q)
-                # delete our queue
-                del(q)
-                # close socket
-                sock.close()
-                # finally, let the user know client has disconnected
-                logger.info("connection lost")
+        # delete our queue
+        del(q)
 
 
 def ZMQServer(port: int, output_queues: list, protoname: str):
