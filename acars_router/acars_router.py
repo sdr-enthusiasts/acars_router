@@ -16,9 +16,18 @@ import uuid
 import zmq
 import signal
 
-global_queue_size = 100
-
 # HELPER CLASSES #
+
+
+# if we get unexpected exceptions in threads, quit the program
+def threading_excepthook_override(args):
+    threading.__excepthook__(args)
+    sys.stderr.write("acars_router: exiting for FATAL condition: Uncaught exception in a thread!\n")
+    os._exit(1)
+
+
+threading.excepthook = threading_excepthook_override
+global_queue_size = 100
 
 
 class ARQueue(queue.Queue):
@@ -28,6 +37,14 @@ class ARQueue(queue.Queue):
     def __init__(self, name: str, maxsize: int = 0):
         self.name = name
         super().__init__(maxsize=maxsize)
+
+    def put_or_die(self, item):
+        try:
+            self.put(item, timeout = 1)
+        except:
+            logger.error(f"queue full: {self.name}")
+            sys.stderr.write("acars_router: exiting for FATAL condition: One of the queues is full, this means something is wrong, better start over fresh!\n")
+            os._exit(1)
 
 
 class ARCounters():
@@ -262,14 +279,14 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
                 'msg_uuid': uuid.uuid1(),                   # unique identifier for this message
             }
 
-        # trace logging
-        logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
+            # trace logging
+            logger.log(logging_TRACE, f"in: {host}:{port}/udp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
 
-        # enqueue the data
-        self.inbound_message_queue.put(incoming_data)
+            # enqueue the data
+            self.inbound_message_queue.put_or_die(incoming_data)
 
-        # increment counters
-        COUNTERS.increment(f'listen_udp_{self.protoname}')
+            # increment counters
+            COUNTERS.increment(f'listen_udp_{self.protoname}')
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -343,14 +360,14 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                     'msg_uuid': uuid.uuid1(),                                       # unique identifier for this message
                 }
 
-            # trace logging
-            self.logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
+                # trace logging
+                self.logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
 
-            # enqueue the data
-            self.inbound_message_queue.put(incoming_data)
+                # enqueue the data
+                self.inbound_message_queue.put_or_die(incoming_data)
 
-            # increment counters
-            COUNTERS.increment(f'listen_tcp_{self.protoname}')
+                # increment counters
+                COUNTERS.increment(f'listen_tcp_{self.protoname}')
 
         # if broken out of the loop, then "connection lost"
         self.logger.info("connection lost")
@@ -425,7 +442,7 @@ def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
                             logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {inbound_message_queue.name}; data: {incoming_data}")
 
                             # enqueue the data
-                            inbound_message_queue.put(incoming_data)
+                            inbound_message_queue.put_or_die(incoming_data)
 
                             # increment counters
                             COUNTERS.increment(f'receive_tcp_{protoname}')
@@ -490,7 +507,7 @@ def ZMQReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname:
             logger.log(logging_TRACE, f"in: {host}:{port}/zmq; out: {inbound_message_queue.name}; data: {incoming_data}")
 
             # enqueue the data
-            inbound_message_queue.put(incoming_data)
+            inbound_message_queue.put_or_die(incoming_data)
 
             # increment counters
             COUNTERS.increment(f'receive_zmq_{protoname}')
@@ -595,7 +612,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
                 logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data_out}")
 
                 # enqueue the data
-                out_queue.put(data_out)
+                out_queue.put_or_die(data_out)
 
 
 def within_acceptable_skew(timestamp: int, skew_window_secs: int):
@@ -686,7 +703,7 @@ def acars_hasher(
             logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
 
             # enqueue the data
-            out_queue.put(data)
+            out_queue.put_or_die(data)
 
         except Exception as e:
             logger.error(f"Exception when hashing this message: {data.get('json')}\n{e}")
@@ -827,7 +844,7 @@ def vdlm2_hasher(
             logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
 
             # enqueue the data
-            out_queue.put(data)
+            out_queue.put_or_die(data)
 
         except Exception as e:
             logger.error(f"Exception when hashing this message: {data.get('json')}\n{e}")
@@ -903,7 +920,7 @@ def deduper(
             logger.log(logging_TRACE, f"in: {in_queue.name}; out: {out_queue.name}; data: {data}")
 
             # enqueue the data
-            out_queue.put(data)
+            out_queue.put_or_die(data)
 
 
 # OUTPUTTING MESSAGES #
@@ -954,7 +971,7 @@ def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str, 
             logger.log(logging_TRACE, f"in: {in_queue.name}; out: {output_queue.name}; data: {data}")
 
             # enqueue a copy of the data
-            output_queue.put(copy.deepcopy(data))
+            output_queue.put_or_die(copy.deepcopy(data))
 
 
 def UDPSender(host, port, output_queues: list, protoname: str):
@@ -1575,12 +1592,12 @@ def valid_args(args):
 
 
 def sigterm_exit(signum, frame):
-    sys.stderr.write("acars_router: caught SIGTERM, exiting!!\n")
+    sys.stderr.write("acars_router: caught SIGTERM, exiting!\n")
     sys.exit()
 
 
 def sigint_exit(signum, frame):
-    sys.stderr.write("acars_router: caught SIGINT, exiting!!\n")
+    sys.stderr.write("acars_router: caught SIGINT, exiting!\n")
     sys.exit()
 
 
