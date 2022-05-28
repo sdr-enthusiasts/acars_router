@@ -690,6 +690,9 @@ def acars_hasher(
             else:
                 logger.debug(f"message does not contain expected 'channel' field: {data_to_hash}")
 
+            if 'app' in data_to_hash:
+                del(data_to_hash['app'])
+
             # store hashed data in message object
             data['hashed_data'] = json.dumps(
                 data_to_hash,
@@ -813,18 +816,14 @@ def vdlm2_hasher(
             elif data['format'] == "vdlm2dec":
 
                 # remove feeder-specific data so we only hash data unique to the message
+                if 'app' in data_to_hash:
+                    del(data_to_hash['app'])
                 if 'error' in data_to_hash:
                     del(data_to_hash['error'])
-                else:
-                    logger.debug(f"message does not contain expected 'error' field: {data_to_hash}")
                 if 'level' in data_to_hash:
                     del(data_to_hash['level'])
-                else:
-                    logger.debug(f"message does not contain expected 'level' field: {data_to_hash}")
                 if 'station_id' in data_to_hash:
                     del(data_to_hash['station_id'])
-                else:
-                    logger.debug(f"message does not contain expected 'station_id' field: {data_to_hash}")
                 if 'timestamp' in data_to_hash:
                     del(data_to_hash['timestamp'])
                 else:
