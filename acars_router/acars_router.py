@@ -40,9 +40,9 @@ class ARQueue(queue.Queue):
 
     def put_or_die(self, item):
         try:
-            self.put(item, timeout = 1)
-        except:
-            logger.error(f"queue full: {self.name}")
+            self.put(item, timeout=1)
+        except queue.Full as e:
+            logger.error(f"queue full: {self.name} {e}")
             sys.stderr.write("acars_router: exiting for FATAL condition: One of the queues is full, this means something is wrong, better start over fresh!\n")
             os._exit(1)
 
@@ -1141,7 +1141,6 @@ def TCPSender(host: str, port: int, output_queues: list, protoname: str):
                 sock.close()
             except Exception as e:
                 logger.error(f"socket error: {e}")
-
 
         now = time.time()
         wait_time = next_reconnect - now
