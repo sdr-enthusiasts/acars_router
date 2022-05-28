@@ -993,7 +993,15 @@ def UDPSender(host, port, output_queues: list, protoname: str):
 
     suppress_errors_until = 0
     suppress_duration = 15
+    sock = None
     while True:
+
+        if sock is not None:
+            try:
+                sock.close()
+            except Exception as e:
+                logger.error(f"socket error: {e}")
+
         # Set up socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1031,8 +1039,6 @@ def UDPSender(host, port, output_queues: list, protoname: str):
 
                 # break inside loop, set up a new socket
                 break
-
-        sock.close()
 
     # clean up
     # remove this instance's queue from the output queue
