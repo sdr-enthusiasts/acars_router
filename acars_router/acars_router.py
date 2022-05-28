@@ -1826,7 +1826,7 @@ if __name__ == "__main__":
         '--add-proxy-id',
         help='Add a proxy id to the JSON message',
         type=lambda x:bool(strtobool(x)), nargs='?', const=True, default=os.getenv("AR_ADD_PROXY_ID", True)
-    )
+
 
     args = parser.parse_args()
 
