@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from distutils.util import strtobool
 import collections
 import copy
 import json
@@ -926,7 +927,7 @@ def deduper(
 # OUTPUTTING MESSAGES #
 
 
-def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str, station_name_override: str = None):
+def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str, station_name_override: str = None, label_proxy: bool = True):
     """
     Puts incoming ACARS/VDLM2 messages into each output queue.
     Intended to be run in a thread.
@@ -955,6 +956,24 @@ def output_queue_populator(in_queue: ARQueue, out_queues: list, protoname: str, 
             if 'vdl2' in data['json']:
                 if 'station' in data['json']['vdl2']:
                     data['json']['vdl2']['station'] = station_name_override
+
+        # label proxy messages
+
+        if label_proxy:
+            # VDLM via dumpvdl2
+            if 'vdl2' in data['json']:
+                if 'app' not in data['json']['vdl2']:
+                    data['json']['vdl2']['app'] = {}
+
+                data['json']['vdl2']['app']['proxied'] = True
+                data['json']['vdl2']['app']['proxied_by'] = "acars_router"
+            # acarsdec **OR** VDLM2 via vdl2dec
+            else:
+                if 'app' not in data['json']:
+                    data['json']['app'] = {}
+
+                data['json']['app']['proxied'] = True
+                data['json']['app']['proxied_by'] = "acars_router"
 
         # serialise json
         data['out_json'] = bytes(
@@ -1796,6 +1815,19 @@ if __name__ == "__main__":
         nargs='?',
         default=os.getenv("AR_STATS_FILE", None),
     )
+
+    # Arguement to toggle the output of proxy information
+    # We can't use default argprase bool operations (action=set_true/false) and using the presence
+    # of a flag to toggle behavior from the default
+    # because we need to be able to use an ENV variable to flag the value for running
+    # in Docker.
+
+    parser.add_argument(
+        '--add-proxy-id',
+        help='Add a proxy id to the JSON message',
+        type=lambda x: bool(strtobool(x)), nargs='?',
+        const=True, default=os.getenv("AR_ADD_PROXY_ID", True))
+
     args = parser.parse_args()
 
     # configure logging: create trace level
@@ -1965,7 +1997,7 @@ if __name__ == "__main__":
         for _ in range(args.threads_output_queue_populator):
             threading.Thread(
                 target=output_queue_populator,
-                args=(deduped_acars_message_queue, output_acars_queues, "ACARS", args.override_station_name),
+                args=(deduped_acars_message_queue, output_acars_queues, "ACARS", args.override_station_name, args.add_proxy_id),
                 daemon=True,
             ).start()
 
@@ -1973,7 +2005,7 @@ if __name__ == "__main__":
         for _ in range(args.threads_output_queue_populator):
             threading.Thread(
                 target=output_queue_populator,
-                args=(deduped_vdlm2_message_queue, output_vdlm2_queues, "VDLM2", args.override_station_name),
+                args=(deduped_vdlm2_message_queue, output_vdlm2_queues, "VDLM2", args.override_station_name, args.add_proxy_id),
                 daemon=True,
             ).start()
 
@@ -1984,7 +2016,7 @@ if __name__ == "__main__":
         for _ in range(args.threads_output_queue_populator):
             threading.Thread(
                 target=output_queue_populator,
-                args=(hashed_acars_message_queue, output_acars_queues, "ACARS", args.override_station_name),
+                args=(hashed_acars_message_queue, output_acars_queues, "ACARS", args.override_station_name, args.add_proxy_id),
                 daemon=True,
             ).start()
 
@@ -1992,7 +2024,7 @@ if __name__ == "__main__":
         for _ in range(args.threads_output_queue_populator):
             threading.Thread(
                 target=output_queue_populator,
-                args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2", args.override_station_name),
+                args=(hashed_vdlm2_message_queue, output_vdlm2_queues, "VDLM2", args.override_station_name, args.add_proxy_id),
                 daemon=True,
             ).start()
 
