@@ -1828,7 +1828,6 @@ if __name__ == "__main__":
         type=lambda x:bool(strtobool(x)), nargs='?',
         const=True, default=os.getenv("AR_ADD_PROXY_ID", True))
 
-
     args = parser.parse_args()
 
     # configure logging: create trace level
