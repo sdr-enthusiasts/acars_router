@@ -251,19 +251,19 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
             # delete from partial dict
             del udp_partial_dict[address]
 
-            logger.debug(f"reassembly: {address} (partial len: {len(partial)}, data len: {len(data)}")
             try:
                 reassembled = partial + data
                 json.loads(reassembled.splitlines()[0])
+                logger.debug(f"reassembly: {address} (partial len: {len(partial)}, data len: {len(data)}")
             except json.JSONDecodeError as e:
-                logger.log(logging_TRACE, f"reassembly failed: {e}")
+                logger.debug(f"{e} discarding partial message: {partial}")
+                reassembled = data
 
         if reassembled[-1] != '\n':
             try:
                 json.loads(reassembled)
             except json.JSONDecodeError as e:
-                logger.log(logging_TRACE, f"probably a partial message: {e}")
-                logger.debug(f"saving {len(reassembled)} bytes from {address} in udp_partial_dict")
+                logger.log(logging_TRACE, f"{e}\nsaving {len(reassembled)} bytes from {address} in udp_partial_dict")
                 # add to partial dict
                 udp_partial_dict[address] = reassembled
                 return
@@ -314,8 +314,8 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         port = self.client_address[1]
 
         # prepare logging
-        self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
-        self.logger.info("connection established")
+        logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
+        logger.info("connection established")
 
         partial = None
 
@@ -337,13 +337,14 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                     reassembled = partial + data
                     json.loads(reassembled.splitlines()[0])
                 except json.JSONDecodeError as e:
-                    logger.log(logging_TRACE, f"reassembly failed: {e}")
+                    logger.debug(f"{e} discarding partial message: {partial}")
+                    reassembled = data
 
             if reassembled[-1] != '\n':
                 try:
                     json.loads(reassembled)
                 except json.JSONDecodeError as e:
-                    self.logger.log(logging_TRACE, f"attempting reassembly due to json decode error: {e} data: {reassembled}")
+                    logger.log(logging_TRACE, f"{e}\nsaving {len(reassembled)} bytes from {host}:{port}/tcp")
                     partial = reassembled
                     continue
 
@@ -362,7 +363,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                 }
 
                 # trace logging
-                self.logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
+                logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
 
                 # enqueue the data
                 self.inbound_message_queue.put_or_die(incoming_data)
@@ -371,7 +372,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                 COUNTERS.increment(f'listen_tcp_{self.protoname}')
 
         # if broken out of the loop, then "connection lost"
-        self.logger.info("connection lost")
+        logger.info("connection lost")
 
 
 def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
