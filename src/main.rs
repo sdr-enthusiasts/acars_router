@@ -21,7 +21,7 @@ mod message_handler;
 #[path = "./acars_router_servers/udp/udp_listener_server.rs"]
 mod udp_listener_server;
 use config_options::ACARSRouterSettings;
-use message_handler::watch_message_queue;
+use message_handler::{watch_message_queue, MessageHandlerConfig};
 use udp_listener_server::UDPListenerServer;
 
 fn exit_process(code: i32) {
@@ -65,6 +65,9 @@ fn start_udp_listener_servers(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
+    let message_handler_config = MessageHandlerConfig {
+        add_proxy_id: config.add_proxy_id,
+    };
 
     let log_level = config.log_level().unwrap();
     Builder::new()
@@ -92,7 +95,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     start_udp_listener_servers(&"VDLM".to_string(), config.listen_udp_vdlm2(), tx.clone());
 
     // Start the message handler task.
-    watch_message_queue(rx).await;
+    watch_message_queue(rx, &message_handler_config).await;
 
     // TODO: Is this the best way of doing this?
     // Without sleeping and waiting the entire program exits immediately.

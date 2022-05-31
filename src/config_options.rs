@@ -19,6 +19,12 @@ struct Args {
     /// Set the log level. 1 for debug, 2 for trace, 0 for info
     verbose: String,
 
+    // Message Modification
+    #[clap(long)]
+    /// Set to true to enable message modification
+    /// This will add a "proxied" field to the message
+    dont_add_proxy_id: bool,
+
     // Input Options
 
     // ACARS
@@ -63,6 +69,10 @@ struct Args {
 #[derive(Getters, Clone)]
 pub struct ACARSRouterSettings {
     pub log_level: Option<log::LevelFilter>,
+    // This field is named opposite to the command line flag.
+    // The presence of the flag indicates we should NOT add the proxy id
+    // The field is inverted and saved
+    pub add_proxy_id: bool,
     pub listen_udp_acars: Vec<String>,
     pub listen_tcp_acars: Vec<String>,
     pub receive_tcp_acars: Vec<String>,
@@ -89,6 +99,7 @@ impl ACARSRouterSettings {
         debug!("AR_SERVE_TCP_ACARS: {:?}", self.serve_tcp_acars);
         debug!("AR_SERVE_ZMQ_ACARS: {:?}", self.serve_zmq_acars);
         debug!("AR_VERBOSE: {:?}", self.log_level.unwrap());
+        debug!("AR_ADD_PROXY_ID: {:?}", self.add_proxy_id);
     }
 
     pub fn load_values() -> ACARSRouterSettings {
@@ -96,6 +107,7 @@ impl ACARSRouterSettings {
 
         return ACARSRouterSettings {
             log_level: get_log_level(&args.verbose),
+            add_proxy_id: get_value_as_bool("AR_DONT_ADD_PROXY_ID", &args.dont_add_proxy_id),
             listen_udp_acars: get_value_as_vector(
                 "AR_LISTEN_UDP_ACARS",
                 &args.listen_udp_acars,
@@ -178,6 +190,19 @@ fn get_value_as_vector(env_name: &str, args: &str, default: &str) -> Vec<String>
     };
 
     return vec![default.to_string()];
+}
+
+fn get_value_as_bool(env_name: &str, args: &bool) -> bool {
+    let env = get_env_variable(env_name);
+
+    if env.is_some() {
+        return false;
+    };
+
+    match args {
+        true => return false,
+        false => return true,
+    };
 }
 
 fn get_value(env_name: &str, args: &str, default: &str) -> String {
