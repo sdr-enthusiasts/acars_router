@@ -36,8 +36,7 @@ struct Args {
     #[clap(long, default_value = "")]
     /// Semi-Colon separated list of arguments. ie 5555;5556;1557
     receive_tcp_vdlm2: String,
-    // Output options
-
+    // JSON Output options
     // ACARS
 }
 
@@ -66,6 +65,7 @@ impl ACARSRouterSettings {
 
     pub fn load_values() -> ACARSRouterSettings {
         let args = Args::parse();
+
         return ACARSRouterSettings {
             log_level: get_log_level(&args.verbose),
             listen_udp_acars: get_value_as_vector(
@@ -114,17 +114,16 @@ fn split_env_safely(name: &str) -> Option<Vec<String>> {
 
     let env_var = get_env_variable(name);
 
-    // Split the env variable on ":" and return
+    // Split the env variable on ";" and return
 
     match env_var {
-        Some(val) => split_string_on_colon(&val),
+        Some(val) => split_string_on_semi_colon(&val),
         None => None,
     }
 }
 
-fn split_string_on_colon(name: &String) -> Option<Vec<String>> {
-    // Split the string on ":" and return
-
+fn split_string_on_semi_colon(name: &String) -> Option<Vec<String>> {
+    // Split the string on ";" and return
     Some(name.split(";").map(|s| s.to_string()).collect())
 }
 
@@ -140,7 +139,7 @@ fn get_value_as_vector(env_name: &str, args: &str, default: &str) -> Vec<String>
         return env.unwrap();
     };
 
-    let args = split_string_on_colon(&args.to_string());
+    let args = split_string_on_semi_colon(&args.to_string());
 
     if args.is_some() {
         return args.unwrap();
