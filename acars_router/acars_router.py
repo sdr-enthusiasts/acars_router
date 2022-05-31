@@ -256,12 +256,13 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
                 json.loads(reassembled.splitlines()[0])
                 logger.debug(f"reassembly: {address} (partial len: {len(partial)}, data len: {len(data)}")
             except json.JSONDecodeError as e:
-                logger.debug(f"{e} discarding partial message: {partial}")
-                reassembled = data
+                if reassembled[-1] == '\n':
+                    logger.debug(f"{e} discarding partial message: {partial}")
+                    reassembled = data
 
         if reassembled[-1] != '\n':
             try:
-                json.loads(reassembled)
+                json.loads(reassembled.splitlines()[0])
             except json.JSONDecodeError as e:
                 logger.log(logging_TRACE, f"{e}\nsaving {len(reassembled)} bytes from {address} in udp_partial_dict")
                 # add to partial dict
@@ -337,12 +338,13 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                     reassembled = partial + data
                     json.loads(reassembled.splitlines()[0])
                 except json.JSONDecodeError as e:
-                    logger.debug(f"{e} discarding partial message: {partial}")
-                    reassembled = data
+                    if reassembled[-1] == '\n':
+                        logger.debug(f"{e} discarding partial message: {partial}")
+                        reassembled = data
 
             if reassembled[-1] != '\n':
                 try:
-                    json.loads(reassembled)
+                    json.loads(reassembled.splitlines()[0])
                 except json.JSONDecodeError as e:
                     logger.log(logging_TRACE, f"{e}\nsaving {len(reassembled)} bytes from {host}:{port}/tcp")
                     partial = reassembled
