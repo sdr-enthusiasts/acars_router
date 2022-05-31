@@ -7,28 +7,38 @@ use std::str;
 #[derive(Parser, Debug)]
 #[clap(author = "Mike Nye / Fred Clausen", version = "1.0", about = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers.", long_about = None)]
 struct Args {
+    // Output Options
     #[clap(short = 'v', long = "verbose", default_value = "0")]
     /// Set the log level. 1 for debug, 2 for trace, 0 for warn
     verbose: String,
-    /// Colon separated list of arguments. ie 5550:5551:5552
+
+    // Input Options
+
+    // ACARS
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, default_value = "5550")]
     listen_udp_acars: String,
-    /// Colon separated list of arguments. ie 5550:5551:5552
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, default_value = "5550")]
     listen_tcp_acars: String,
-    /// Colon separated list of arguments. ie 5550:5551:5552
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, default_value = "")]
     receive_tcp_acars: String,
-    /// Colon separated list of arguments. ie 5555:5556:5557
+
+    // VDLM2
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     #[clap(long, default_value = "5555")]
-    /// Colon separated list of arguments. ie 5555:5556:5557
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     listen_udp_vdlm2: String,
     #[clap(long, default_value = "5555")]
-    /// Colon separated list of arguments. ie 5555:5556:5557
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     listen_tcp_vdlm2: String,
     #[clap(long, default_value = "")]
-    /// Colon separated list of arguments. ie 5555:5556:5557
+    /// Semi-Colon separated list of arguments. ie 5555;5556;1557
     receive_tcp_vdlm2: String,
+    // Output options
+
+    // ACARS
 }
 
 #[derive(Getters, Clone)]
@@ -115,7 +125,7 @@ fn split_env_safely(name: &str) -> Option<Vec<String>> {
 fn split_string_on_colon(name: &String) -> Option<Vec<String>> {
     // Split the string on ":" and return
 
-    Some(name.split(":").map(|s| s.to_string()).collect())
+    Some(name.split(";").map(|s| s.to_string()).collect())
 }
 
 // Function to get the value for configuring acars_router
