@@ -3,6 +3,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::str;
 use tokio::net::UdpSocket;
+use tokio::sync::mpsc::Sender;
 pub struct UDPListenerServer {
     pub buf: Vec<u8>,
     pub to_send: Option<(usize, SocketAddr)>,
@@ -10,7 +11,11 @@ pub struct UDPListenerServer {
 }
 
 impl UDPListenerServer {
-    pub async fn run(self, listen_acars_udp_port: String) -> Result<(), io::Error> {
+    pub async fn run(
+        self,
+        listen_acars_udp_port: String,
+        channel: Sender<String>,
+    ) -> Result<(), io::Error> {
         let socket = UdpSocket::bind(&listen_acars_udp_port).await.unwrap();
 
         let UDPListenerServer {
@@ -38,7 +43,17 @@ impl UDPListenerServer {
                     }
                 };
                 match serde_json::from_str::<serde_json::Value>(s) {
-                    Ok(msg) => trace!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, msg),
+                    Ok(msg) => {
+                        trace!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, msg);
+
+                        match channel.send(msg.to_string()).await {
+                            Ok(_) => trace!("[UDP SERVER: {}] Message sent to channel", proto_name),
+                            Err(e) => warn!(
+                                "[UDP SERVER: {}] Error sending message to channel: {}",
+                                proto_name, e
+                            ),
+                        };
+                    }
                     Err(e) => warn!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, e),
                 };
             }

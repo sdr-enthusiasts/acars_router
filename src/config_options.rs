@@ -9,7 +9,7 @@ use std::str;
 struct Args {
     // Output Options
     #[clap(short = 'v', long = "verbose", default_value = "0")]
-    /// Set the log level. 1 for debug, 2 for trace, 0 for warn
+    /// Set the log level. 1 for debug, 2 for trace, 0 for info
     verbose: String,
 
     // Input Options
@@ -38,6 +38,19 @@ struct Args {
     receive_tcp_vdlm2: String,
     // JSON Output options
     // ACARS
+    /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
+    #[clap(long, default_value = "")]
+    send_udp_acars: String,
+    /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
+    #[clap(long, default_value = "")]
+    send_tcp_acars: String,
+    // Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, default_value = "")]
+    serve_tcp_acars: String,
+    // Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, default_value = "")]
+    serve_zmq_acars: String,
+    // VDLM
 }
 
 #[derive(Getters, Clone)]
@@ -49,6 +62,10 @@ pub struct ACARSRouterSettings {
     pub listen_udp_vdlm2: Vec<String>,
     pub listen_tcp_vdlm2: Vec<String>,
     pub receive_tcp_vdlm2: Vec<String>,
+    pub send_udp_acars: Vec<String>,
+    pub send_tcp_acars: Vec<String>,
+    pub serve_tcp_acars: Vec<String>,
+    pub serve_zmq_acars: Vec<String>,
 }
 
 impl ACARSRouterSettings {
@@ -60,6 +77,10 @@ impl ACARSRouterSettings {
         debug!("AR_LISTEN_UDP_VDLM2: {:?}", self.listen_udp_vdlm2);
         debug!("AR_LISTEN_TCP_VDLM2: {:?}", self.listen_tcp_vdlm2);
         debug!("AR_RECV_TCP_VDLM2: {:?}", self.receive_tcp_vdlm2);
+        debug!("AR_SEND_UDP_ACARS: {:?}", self.send_udp_acars);
+        debug!("AR_SEND_TCP_ACARS: {:?}", self.send_tcp_acars);
+        debug!("AR_SERVE_TCP_ACARS: {:?}", self.serve_tcp_acars);
+        debug!("AR_SERVE_ZMQ_ACARS: {:?}", self.serve_zmq_acars);
         debug!("AR_VERBOSE: {:?}", self.log_level.unwrap());
     }
 
@@ -98,6 +119,10 @@ impl ACARSRouterSettings {
                 &args.receive_tcp_vdlm2,
                 "",
             ),
+            send_udp_acars: get_value_as_vector("AR_SEND_UDP_ACARS", &args.send_udp_acars, ""),
+            send_tcp_acars: get_value_as_vector("AR_SEND_TCP_ACARS", &args.send_tcp_acars, ""),
+            serve_tcp_acars: get_value_as_vector("AR_SERVE_TCP_ACARS", &args.serve_tcp_acars, ""),
+            serve_zmq_acars: get_value_as_vector("AR_SERVE_ZMQ_ACARS", &args.serve_zmq_acars, ""),
         };
     }
 }
