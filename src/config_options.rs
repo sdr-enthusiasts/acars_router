@@ -82,16 +82,6 @@ impl ACARSRouterSettings {
                 "",
             ),
         };
-
-        // print out all of the variables read in
-
-        // info!("AR_LISTEN_UDP_ACARS: {:?}", self.listen_udp_acars);
-        // info!("AR_LISTEN_TCP_ACARS: {:?}", self.listen_tcp_acars);
-        // info!("AR_RECV_TCP_ACARS: {:?}", self.receive_tcp_acars);
-        // info!("AR_LISTEN_UDP_VDLM2: {:?}", self.listen_udp_vdlm2);
-        // info!("AR_LISTEN_TCP_VDLM2: {:?}", self.listen_tcp_vdlm2);
-        // info!("AR_RECV_TCP_VDLM2: {:?}", self.receive_tcp_vdlm2);
-        // info!("AR_VERBOSE: {:?}", self.log_level);
     }
 }
 
