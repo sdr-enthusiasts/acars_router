@@ -28,7 +28,11 @@ fn exit_process(code: i32) {
     std::process::exit(code);
 }
 
-fn start_udp_listener_servers(decoder_type: &String, ports: &Vec<String>, channel: Sender<String>) {
+fn start_udp_listener_servers(
+    decoder_type: &String,
+    ports: &Vec<String>,
+    channel: Sender<serde_json::Value>,
+) {
     for udp_port in ports {
         match udp_port.chars().all(char::is_numeric) {
             true => trace!("{} UDP Port is numeric. Found: {}", decoder_type, udp_port),

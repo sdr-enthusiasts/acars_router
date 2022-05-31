@@ -21,7 +21,7 @@ impl UDPListenerServer {
     pub async fn run(
         self,
         listen_acars_udp_port: String,
-        channel: Sender<String>,
+        channel: Sender<serde_json::Value>,
     ) -> Result<(), io::Error> {
         let socket = UdpSocket::bind(&listen_acars_udp_port).await.unwrap();
 
@@ -53,7 +53,7 @@ impl UDPListenerServer {
                     Ok(msg) => {
                         trace!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, msg);
 
-                        match channel.send(msg.to_string()).await {
+                        match channel.send(msg).await {
                             Ok(_) => trace!("[UDP SERVER: {}] Message sent to channel", proto_name),
                             Err(e) => warn!(
                                 "[UDP SERVER: {}] Error sending message to channel: {}",
