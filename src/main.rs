@@ -62,8 +62,7 @@ fn start_udp_listener_servers(
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn start_processes() {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
     let message_handler_config = MessageHandlerConfig {
         add_proxy_id: config.add_proxy_id,
@@ -106,5 +105,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         sleep(Duration::from_millis(100)).await;
     }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    start_processes().await;
     Ok(())
 }
