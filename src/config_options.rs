@@ -5,22 +5,29 @@ use std::env;
 use std::str;
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author = "Mike Nye / Fred Clausen", version = "1.0", about = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers.", long_about = None)]
 struct Args {
     #[clap(short = 'v', long = "verbose", default_value = "0")]
+    /// Set the log level. 1 for debug, 2 for trace, 0 for warn
     verbose: String,
-    /// Name of the person to greet
+    /// Colon separated list of arguments. ie 5550:5551:5552
     #[clap(long, default_value = "5550")]
     listen_udp_acars: String,
+    /// Colon separated list of arguments. ie 5550:5551:5552
     #[clap(long, default_value = "5550")]
     listen_tcp_acars: String,
+    /// Colon separated list of arguments. ie 5550:5551:5552
     #[clap(long, default_value = "")]
     receive_tcp_acars: String,
+    /// Colon separated list of arguments. ie 5555:5556:5557
     #[clap(long, default_value = "5555")]
+    /// Colon separated list of arguments. ie 5555:5556:5557
     listen_udp_vdlm2: String,
     #[clap(long, default_value = "5555")]
+    /// Colon separated list of arguments. ie 5555:5556:5557
     listen_tcp_vdlm2: String,
     #[clap(long, default_value = "")]
+    /// Colon separated list of arguments. ie 5555:5556:5557
     receive_tcp_vdlm2: String,
 }
 
