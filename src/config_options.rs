@@ -192,7 +192,7 @@ fn split_string_on_semi_colon(name: &String) -> Option<Vec<String>> {
     Some(name.split(";").map(|s| s.to_string()).collect())
 }
 
-// Function to get the value for configuring acars_router
+// Functions to get the value for configuring acars_router
 // If the env_name of the variable is present, that value is used over the command line flag
 // If the env_name of the variable is not present, the command line flag is used if present
 // If the env_name of the variable is not present and the command line flag is not present, the default value is used
@@ -251,7 +251,7 @@ fn get_value_as_bool_invert_bool(env_name: &str, args: &bool) -> bool {
     };
 }
 
-fn get_value(env_name: &str, args: &str, default: &str) -> String {
+fn get_value_as_string(env_name: &str, args: &str, default: &str) -> String {
     let env = get_env_variable(env_name);
 
     if env.is_some() {
@@ -265,8 +265,9 @@ fn get_value(env_name: &str, args: &str, default: &str) -> String {
     return default.to_string();
 }
 
+// TODO: Should the return type ever be an option? I feel like it shouldn't be.....
 fn get_log_level(args: &str) -> Option<log::LevelFilter> {
-    let log_level = get_value("AR_VERBOSITY", args, "0");
+    let log_level = get_value_as_string("AR_VERBOSITY", args, "0");
 
     match log_level.as_str() {
         "1" => Some(log::LevelFilter::Debug),

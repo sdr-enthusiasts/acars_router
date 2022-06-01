@@ -34,6 +34,7 @@ fn start_udp_listener_servers(
     channel: Sender<serde_json::Value>,
 ) {
     for udp_port in ports {
+        // TODO: Move santiy checker of input values to another place...one before we start the servers
         match udp_port.chars().all(char::is_numeric) {
             true => trace!("{} UDP Port is numeric. Found: {}", decoder_type, udp_port),
             false => {
@@ -53,7 +54,7 @@ fn start_udp_listener_servers(
             proto_name: proto_name,
         };
 
-        // // This starts the server task.
+        // This starts the server task.
         debug!(
             "Starting {} UDP server on {}",
             decoder_type, server_udp_port
