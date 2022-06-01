@@ -93,6 +93,7 @@ pub async fn watch_message_queue(
                     }
                     None => {
                         // insert app in to message
+                        // This is a legacy implementation to handle old versions of acarsdec and vdlm2dec
                         message["app"] = serde_json::Value::Object(serde_json::map::Map::new());
                         message["app"]["proxied"] = serde_json::Value::Bool(true);
                         message["app"]["proxied_by"] =
