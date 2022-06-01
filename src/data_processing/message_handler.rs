@@ -29,7 +29,6 @@ pub async fn watch_message_queue(
     let mut q = Queue::with_capacity(100);
     while let Some(mut message) = queue.recv().await {
         debug!("[Message Handler] GOT: {}", message);
-        let hashed_message = hash_message(message.clone());
 
         let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(n) => n.as_secs(),
@@ -38,7 +37,8 @@ pub async fn watch_message_queue(
 
         let message_time = match message.get("vdl2") {
             Some(_) => message["vdl2"]["t"]["sec"].as_u64().unwrap_or(0),
-            // take message["timestamp"], convert to string, remove all characters after the "." and convert to u64
+            // TODO: I'd like to do this better. The as_u64() function did not give a correct value
+            // So we take the f64 value, round it, then cast it to u64.
             None => message["timestamp"].as_f64().unwrap_or(0.0).round() as u64,
         };
 
@@ -48,6 +48,8 @@ pub async fn watch_message_queue(
             error!("Message has no timestamp field. Skipping message.");
             continue;
         }
+
+        let hashed_message = hash_message(message.clone());
 
         if config.dedupe && (current_time - message_time) < config.dedupe_window {
             trace!("[Message Handler] Message Within DeDuplication Window.");
