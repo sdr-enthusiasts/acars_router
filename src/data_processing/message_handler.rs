@@ -50,6 +50,7 @@ pub async fn watch_message_queue(
             continue;
         }
 
+        // If the message is older than the skew window, reject it
         if (current_time - message_time) > config.skew_window {
             error!(
                 "[Message Handler] Message is {} seconds old. Skipping message.",
@@ -58,17 +59,22 @@ pub async fn watch_message_queue(
             continue;
         }
 
-        let hashed_message = hash_message(message.clone());
+        // Hash the message, but only if we have deduping on
+        // No need to spend the cpu cycles hashing the message if we are not deduping
 
-        if config.dedupe && (current_time - message_time) < config.dedupe_window {
-            trace!("[Message Handler] Message Within DeDuplication Window.");
-            if q.vec().contains(&hashed_message) {
-                debug!("[Message Handler] DUPLICATE: {}", message);
-                continue;
+        if config.dedupe {
+            if (current_time - message_time) < config.dedupe_window {
+                trace!("[Message Handler] Message Within DeDuplication Window. Hashing.");
+                let hashed_message = hash_message(message.clone());
+                if q.vec().contains(&hashed_message) {
+                    debug!("[Message Handler] DUPLICATE: {}", message);
+                    continue;
+                } else {
+                    q.force_queue(hashed_message);
+                }
             }
         }
-        q.force_queue(hashed_message);
-        trace!("{:?}", q);
+
         if config.add_proxy_id {
             trace!("[Message Handler] Adding proxy_id to message");
             match message["vdl2"].get("app") {
