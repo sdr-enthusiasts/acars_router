@@ -20,6 +20,7 @@ pub struct MessageHandlerConfig {
     pub add_proxy_id: bool,
     pub dedupe: bool,
     pub dedupe_window: u64,
+    pub skew_window: u64,
 }
 
 pub async fn watch_message_queue(
@@ -49,6 +50,14 @@ pub async fn watch_message_queue(
             continue;
         }
 
+        if (current_time - message_time) > config.skew_window {
+            error!(
+                "[Message Handler] Message is {} seconds old. Skipping message.",
+                current_time - message_time
+            );
+            continue;
+        }
+
         let hashed_message = hash_message(message.clone());
 
         if config.dedupe && (current_time - message_time) < config.dedupe_window {
@@ -65,7 +74,6 @@ pub async fn watch_message_queue(
             match message["vdl2"].get("app") {
                 // dumpvdl2 message
                 Some(_) => {
-                    debug!("dumpvdl2 message");
                     message["vdl2"]["app"]["proxied"] = serde_json::Value::Bool(true);
                     message["vdl2"]["app"]["proxied_by"] =
                         serde_json::Value::String("acars_router".to_string());
@@ -88,6 +96,10 @@ pub async fn watch_message_queue(
             }
         }
 
+        // TODO: to follow acars_router pythonic conventions
+        // Add in the hashed message to the message
+        // We'll need the hasher to return both the hashed value and the hashed message
+        // And move the actual message we're sending to the appropriate field
         debug!("[Message Handler] SENDING: {}", message);
     }
 }

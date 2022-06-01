@@ -68,6 +68,7 @@ async fn start_processes() {
         add_proxy_id: config.add_proxy_id,
         dedupe: config.dedupe,
         dedupe_window: config.dedupe_window,
+        skew_window: config.skew_window,
     };
 
     let log_level = config.log_level().unwrap();

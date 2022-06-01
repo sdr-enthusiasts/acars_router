@@ -25,6 +25,9 @@ struct Args {
     /// Set the number of seconds that a message will be considered as a duplicate
     /// if it is received again.
     dedupe_window: u64,
+    #[clap(long, default_value = "1")]
+    /// Reject messages with a timestamp greater than +/- this many seconds.
+    skew_window: u64,
     // Message Modification
     #[clap(long)]
     /// Set to true to enable message modification
@@ -81,6 +84,7 @@ pub struct ACARSRouterSettings {
     pub add_proxy_id: bool,
     pub dedupe: bool,
     pub dedupe_window: u64,
+    pub skew_window: u64,
     pub listen_udp_acars: Vec<String>,
     pub listen_tcp_acars: Vec<String>,
     pub receive_tcp_acars: Vec<String>,
@@ -110,6 +114,7 @@ impl ACARSRouterSettings {
         debug!("AR_ADD_PROXY_ID: {:?}", self.add_proxy_id);
         debug!("AR_ENABLE_DEDUPE: {:?}", self.dedupe);
         debug!("AR_DEDUPE_WINDOW: {:?}", self.dedupe_window);
+        debug!("AR_SKEW_WINDOW: {:?}", self.skew_window);
     }
 
     pub fn load_values() -> ACARSRouterSettings {
@@ -119,6 +124,7 @@ impl ACARSRouterSettings {
             log_level: get_log_level(&args.verbose),
             dedupe: get_value_as_bool("AR_ENABLE_DEDUPE", &args.enable_dedupe),
             dedupe_window: get_value_as_u64("AR_DEDUPE_WINDOW", &args.dedupe_window),
+            skew_window: get_value_as_u64("AR_SKEW_WINDOW", &args.skew_window),
             add_proxy_id: get_value_as_bool_invert_bool(
                 "AR_DONT_ADD_PROXY_ID",
                 &args.dont_add_proxy_id,
