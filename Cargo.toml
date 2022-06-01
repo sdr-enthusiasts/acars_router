@@ -12,3 +12,4 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 derive-getters = "0.2.0"
+queue = "0.3.0"

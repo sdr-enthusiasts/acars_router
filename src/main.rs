@@ -66,6 +66,8 @@ async fn start_processes() {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
     let message_handler_config = MessageHandlerConfig {
         add_proxy_id: config.add_proxy_id,
+        dedupe: config.dedupe,
+        dedupe_window: config.dedupe_window,
     };
 
     let log_level = config.log_level().unwrap();

@@ -18,7 +18,13 @@ struct Args {
     #[clap(short = 'v', long = "verbose", default_value = "0")]
     /// Set the log level. 1 for debug, 2 for trace, 0 for info
     verbose: String,
-
+    #[clap(long)]
+    /// Enable message deduplication
+    enable_dedupe: bool,
+    #[clap(long, default_value = "2")]
+    /// Set the number of seconds that a message will be considered as a duplicate
+    /// if it is received again.
+    dedupe_window: u64,
     // Message Modification
     #[clap(long)]
     /// Set to true to enable message modification
@@ -73,6 +79,8 @@ pub struct ACARSRouterSettings {
     // The presence of the flag indicates we should NOT add the proxy id
     // The field is inverted and saved
     pub add_proxy_id: bool,
+    pub dedupe: bool,
+    pub dedupe_window: u64,
     pub listen_udp_acars: Vec<String>,
     pub listen_tcp_acars: Vec<String>,
     pub receive_tcp_acars: Vec<String>,
@@ -100,6 +108,8 @@ impl ACARSRouterSettings {
         debug!("AR_SERVE_ZMQ_ACARS: {:?}", self.serve_zmq_acars);
         debug!("AR_VERBOSE: {:?}", self.log_level.unwrap());
         debug!("AR_ADD_PROXY_ID: {:?}", self.add_proxy_id);
+        debug!("AR_ENABLE_DEDUPE: {:?}", self.dedupe);
+        debug!("AR_DEDUPE_WINDOW: {:?}", self.dedupe_window);
     }
 
     pub fn load_values() -> ACARSRouterSettings {
@@ -107,7 +117,12 @@ impl ACARSRouterSettings {
 
         return ACARSRouterSettings {
             log_level: get_log_level(&args.verbose),
-            add_proxy_id: get_value_as_bool("AR_DONT_ADD_PROXY_ID", &args.dont_add_proxy_id),
+            dedupe: get_value_as_bool("AR_ENABLE_DEDUPE", &args.enable_dedupe),
+            dedupe_window: get_value_as_u64("AR_DEDUPE_WINDOW", &args.dedupe_window),
+            add_proxy_id: get_value_as_bool_invert_bool(
+                "AR_DONT_ADD_PROXY_ID",
+                &args.dont_add_proxy_id,
+            ),
             listen_udp_acars: get_value_as_vector(
                 "AR_LISTEN_UDP_ACARS",
                 &args.listen_udp_acars,
@@ -192,7 +207,32 @@ fn get_value_as_vector(env_name: &str, args: &str, default: &str) -> Vec<String>
     return vec![default.to_string()];
 }
 
+fn get_value_as_u64(env_name: &str, args: &u64) -> u64 {
+    let env = get_env_variable(env_name);
+
+    if env.is_some() {
+        return env.unwrap().parse::<u64>().unwrap();
+    };
+
+    return *args;
+}
+
+// If the enviornment/flag is set the config option is turned on
 fn get_value_as_bool(env_name: &str, args: &bool) -> bool {
+    let env = get_env_variable(env_name);
+
+    if env.is_some() {
+        return true;
+    };
+
+    match args {
+        true => return true,
+        false => return false,
+    };
+}
+
+// If the enviornment/flag is set the config option is turned off
+fn get_value_as_bool_invert_bool(env_name: &str, args: &bool) -> bool {
     let env = get_env_variable(env_name);
 
     if env.is_some() {

@@ -6,20 +6,58 @@
 //
 
 use log::debug;
+use log::error;
 use log::trace;
+use queue::Queue;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::Receiver;
+
+#[path = "./hasher.rs"]
+mod hasher;
+use hasher::hash_message;
 
 pub struct MessageHandlerConfig {
     pub add_proxy_id: bool,
+    pub dedupe: bool,
+    pub dedupe_window: u64,
 }
 
 pub async fn watch_message_queue(
     mut queue: Receiver<serde_json::Value>,
     config: &MessageHandlerConfig,
 ) {
+    let mut q = Queue::with_capacity(100);
     while let Some(mut message) = queue.recv().await {
         debug!("[Message Handler] GOT: {}", message);
+        let hashed_message = hash_message(message.clone());
 
+        let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(n) => n.as_secs(),
+            Err(_) => 0,
+        };
+
+        let message_time = match message.get("vdl2") {
+            Some(_) => message["vdl2"]["t"]["sec"].as_u64().unwrap_or(0),
+            // take message["timestamp"], convert to string, remove all characters after the "." and convert to u64
+            None => message["timestamp"].as_f64().unwrap_or(0.0).round() as u64,
+        };
+
+        // Sanity check to verify the message has a time stamp
+        // If no time stamp, reject the message
+        if message_time == 0 {
+            error!("Message has no timestamp field. Skipping message.");
+            continue;
+        }
+
+        if config.dedupe && (current_time - message_time) < config.dedupe_window {
+            trace!("[Message Handler] Message Within DeDuplication Window.");
+            if q.vec().contains(&hashed_message) {
+                debug!("[Message Handler] DUPLICATE: {}", message);
+                continue;
+            }
+        }
+        q.force_queue(hashed_message);
+        trace!("{:?}", q);
         if config.add_proxy_id {
             trace!("[Message Handler] Adding proxy_id to message");
             match message["vdl2"].get("app") {
