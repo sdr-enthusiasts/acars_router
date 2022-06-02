@@ -641,7 +641,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
                     continue
                 else:
                     logger.error(f"json decoding failed, reattempt impossible: invalid JSON received via {data['src_name']} (possible reason: UDP packet loss, consider using TCP)")
-                    logger.debug(f"e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} to_decode: {to_decode} raw_json: {raw_json}")
+                    logger.debug(f"e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} raw_json: BEGIN{raw_json}END")
                     COUNTERS.increment(f'invalid_json_{protoname}')
                     break
 
