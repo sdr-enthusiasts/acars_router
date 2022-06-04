@@ -74,7 +74,6 @@ async fn start_udp_senders_servers(
     ports: &Vec<String>,
     mut channel: Receiver<serde_json::Value>,
 ) {
-    let mut udp_outputs = vec![];
     // Veryify the input is valid
     for udp_port in ports {
         // split the udp port into host and port and grab the second field
@@ -96,16 +95,10 @@ async fn start_udp_senders_servers(
         }
     }
 
-    let internal_addr = "0.0.0.0:0".to_string();
-    trace!("{}", internal_addr);
-    let sock = UdpSocket::bind(internal_addr)
+    let sock = UdpSocket::bind("0.0.0.0:0".to_string())
         .await
         // create an empty socket
         .unwrap();
-
-    // connect the socket using processed_socket
-
-    //sock.connect(udp_port).await.unwrap();
 
     let server: UDPSenderServer = UDPSenderServer {
         proto_name: decoder_type.to_string() + "_UDP_SEND_ACARS",
@@ -113,14 +106,9 @@ async fn start_udp_senders_servers(
         socket: sock,
     };
 
-    udp_outputs.push(server);
-
     tokio::spawn(async move {
         while let Some(message) = channel.recv().await {
-            for udp_output in &udp_outputs {
-                trace!("Sending to output: {}", udp_output.proto_name);
-                udp_output.send_message(message.clone()).await;
-            }
+            server.send_message(message.clone()).await;
         }
     });
 }
