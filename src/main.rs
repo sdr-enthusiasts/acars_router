@@ -96,7 +96,7 @@ async fn start_udp_senders_servers(
         }
     }
 
-    let internal_addr = "0.0.0.0:65000".to_string();
+    let internal_addr = "0.0.0.0:0".to_string();
     trace!("{}", internal_addr);
     let sock = UdpSocket::bind(internal_addr)
         .await
