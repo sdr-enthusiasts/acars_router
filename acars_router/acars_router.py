@@ -1093,12 +1093,19 @@ def UDPSender(host, port, output_queues: list, protoname: str):
                 logger.error(f"socket error: {e}")
 
         # Set up socket
+        # logger.debug(f"create UDP send socket: {host}:{port}/udp")
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.settimeout(1)
 
+        next_sock_remake = time.time() + 1200
+
         # Loop to send messages from output queue
         while True:
+
+            if time.time() > next_sock_remake:
+                break
 
             # Pop a message from the output queue
             data = q.get()
