@@ -10,7 +10,7 @@ use log::error;
 use log::trace;
 use queue::Queue;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 #[path = "./hasher.rs"]
 mod hasher;
@@ -23,12 +23,13 @@ pub struct MessageHandlerConfig {
     pub skew_window: u64,
 }
 
-pub async fn watch_message_queue(
-    mut queue: Receiver<serde_json::Value>,
+pub async fn watch_received_message_queue(
+    mut input_queue: Receiver<serde_json::Value>,
+    output_queue: Sender<serde_json::Value>,
     config: &MessageHandlerConfig,
 ) {
     let mut q = Queue::with_capacity(100);
-    while let Some(mut message) = queue.recv().await {
+    while let Some(mut message) = input_queue.recv().await {
         debug!("[Message Handler] GOT: {}", message);
 
         let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
@@ -53,8 +54,9 @@ pub async fn watch_message_queue(
         // If the message is older than the skew window, reject it
         if (current_time - message_time) > config.skew_window {
             error!(
-                "[Message Handler] Message is {} seconds old. Skipping message.",
-                current_time - message_time
+                "[Message Handler] Message is {} seconds old. Skipping message. {}",
+                current_time - message_time,
+                config.skew_window
             );
             continue;
         }
@@ -108,5 +110,7 @@ pub async fn watch_message_queue(
         // We'll need the hasher to return both the hashed value and the hashed message
         // And move the actual message we're sending to the appropriate field
         debug!("[Message Handler] SENDING: {}", message);
+        // Send to the output methods for emitting on the network
+        output_queue.send(message).await.unwrap();
     }
 }

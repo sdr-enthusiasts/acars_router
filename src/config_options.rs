@@ -119,7 +119,7 @@ impl ACARSRouterSettings {
 
     pub fn load_values() -> ACARSRouterSettings {
         let args = Args::parse();
-
+        println!("{:?}", args);
         return ACARSRouterSettings {
             log_level: get_log_level(&args.verbose),
             dedupe: get_value_as_bool("AR_ENABLE_DEDUPE", &args.enable_dedupe),
