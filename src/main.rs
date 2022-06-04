@@ -10,8 +10,6 @@ use env_logger::Builder;
 use log::{debug, error, info, trace};
 use std::error::Error;
 use std::io::Write;
-use std::net::ToSocketAddrs;
-use tokio::net::unix::SocketAddr;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -32,6 +30,10 @@ use udp_sender_server::UDPSenderServer;
 
 fn exit_process(code: i32) {
     std::process::exit(code);
+}
+
+fn should_start_service(config: &Vec<String>) -> bool {
+    config.len() > 0 && config[0].len() > 0
 }
 
 fn start_udp_listener_servers(
@@ -154,7 +156,7 @@ async fn start_processes() {
     // Start the UDP listener servers
 
     // Make sure we have at least one UDP port to listen on
-    if config.listen_udp_acars.len() > 0 && config.listen_udp_acars[0].len() > 0 {
+    if should_start_service(config.listen_udp_acars()) {
         // Start the UDP listener servers for ACARS
         start_udp_listener_servers(
             &"ACARS".to_string(),
@@ -165,7 +167,7 @@ async fn start_processes() {
         trace!("No ACARS UDP ports to listen on. Skipping");
     }
 
-    if config.listen_udp_vdlm2().len() > 0 && config.listen_udp_vdlm2()[0].len() > 0 {
+    if should_start_service(config.listen_udp_vdlm2()) {
         // Start the UDP listener servers for VDLM
         start_udp_listener_servers(
             &"VDLM2".to_string(),
@@ -176,7 +178,7 @@ async fn start_processes() {
         trace!("No VDLM2 UDP ports to listen on. Skipping");
     }
 
-    if config.send_udp_acars().len() > 0 && config.send_udp_acars()[0].len() > 0 {
+    if should_start_service(config.send_udp_acars()) {
         // Start the UDP sender servers for ACARS
         start_udp_senders_servers(
             &"ACARS".to_string(),
@@ -188,7 +190,7 @@ async fn start_processes() {
         trace!("No ACARS UDP ports to send on. Skipping");
     }
 
-    if config.send_udp_vdlm2().len() > 0 && config.send_udp_vdlm2()[0].len() > 0 {
+    if should_start_service(config.send_udp_vdlm2()) {
         // Start the UDP sender servers for VDLM
         start_udp_senders_servers(
             &"VDLM2".to_string(),
