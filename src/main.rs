@@ -140,28 +140,80 @@ async fn start_processes() {
     // Print the log level out to the user
     info!("Log level: {:?}", config.log_level().unwrap());
 
+    // ACARS Servers
     // Create the input channel all receivers will send their data to.
-    let (tx_recevers, rx_receivers) = mpsc::channel(32);
+    let (tx_recevers_acars, rx_receivers_acars) = mpsc::channel(32);
     // Create the input channel processed messages will be sent to
-    let (tx_processed, rx_processed) = mpsc::channel(32);
+    let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
+    // VDLM
+    // Create the input channel all receivers will send their data to.
+    let (tx_recevers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
+    // Create the input channel processed messages will be sent to
+    let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
 
     // Start the UDP listener servers
-    start_udp_listener_servers(
-        &"ACARS".to_string(),
-        config.listen_udp_acars(),
-        tx_recevers.clone(),
-    );
-    start_udp_listener_servers(
-        &"VDLM".to_string(),
-        config.listen_udp_vdlm2(),
-        tx_recevers.clone(),
-    );
 
-    // Start the UDP sender servers
-    start_udp_senders_servers(&"ACARS".to_string(), config.send_udp_acars(), rx_processed).await;
+    // Make sure we have at least one UDP port to listen on
+    if config.listen_udp_acars.len() > 0 && config.listen_udp_acars[0].len() > 0 {
+        // Start the UDP listener servers for ACARS
+        start_udp_listener_servers(
+            &"ACARS".to_string(),
+            config.listen_udp_acars(),
+            tx_recevers_acars.clone(),
+        );
+    } else {
+        trace!("No ACARS UDP ports to listen on. Skipping");
+    }
 
-    // Start the message handler task.
-    watch_received_message_queue(rx_receivers, tx_processed, &message_handler_config).await;
+    if config.listen_udp_vdlm2().len() > 0 && config.listen_udp_vdlm2()[0].len() > 0 {
+        // Start the UDP listener servers for VDLM
+        start_udp_listener_servers(
+            &"VDLM2".to_string(),
+            config.listen_udp_vdlm2(),
+            tx_recevers_vdlm.clone(),
+        );
+    } else {
+        trace!("No VDLM2 UDP ports to listen on. Skipping");
+    }
+
+    if config.send_udp_acars().len() > 0 && config.send_udp_acars()[0].len() > 0 {
+        // Start the UDP sender servers for ACARS
+        start_udp_senders_servers(
+            &"ACARS".to_string(),
+            config.send_udp_acars(),
+            rx_processed_acars,
+        )
+        .await;
+    } else {
+        trace!("No ACARS UDP ports to send on. Skipping");
+    }
+
+    if config.send_udp_vdlm2().len() > 0 && config.send_udp_vdlm2()[0].len() > 0 {
+        // Start the UDP sender servers for VDLM
+        start_udp_senders_servers(
+            &"VDLM2".to_string(),
+            config.send_udp_vdlm2(),
+            rx_processed_vdlm,
+        )
+        .await;
+    } else {
+        trace!("No VDLM2 UDP ports to send on. Skipping");
+    }
+
+    // Start the message handler tasks.
+    watch_received_message_queue(
+        rx_receivers_acars,
+        tx_processed_acars,
+        &message_handler_config,
+    )
+    .await;
+
+    watch_received_message_queue(
+        rx_receivers_vdlm,
+        tx_processed_vdlm,
+        &message_handler_config,
+    )
+    .await;
 
     // TODO: Is this the best way of doing this?
     // Without sleeping and waiting the entire program exits immediately.

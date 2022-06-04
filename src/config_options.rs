@@ -73,6 +73,18 @@ struct Args {
     #[clap(long, default_value = "")]
     serve_zmq_acars: String,
     // VDLM
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, default_value = "")]
+    send_udp_vdlm2: String,
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, default_value = "")]
+    send_tcp_vdlm2: String,
+    // Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, default_value = "")]
+    serve_tcp_vdlm2: String,
+    // Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, default_value = "")]
+    serve_zmq_vdlm2: String,
 }
 
 #[derive(Getters, Clone)]
@@ -95,6 +107,10 @@ pub struct ACARSRouterSettings {
     pub send_tcp_acars: Vec<String>,
     pub serve_tcp_acars: Vec<String>,
     pub serve_zmq_acars: Vec<String>,
+    pub send_udp_vdlm2: Vec<String>,
+    pub send_tcp_vdlm2: Vec<String>,
+    pub serve_tcp_vdlm2: Vec<String>,
+    pub serve_zmq_vdlm2: Vec<String>,
 }
 
 impl ACARSRouterSettings {
@@ -115,6 +131,10 @@ impl ACARSRouterSettings {
         debug!("AR_ENABLE_DEDUPE: {:?}", self.dedupe);
         debug!("AR_DEDUPE_WINDOW: {:?}", self.dedupe_window);
         debug!("AR_SKEW_WINDOW: {:?}", self.skew_window);
+        debug!("AR_SEND_UDP_VDLM2: {:?}", self.send_udp_vdlm2);
+        debug!("AR_SEND_TCP_VDLM2: {:?}", self.send_tcp_vdlm2);
+        debug!("AR_SERVE_TCP_VDLM2: {:?}", self.serve_tcp_vdlm2);
+        debug!("AR_SERVE_ZMQ_VDLM2: {:?}", self.serve_zmq_vdlm2);
     }
 
     pub fn load_values() -> ACARSRouterSettings {
@@ -163,6 +183,10 @@ impl ACARSRouterSettings {
             send_tcp_acars: get_value_as_vector("AR_SEND_TCP_ACARS", &args.send_tcp_acars, ""),
             serve_tcp_acars: get_value_as_vector("AR_SERVE_TCP_ACARS", &args.serve_tcp_acars, ""),
             serve_zmq_acars: get_value_as_vector("AR_SERVE_ZMQ_ACARS", &args.serve_zmq_acars, ""),
+            send_udp_vdlm2: get_value_as_vector("AR_SEND_UDP_VDLM2", &args.send_udp_vdlm2, ""),
+            send_tcp_vdlm2: get_value_as_vector("AR_SEND_TCP_VDLM2", &args.send_tcp_vdlm2, ""),
+            serve_tcp_vdlm2: get_value_as_vector("AR_SERVE_TCP_VDLM2", &args.serve_tcp_vdlm2, ""),
+            serve_zmq_vdlm2: get_value_as_vector("AR_SERVE_ZMQ_VDLM2", &args.serve_zmq_vdlm2, ""),
         };
     }
 }
