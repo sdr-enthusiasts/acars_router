@@ -76,7 +76,7 @@ async fn start_udp_senders_servers(
         .unwrap();
 
     let server: UDPSenderServer = UDPSenderServer {
-        proto_name: decoder_type.to_string() + "_UDP_SEND_ACARS",
+        proto_name: decoder_type.to_string() + "_UDP_SEND",
         host: ports.clone(),
         socket: sock,
     };

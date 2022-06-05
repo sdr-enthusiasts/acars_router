@@ -5,7 +5,7 @@
 // Full license information available in the project LICENSE file.
 //
 
-use log::{info, trace, warn};
+use log::{trace, warn};
 use tokio::net::UdpSocket;
 
 #[derive(Debug)]
@@ -17,7 +17,7 @@ pub struct UDPSenderServer {
 
 impl UDPSenderServer {
     pub async fn send_message(&self, message: serde_json::Value) {
-        trace!("UDP SENDER {}", message.to_string());
+        trace!("{}: {}", self.proto_name, message.to_string());
         // send the message to the socket
         // TODO: There may be a bug here
         // In testing, the listener nc on two different machines
@@ -30,7 +30,7 @@ impl UDPSenderServer {
             let bytes_sent = self.socket.send_to(message, addr).await;
             match bytes_sent {
                 Ok(bytes_sent) => {
-                    info!("{} sent {} bytes to {}", self.proto_name, bytes_sent, addr);
+                    trace!("{} sent {} bytes to {}", self.proto_name, bytes_sent, addr);
                 }
                 Err(e) => {
                     warn!(
