@@ -21,10 +21,10 @@ pub struct UDPListenerServer {
 impl UDPListenerServer {
     pub async fn run(
         self,
-        listen_acars_udp_port: String,
+        listen_udp_port: String,
         channel: Sender<serde_json::Value>,
     ) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind(&listen_acars_udp_port).await.unwrap();
+        let socket = UdpSocket::bind(&listen_udp_port).await.unwrap();
 
         let UDPListenerServer {
             mut buf,
