@@ -17,6 +17,8 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 #[path = "./config_options.rs"]
 mod config_options;
+#[path = "./data_processing/hasher.rs"]
+mod hasher;
 #[path = "./data_processing/message_handler.rs"]
 mod message_handler;
 #[path = "./sanity_checker.rs"]

@@ -5,16 +5,13 @@
 // Full license information available in the project LICENSE file.
 //
 
+use crate::hasher::hash_message;
 use log::debug;
 use log::error;
 use log::trace;
 use queue::Queue;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
-
-#[path = "./hasher.rs"]
-mod hasher;
-use hasher::hash_message;
 
 pub struct MessageHandlerConfig {
     pub add_proxy_id: bool,
