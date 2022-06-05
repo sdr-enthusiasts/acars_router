@@ -16,8 +16,7 @@ import time
 import uuid
 import zmq
 import signal
-
-# HELPER CLASSES #
+import random
 
 
 # if we get unexpected exceptions in threads, quit the program
@@ -29,6 +28,109 @@ def threading_excepthook_override(args):
 
 threading.excepthook = threading_excepthook_override
 global_queue_size = 100
+
+# HELPER FUNCTIONS #
+
+
+def reassemble_json(old_data, new_data, logger):
+    """ Provides complete or undecodable messages as an array and possibly a partial message or None if the messages are complete """
+    logger.log(logging_TRACE, f"reassemble_json: old_data: {old_data} new_data: {new_data}")
+
+    lines = []
+    if old_data is None:
+        data = new_data
+    else:
+        # we have old data, check if we can decode first line of the new data on its own
+        new_split = new_data.splitlines()
+        if len(new_split) == 0:
+            data = old_data + new_data
+        else:
+            try:
+
+                test = json.loads(new_split[0])
+                if (type(test) != dict):
+                    raise json.JSONDecodeError("not a dict", new_split[0], 0)
+                # first line of new data decoded on its own, return the old partial message on its own
+                lines += [old_data]
+                data = new_data
+                logger.debug(f"reassembly: discarding: {old_data}")
+            except json.JSONDecodeError as e:
+                logger.log(logging_TRACE, f"will try reassembly! ({e})")
+                logger.debug(f"reassembly: old_data len: {len(old_data)}, new_data len: {len(new_data)}")
+                data = old_data + new_data
+
+    # remove a leading newline to avoid returning empty lines
+    if len(data) > 0 and data[0] == '\n':
+        data = data[1:]
+
+    lines += data.splitlines()
+
+    if len(lines) == 0:
+        return ([], None)
+
+    last = lines[-1]
+
+    if len(last) == 0:
+        return (lines[:-1], None)
+
+    # if the last character is a newline, assume last line is is a complete message
+    if len(new_data) > 0 and new_data[-1] == '\n':
+        return (lines, None)
+
+    # check if the last line is a complete json message
+    try:
+        test = json.loads(last)
+        if (type(test) != dict):
+            raise json.JSONDecodeError("not a dict", last, 0)
+        # last line complete, return lines
+        return (lines, None)
+    except json.JSONDecodeError as e:
+        logger.log(logging_TRACE, f"will try reassembly! ({e})")
+        return (lines[:-1], last)
+
+
+def test_reassemble_json():
+    """ Test json reassembly """
+    samples = [('{' + f' "msg": {i}, "dummy": "{i}"' + '}') for i in range(0, 100)]
+    logger = baselogger.getChild('testcases')
+
+    partial = None
+
+    for msg in samples[:4]:
+        lines, partial = reassemble_json(partial, msg[:5], logger)
+        for line in lines:
+            print("got line: " + line)
+
+        lines, partial = reassemble_json(partial, msg[5:], logger)
+        for line in lines:
+            print("got line: " + line)
+
+    concat = '\n'.join(samples)
+
+    partial = None
+
+    while len(concat) > 0:
+        split = random.randint(0, 3 * len(samples[0]))
+        msg = concat[:split]
+        concat = concat[split:]
+
+        lines, partial = reassemble_json(partial, msg, logger)
+        for line in lines:
+            print("got line: " + line)
+            if line[0] != '{' or line[-1] != '}':
+                print("-------------------------------------------------------------")
+                print("FAIL")
+                print("-------------------------------------------------------------")
+                os._exit(1)
+
+    partial = None
+    msg = '\n{ "msg": 58, "dummy": "58"}\n{ "msg": 59'
+    lines, partial = reassemble_json(partial, msg, logger)
+    for line in lines:
+        print("got line: " + line)
+
+
+# HELPER CLASSES #
 
 
 class ARQueue(queue.Queue):
@@ -245,30 +347,15 @@ class InboundUDPMessageHandler(socketserver.BaseRequestHandler):
 
         data = data.decode()
 
-        reassembled = data
         partial = udp_partial_dict.get(address)
+
         if partial:
-            # delete from partial dict
             del udp_partial_dict[address]
 
-            logger.debug(f"reassembly: {address} (partial len: {len(partial)}, data len: {len(data)}")
-            try:
-                reassembled = partial + data
-                json.loads(reassembled.splitlines()[0])
-            except json.JSONDecodeError as e:
-                logger.log(logging_TRACE, f"reassembly failed: {e}")
+        lines, partial = reassemble_json(partial, data, logger)
 
-        if reassembled[-1] != '\n':
-            try:
-                json.loads(reassembled)
-            except json.JSONDecodeError as e:
-                logger.log(logging_TRACE, f"probably a partial message: {e}")
-                logger.debug(f"saving {len(reassembled)} bytes from {address} in udp_partial_dict")
-                # add to partial dict
-                udp_partial_dict[address] = reassembled
-                return
-
-        lines = reassembled.splitlines()
+        if partial:
+            udp_partial_dict[address] = partial
 
         for line in lines:
             # prepare data to be enqueued into input queue
@@ -314,8 +401,8 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
         port = self.client_address[1]
 
         # prepare logging
-        self.logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
-        self.logger.info("connection established")
+        logger = baselogger.getChild(f'input.tcpserver.{self.protoname}.{host}:{port}')
+        logger.info("connection established")
 
         partial = None
 
@@ -331,25 +418,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
 
             data = data.decode()
 
-            reassembled = data
-            if partial is not None:
-                try:
-                    reassembled = partial + data
-                    json.loads(reassembled.splitlines()[0])
-                except json.JSONDecodeError as e:
-                    logger.log(logging_TRACE, f"reassembly failed: {e}")
-
-            if reassembled[-1] != '\n':
-                try:
-                    json.loads(reassembled)
-                except json.JSONDecodeError as e:
-                    self.logger.log(logging_TRACE, f"attempting reassembly due to json decode error: {e} data: {reassembled}")
-                    partial = reassembled
-                    continue
-
-            partial = None
-
-            lines = reassembled.splitlines()
+            lines, partial = reassemble_json(partial, data, logger)
 
             for line in lines:
                 # prepare data to be enqueued into input queue
@@ -362,7 +431,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                 }
 
                 # trace logging
-                self.logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
+                logger.log(logging_TRACE, f"in: {host}:{port}/tcp; out: {self.inbound_message_queue.name}; data: {incoming_data}")
 
                 # enqueue the data
                 self.inbound_message_queue.put_or_die(incoming_data)
@@ -371,7 +440,7 @@ class InboundTCPMessageHandler(socketserver.BaseRequestHandler):
                 COUNTERS.increment(f'listen_tcp_{self.protoname}')
 
         # if broken out of the loop, then "connection lost"
-        self.logger.info("connection lost")
+        logger.info("connection lost")
 
 
 def TCPReceiver(host: str, port: int, inbound_message_queue: ARQueue, protoname: str):
@@ -572,7 +641,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
                     continue
                 else:
                     logger.error(f"json decoding failed, reattempt impossible: invalid JSON received via {data['src_name']} (possible reason: UDP packet loss, consider using TCP)")
-                    logger.debug(f"e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} to_decode: {to_decode}")
+                    logger.debug(f"e.pos: {e.pos} decode_to_char: {decode_to_char} exception: {e} to_decode: {to_decode} raw_json: {raw_json}")
                     COUNTERS.increment(f'invalid_json_{protoname}')
                     break
 
@@ -1817,6 +1886,12 @@ if __name__ == "__main__":
         nargs='?',
         default=os.getenv("AR_STATS_FILE", None),
     )
+    parser.add_argument(
+        '--run-testcases',
+        help='Run some limited test cases',
+        action='store_true',
+        default=False,
+    )
 
     # Arguement to toggle the output of proxy information
     # We can't use default argprase bool operations (action=set_true/false) and using the presence
@@ -1877,6 +1952,11 @@ if __name__ == "__main__":
     # sanity check input, if invalid then bail out
     if not valid_args(args):
         sys.exit(1)
+
+    # run testcases when asked
+    if args.run_testcases:
+        test_reassemble_json()
+        sys.exit(0)
 
     # initialise counters
     COUNTERS = ARCounters(
