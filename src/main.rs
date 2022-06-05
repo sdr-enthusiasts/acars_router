@@ -19,12 +19,15 @@ use tokio::sync::mpsc::{Receiver, Sender};
 mod config_options;
 #[path = "./data_processing/message_handler.rs"]
 mod message_handler;
+#[path = "./sanity_checker.rs"]
+mod sanity_checker;
 #[path = "./acars_router_servers/udp/udp_listener_server.rs"]
 mod udp_listener_server;
 #[path = "./acars_router_servers/udp/udp_sender_server.rs"]
 mod udp_sender_server;
 use config_options::ACARSRouterSettings;
 use message_handler::{watch_received_message_queue, MessageHandlerConfig};
+use sanity_checker::check_config_option_sanity;
 use udp_listener_server::UDPListenerServer;
 use udp_sender_server::UDPSenderServer;
 
@@ -42,17 +45,6 @@ fn start_udp_listener_servers(
     channel: Sender<serde_json::Value>,
 ) {
     for udp_port in ports {
-        // TODO: Move santiy checker of input values to another place...one before we start the servers
-        match udp_port.chars().all(char::is_numeric) {
-            true => trace!("{} UDP Port is numeric. Found: {}", decoder_type, udp_port),
-            false => {
-                error!(
-                    "{} UDP Listen Port is not numeric. Found: {}",
-                    decoder_type, udp_port
-                );
-                exit_process(12);
-            }
-        }
         let new_channel = channel.clone();
         let server_udp_port = "127.0.0.1:".to_string() + udp_port.as_str();
         let proto_name = decoder_type.to_string() + "_UDP_LISTEN_" + server_udp_port.as_str();
@@ -76,27 +68,6 @@ async fn start_udp_senders_servers(
     ports: &Vec<String>,
     mut channel: Receiver<serde_json::Value>,
 ) {
-    // Veryify the input is valid
-    for udp_port in ports {
-        // split the udp port into host and port and grab the second field
-        let udp_port_split: Vec<&str> = udp_port.split(":").collect();
-        // verify port is numeric
-        match udp_port_split[1].chars().all(char::is_numeric) {
-            true => trace!(
-                "{} UDP Port is numeric. Found: {}",
-                decoder_type,
-                udp_port_split[1]
-            ),
-            false => {
-                error!(
-                    "{} UDP Send Port is not numeric. Found: {}",
-                    decoder_type, udp_port
-                );
-                exit_process(12);
-            }
-        }
-    }
-
     let sock = UdpSocket::bind("0.0.0.0:0".to_string())
         .await
         // create an empty socket
@@ -117,14 +88,8 @@ async fn start_udp_senders_servers(
 
 async fn start_processes() {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
-    let message_handler_config = MessageHandlerConfig {
-        add_proxy_id: config.add_proxy_id,
-        dedupe: config.dedupe,
-        dedupe_window: config.dedupe_window,
-        skew_window: config.skew_window,
-    };
-
     let log_level = config.log_level().unwrap();
+
     Builder::new()
         .format(|buf, record| {
             writeln!(
@@ -139,6 +104,24 @@ async fn start_processes() {
         .init();
 
     config.print_values();
+
+    match check_config_option_sanity(&config) {
+        Ok(_) => {
+            info!("Configuration is valid. Starting ACARSRouter");
+        }
+        Err(e) => {
+            error!("Configuration is invalid. Exiting ACARSRouter");
+            error!("{}", e);
+            exit_process(12);
+        }
+    }
+    let message_handler_config = MessageHandlerConfig {
+        add_proxy_id: config.add_proxy_id,
+        dedupe: config.dedupe,
+        dedupe_window: config.dedupe_window,
+        skew_window: config.skew_window,
+    };
+
     // Print the log level out to the user
     info!("Log level: {:?}", config.log_level().unwrap());
 
