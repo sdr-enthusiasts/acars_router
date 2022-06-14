@@ -89,7 +89,7 @@ struct Args {
 
 #[derive(Getters, Clone)]
 pub struct ACARSRouterSettings {
-    pub log_level: Option<log::LevelFilter>,
+    pub log_level: log::LevelFilter,
     // This field is named opposite to the command line flag.
     // The presence of the flag indicates we should NOT add the proxy id
     // The field is inverted and saved
@@ -126,7 +126,7 @@ impl ACARSRouterSettings {
         debug!("AR_SEND_TCP_ACARS: {:?}", self.send_tcp_acars);
         debug!("AR_SERVE_TCP_ACARS: {:?}", self.serve_tcp_acars);
         debug!("AR_SERVE_ZMQ_ACARS: {:?}", self.serve_zmq_acars);
-        debug!("AR_VERBOSE: {:?}", self.log_level.unwrap());
+        debug!("AR_VERBOSE: {:?}", self.log_level);
         debug!("AR_ADD_PROXY_ID: {:?}", self.add_proxy_id);
         debug!("AR_ENABLE_DEDUPE: {:?}", self.dedupe);
         debug!("AR_DEDUPE_WINDOW: {:?}", self.dedupe_window);
@@ -289,16 +289,15 @@ fn get_value_as_string(env_name: &str, args: &str, default: &str) -> String {
     return default.to_string();
 }
 
-// TODO: Should the return type ever be an option? I feel like it shouldn't be.....
 // Log Level ("verbose"/"AR_VERBOSITY") supports the legacy numeric 0/1/2 options
 // Documentation has been updated to indicate the new method of "info"/"debug"/"trace"
 
-fn get_log_level(args: &str) -> Option<log::LevelFilter> {
+fn get_log_level(args: &str) -> log::LevelFilter {
     let log_level = get_value_as_string("AR_VERBOSITY", args, "info");
 
     match log_level.to_lowercase().as_str() {
-        "1" | "debug" => Some(log::LevelFilter::Debug),
-        "2" | "trace" => Some(log::LevelFilter::Trace),
-        "0" | "info" | _ => Some(log::LevelFilter::Info),
+        "1" | "debug" => log::LevelFilter::Debug,
+        "2" | "trace" => log::LevelFilter::Trace,
+        "0" | "info" | _ => log::LevelFilter::Info,
     }
 }

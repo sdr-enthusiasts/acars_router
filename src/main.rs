@@ -90,7 +90,7 @@ async fn start_udp_senders_servers(
 
 async fn start_processes() {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
-    let log_level = config.log_level().unwrap();
+    let log_level = config.log_level();
 
     Builder::new()
         .format(|buf, record| {
@@ -102,7 +102,7 @@ async fn start_processes() {
                 record.args()
             )
         })
-        .filter(None, log_level)
+        .filter(None, log_level.clone())
         .init();
 
     config.print_values();
@@ -125,7 +125,7 @@ async fn start_processes() {
     };
 
     // Print the log level out to the user
-    info!("Log level: {:?}", config.log_level().unwrap());
+    info!("Log level: {:?}", config.log_level());
 
     // ACARS Servers
     // Create the input channel all receivers will send their data to.
