@@ -109,10 +109,10 @@ async fn start_processes() {
 
     match check_config_option_sanity(&config) {
         Ok(_) => {
-            info!("Configuration is valid. Starting ACARSRouter");
+            info!("Configuration is valid. Starting ACARS Router");
         }
         Err(e) => {
-            error!("Configuration is invalid. Exiting ACARSRouter");
+            error!("Configuration is invalid. Exiting ACARS Router");
             error!("{}", e);
             exit_process(12);
         }
