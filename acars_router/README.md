@@ -49,11 +49,11 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 
 ### Logging
 
-| Argument         | Environment Variable | Description                                                                                                 | Default    |
-| ---------------- | -------------------- | ----------------------------------------------------------------------------------------------------------- | ---------- |
-| `--stats-every`  | `AR_STATS_EVERY`     | Print statistics every `N` minutes                                                                          | `5`        |
-| `--stats-file`   | `AR_STATS_FILE`      | Logs statistics (in JSON format) to this file every 10 seconds                                              |            |
-| `-v` `--verbose` | `AR_VERBOSITY`       | Increase log verbosity. `-v`/`AR_VERBOSITY=1` = Debug. `-vv`/`AR_VERBOSITY=2` = Trace (raw packets printed) | `0` (info) |
+| Argument         | Environment Variable | Description                                                                                                         | Default |
+| ---------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--stats-every`  | `AR_STATS_EVERY`     | Print statistics every `N` minutes                                                                                  | `5`     |
+| `--stats-file`   | `AR_STATS_FILE`      | Logs statistics (in JSON format) to this file every 10 seconds                                                      |         |
+| `-v` `--verbose` | `AR_VERBOSITY`       | Increase log verbosity. `-v`/`AR_VERBOSITY=debug` = Debug. `-vv`/`AR_VERBOSITY=trace` = Trace (raw packets printed) | `info`  |
 
 ### Deduplication
 

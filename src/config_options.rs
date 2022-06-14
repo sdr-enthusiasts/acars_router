@@ -290,12 +290,15 @@ fn get_value_as_string(env_name: &str, args: &str, default: &str) -> String {
 }
 
 // TODO: Should the return type ever be an option? I feel like it shouldn't be.....
-fn get_log_level(args: &str) -> Option<log::LevelFilter> {
-    let log_level = get_value_as_string("AR_VERBOSITY", args, "0");
+// Log Level ("verbose"/"AR_VERBOSITY") supports the legacy numeric 0/1/2 options
+// Documentation has been updated to indicate the new method of "info"/"debug"/"trace"
 
-    match log_level.as_str() {
-        "1" => Some(log::LevelFilter::Debug),
-        "2" => Some(log::LevelFilter::Trace),
-        "0" | _ => Some(log::LevelFilter::Info),
+fn get_log_level(args: &str) -> Option<log::LevelFilter> {
+    let log_level = get_value_as_string("AR_VERBOSITY", args, "info");
+
+    match log_level.to_lowercase().as_str() {
+        "1" | "debug" => Some(log::LevelFilter::Debug),
+        "2" | "trace" => Some(log::LevelFilter::Trace),
+        "0" | "info" | _ => Some(log::LevelFilter::Info),
     }
 }
