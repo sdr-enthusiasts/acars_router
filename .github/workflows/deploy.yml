@@ -6,23 +6,22 @@ on:
     inputs:
       reason:
         required: true
-        description: 'Reason for running this workflow'
+        description: "Reason for running this workflow"
   push:
     branches:
       - main
 
     # Don't trigger if it's just a documentation update
     paths-ignore:
-      - '**.md'
-      - '**.MD'
-      - '**.yml'
-      - 'LICENSE'
-      - '.gitattributes'
-      - '.gitignore'
-      - '.dockerignore'
+      - "**.md"
+      - "**.MD"
+      - "**.yml"
+      - "LICENSE"
+      - ".gitattributes"
+      - ".gitignore"
+      - ".dockerignore"
 
 jobs:
-
   workflow-dispatch:
     name: Workflow Dispatch
     # only run this step if workflow dispatch triggered

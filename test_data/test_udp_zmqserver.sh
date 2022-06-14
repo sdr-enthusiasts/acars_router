@@ -17,8 +17,8 @@ sleep 1
 
 # Send test data thru acars_router
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:"${PORT2}";
-done <./test_data/"$1".patched
+  printf '%s\n' "$p" | socat - UDP-DATAGRAM:127.0.0.1:"${PORT2}"
+done < ./test_data/"$1".patched
 
 # Re-format output files
 jq -M . < ./test_data/"$1".patched > /tmp/"$1".udp.out.reference.reformatted

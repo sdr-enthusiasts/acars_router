@@ -247,7 +247,7 @@ fn get_value_as_u64(env_name: &str, args: &u64) -> u64 {
     return *args;
 }
 
-// If the enviornment/flag is set the config option is turned on
+// If the env/flag is set the config option is turned on
 fn get_value_as_bool(env_name: &str, args: &bool) -> bool {
     let env = get_env_variable(env_name);
 
@@ -261,7 +261,7 @@ fn get_value_as_bool(env_name: &str, args: &bool) -> bool {
     };
 }
 
-// If the enviornment/flag is set the config option is turned off
+// If the env/flag is set the config option is turned off
 fn get_value_as_bool_invert_bool(env_name: &str, args: &bool) -> bool {
     let env = get_env_variable(env_name);
 

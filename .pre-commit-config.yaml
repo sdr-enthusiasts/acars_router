@@ -1,0 +1,62 @@
+repos:
+  # lint yaml, line and whitespace
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: check-yaml
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/)
+      - id: end-of-file-fixer
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/)
+      - id: trailing-whitespace
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/)
+      - id: requirements-txt-fixer
+        exclude: ^(acarshub-typescript/node_modules/)
+      - id: mixed-line-ending
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/)
+      - id: check-executables-have-shebangs
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/|acarshub-typescript/src)
+      - id: check-shebang-scripts-are-executable
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/)
+
+  # lint the dockerfiles
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.10.0
+    hooks:
+      - id: hadolint
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/)
+
+  # prettier
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: "v2.7.0" # Use the sha / tag you want to point at
+    hooks:
+      - id: prettier
+        types_or: [file, bash, sh, javascript, jsx, ts, tsx]
+        additional_dependencies:
+          - prettier@2.5.1
+          - "@typescript-eslint/eslint-plugin"
+          - "prettier-plugin-sh"
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/|Dockerfile*)
+
+  - repo: https://github.com/codespell-project/codespell.git
+    rev: "v2.1.0" # Use the sha / tag you want to point at
+    hooks:
+      - id: codespell
+        types: [text]
+        args: [--ignore-words=.dictionary.txt]
+        exclude: ^(rootfs/webapp/|acarshub-typescript/node_modules/|acarshub-typescript/package.json|acarshub-typescript/package-lock.json)
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.8.0.4
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/sirosen/check-jsonschema
+    rev: 0.16.0
+    hooks:
+      - id: check-github-actions
+      - id: check-github-workflows
+
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+      - id: cargo-check

@@ -119,7 +119,6 @@ jobs:
           - linux/arm/v7
           - linux/i386
     steps:
-
       # Check out our code
       - name: Checkout
         uses: actions/checkout@v3
