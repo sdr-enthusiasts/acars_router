@@ -23,13 +23,17 @@ mod hasher;
 mod message_handler;
 #[path = "./sanity_checker.rs"]
 mod sanity_checker;
+#[path = "./acars_router_servers/tcp/tcp_listener_server.rs"]
+mod tcp_listener_server;
 #[path = "./acars_router_servers/udp/udp_listener_server.rs"]
 mod udp_listener_server;
 #[path = "./acars_router_servers/udp/udp_sender_server.rs"]
 mod udp_sender_server;
+
 use config_options::ACARSRouterSettings;
 use message_handler::{watch_received_message_queue, MessageHandlerConfig};
 use sanity_checker::check_config_option_sanity;
+use tcp_listener_server::TCPListenerServer;
 use udp_listener_server::UDPListenerServer;
 use udp_sender_server::UDPSenderServer;
 
@@ -39,6 +43,27 @@ fn exit_process(code: i32) {
 
 fn should_start_service(config: &Vec<String>) -> bool {
     config.len() > 0 && config[0].len() > 0
+}
+
+fn start_tcp_listener_servers(
+    decoder_type: &String,
+    ports: &Vec<String>,
+    channel: Sender<serde_json::Value>,
+) {
+    for port in ports {
+        let new_channel = channel.clone();
+        let server_tcp_port = port.clone();
+        let proto_name = decoder_type.to_string() + "_TCP_LISTEN_" + &server_tcp_port;
+        let server = TCPListenerServer {
+            proto_name: proto_name,
+        };
+
+        debug!(
+            "Starting {} TCP server on {}",
+            decoder_type, server_tcp_port
+        );
+        tokio::spawn(async move { server.run(server_tcp_port, new_channel).await });
+    }
 }
 
 fn start_udp_listener_servers(
@@ -129,6 +154,9 @@ async fn start_processes() {
 
     // ACARS Servers
     // Create the input channel all receivers will send their data to.
+    // NOTE: To keep this straight in my head, the "TX" is the RECEIVER server (and needs a channel to TRANSMIT data to)
+    // The "RX" is the TRANSMIT server (and needs a channel to RECEIVE data from)
+
     let (tx_recevers_acars, rx_receivers_acars) = mpsc::channel(32);
     // Create the input channel processed messages will be sent to
     let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
@@ -185,6 +213,30 @@ async fn start_processes() {
         .await;
     } else {
         trace!("No VDLM2 UDP ports to send on. Skipping");
+    }
+
+    // Start the TCP listeners
+
+    if should_start_service(config.listen_tcp_acars()) {
+        // Start the TCP listener servers for ACARS
+        start_tcp_listener_servers(
+            &"ACARS".to_string(),
+            config.listen_tcp_acars(),
+            tx_recevers_acars.clone(),
+        );
+    } else {
+        trace!("No ACARS TCP ports to listen on. Skipping");
+    }
+
+    if should_start_service(config.listen_tcp_vdlm2()) {
+        // Start the TCP listener servers for VDLM
+        start_tcp_listener_servers(
+            &"VDLM2".to_string(),
+            config.listen_tcp_vdlm2(),
+            tx_recevers_vdlm.clone(),
+        );
+    } else {
+        trace!("No VDLM2 TCP ports to listen on. Skipping");
     }
 
     // Start the message handler tasks.
