@@ -201,18 +201,6 @@ async fn start_processes() {
         &message_handler_config,
     )
     .await;
-
-    // TODO: Is this the best way of doing this?
-    // Without sleeping and waiting the entire program exits immediately.
-    // For reasons
-    // TODO: Part Duex....apparently when I moved this to a function outside of
-    // main it now doesn't require a sleep loop. Weird.
-
-    // trace!("Starting the sleep loop");
-
-    // loop {
-    //     sleep(Duration::from_millis(100)).await;
-    // }
 }
 
 #[tokio::main]
