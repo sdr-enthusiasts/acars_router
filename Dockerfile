@@ -8,10 +8,11 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
     AR_SERVE_TCP_VDLM2=15555 \
     AR_SERVE_ZMQ_ACARS=45550 \
     AR_SERVE_ZMQ_VDLM2=45555 \
-    CARGO_HOME=/usr/local \
-    RUSTUP_HOME=/usr/local \
-    PATH=/opt/acars_router:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    CARGO_HOME=/usr/local/rust \
+    RUSTUP_HOME=/usr/local/rust \
+    PATH=/opt/acars_router:/usr/local/rust:/usr/local/rust/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+COPY rootfs /
 COPY src/ /tmp/acars_router/src
 COPY Cargo.* /tmp/acars_router/
 
@@ -36,13 +37,10 @@ RUN set -x && \
     # copy binary
     cp target/release/acars_router /opt/acars_router && \
     # Clean up
-    rustup self uninstall && \
+    #rustup self uninstall -y && \
+    rm -rf /usr/local/rust && \
     apt-get remove -y "${TEMP_PACKAGES[@]}" && \
     apt-get autoremove -y && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/* && \
     # Simple date/time versioning
     date +%Y%m%d.%H%M > /IMAGE_VERSION
-
-ENTRYPOINT [ "python3" ]
-
-CMD [ "/opt/acars_router/acars_router.py" ]
