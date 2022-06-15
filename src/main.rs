@@ -73,7 +73,7 @@ fn start_udp_listener_servers(
 ) {
     for udp_port in ports {
         let new_channel = channel.clone();
-        let server_udp_port = "127.0.0.1:".to_string() + udp_port.as_str();
+        let server_udp_port = "0.0.0.0:".to_string() + udp_port.as_str();
         let proto_name = decoder_type.to_string() + "_UDP_LISTEN_" + server_udp_port.as_str();
         let server = UDPListenerServer {
             buf: vec![0; 5000],
