@@ -50,6 +50,9 @@ impl UDPListenerServer {
                         continue;
                     }
                 };
+                // TODO: This fails if the message is not valid JSON. This is good, but we should
+                // Handle messages exceeding the buffer size and being sent in two pieces or message
+                // packets out of order and attempt to re-assemble the message later.
                 match serde_json::from_str::<serde_json::Value>(s) {
                     Ok(msg) => {
                         trace!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, msg);

@@ -34,6 +34,8 @@ pub async fn watch_received_message_queue(
             Err(_) => 0,
         };
 
+        // acarsdec/vdlm2dec use floating point message times. dumpvdl2 uses ints.
+        // Determine if the message is dumpvdl2 or not, and handle correctly
         let message_time = match message.get("vdl2") {
             Some(_) => message["vdl2"]["t"]["sec"].as_u64().unwrap_or(0),
             // TODO: I'd like to do this better. The as_u64() function did not give a correct value

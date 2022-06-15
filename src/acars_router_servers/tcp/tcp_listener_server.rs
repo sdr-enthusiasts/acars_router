@@ -34,7 +34,7 @@ impl TCPListenerServer {
             debug!("accepted connection from {}", addr);
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
-                match process_tcp_sockets(stream, new_channel).await {
+                match process_tcp_sockets(stream, &new_proto_name, new_channel).await {
                     Ok(_) => debug!("{} connection closed", new_proto_name),
                     Err(e) => error!("{} connection error: {}", new_proto_name.clone(), e),
                 };
@@ -45,11 +45,13 @@ impl TCPListenerServer {
 
 async fn process_tcp_sockets(
     stream: TcpStream,
+    proto_name: &String,
     channel: Sender<serde_json::Value>,
 ) -> Result<(), Box<dyn Error>> {
     let mut lines = Framed::new(stream, LinesCodec::new_with_max_length(8000));
 
     while let Some(Ok(line)) = lines.next().await {
+        // Clean up the line endings. This is probably unnecessary but it's here for safety.
         let stripped = line
             .strip_suffix("\r\n")
             .or(line.strip_suffix("\n"))
@@ -57,7 +59,7 @@ async fn process_tcp_sockets(
 
         match serde_json::from_str::<serde_json::Value>(stripped) {
             Ok(msg) => {
-                trace!("{}", msg);
+                trace!("[TCP SERVER: {}]: {}", proto_name, msg);
                 match channel.send(msg).await {
                     Ok(_) => debug!("Message sent to channel"),
                     Err(e) => error!("Error sending message to channel: {}", e),
