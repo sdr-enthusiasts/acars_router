@@ -15,8 +15,8 @@ use std::str;
 #[clap(author = "Mike Nye / Fred Clausen", version = "1.0", about = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers.", long_about = None)]
 struct Args {
     // Output Options
-    #[clap(short = 'v', long = "verbose", default_value = "0")]
-    /// Set the log level. 1 for debug, 2 for trace, 0 for info
+    #[clap(short = 'v', long = "verbose", default_value = "info")]
+    /// Set the log level. debug, trace, info are valid options.
     verbose: String,
     #[clap(long)]
     /// Enable message deduplication
@@ -38,10 +38,10 @@ struct Args {
 
     // ACARS
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "5550")]
+    #[clap(long, default_value = "")]
     listen_udp_acars: String,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "5550")]
+    #[clap(long, default_value = "")]
     listen_tcp_acars: String,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, default_value = "")]
@@ -49,10 +49,10 @@ struct Args {
 
     // VDLM2
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
-    #[clap(long, default_value = "5555")]
+    #[clap(long, default_value = "")]
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     listen_udp_vdlm2: String,
-    #[clap(long, default_value = "5555")]
+    #[clap(long, default_value = "")]
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     listen_tcp_vdlm2: String,
     #[clap(long, default_value = "")]
