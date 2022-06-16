@@ -6,7 +6,7 @@
 //
 
 use crate::hasher::hash_message;
-use log::{debug, error, trace};
+use log::{debug, error, info, trace};
 use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -116,7 +116,7 @@ pub async fn watch_received_message_queue(
         if config.dedupe {
             for (_, hashed_value_saved) in dedupe_queue.iter() {
                 if *hashed_value_saved == hashed_value {
-                    debug!(
+                    info!(
                         "[Message Handler {}] Message is a duplicate. Skipping message.",
                         config.queue_type
                     );
