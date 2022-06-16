@@ -147,9 +147,11 @@ async fn start_processes() {
         dedupe: config.dedupe,
         dedupe_window: config.dedupe_window,
         skew_window: config.skew_window,
+        queue_type: "ACARS".to_string(),
     };
 
-    let message_handler_config_vdlm = message_handler_config_acars.clone();
+    let mut message_handler_config_vdlm = message_handler_config_acars.clone();
+    message_handler_config_vdlm.queue_type = "VDLM".to_string();
 
     // Print the log level out to the user
     info!("Log level: {:?}", config.log_level());
