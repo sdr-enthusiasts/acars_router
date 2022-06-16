@@ -13,7 +13,7 @@ use std::io::Write;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
-// use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, Duration};
 
 #[path = "./config_options.rs"]
 mod config_options;
@@ -105,7 +105,7 @@ async fn start_udp_senders_servers(
         host: ports.clone(),
         socket: sock,
     };
-
+    trace!("Starting {} UDP sender server", decoder_type);
     tokio::spawn(async move {
         while let Some(message) = channel.recv().await {
             server.send_message(message.clone()).await;
@@ -142,12 +142,14 @@ async fn start_processes() {
             exit_process(12);
         }
     }
-    let message_handler_config = MessageHandlerConfig {
+    let message_handler_config_acars = MessageHandlerConfig {
         add_proxy_id: config.add_proxy_id,
         dedupe: config.dedupe,
         dedupe_window: config.dedupe_window,
         skew_window: config.skew_window,
     };
+
+    let message_handler_config_vdlm = message_handler_config_acars.clone();
 
     // Print the log level out to the user
     info!("Log level: {:?}", config.log_level());
@@ -191,6 +193,7 @@ async fn start_processes() {
         trace!("No VDLM2 UDP ports to listen on. Skipping");
     }
 
+    //TODO: Move the sender service to it's own wrapper to handle all output types
     if should_start_service(config.send_udp_acars()) {
         // Start the UDP sender servers for ACARS
         start_udp_senders_servers(
@@ -240,19 +243,33 @@ async fn start_processes() {
     }
 
     // Start the message handler tasks.
-    watch_received_message_queue(
-        rx_receivers_acars,
-        tx_processed_acars,
-        &message_handler_config,
-    )
-    .await;
+    tokio::spawn(async move {
+        watch_received_message_queue(
+            rx_receivers_acars,
+            tx_processed_acars,
+            &message_handler_config_acars,
+        )
+        .await
+    });
 
-    watch_received_message_queue(
-        rx_receivers_vdlm,
-        tx_processed_vdlm,
-        &message_handler_config,
-    )
-    .await;
+    tokio::spawn(async move {
+        watch_received_message_queue(
+            rx_receivers_vdlm,
+            tx_processed_vdlm,
+            &message_handler_config_vdlm,
+        )
+        .await;
+    });
+
+    // TODO: Is this the best way of doing this?
+    // Without sleeping and waiting the entire program exits immediately.
+    // For reasons
+
+    trace!("Starting the sleep loop");
+
+    loop {
+        sleep(Duration::from_millis(100)).await;
+    }
 }
 
 #[tokio::main]

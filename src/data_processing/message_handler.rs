@@ -13,6 +13,7 @@ use queue::Queue;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
 
+#[derive(Clone, Debug)]
 pub struct MessageHandlerConfig {
     pub add_proxy_id: bool,
     pub dedupe: bool,
@@ -26,6 +27,7 @@ pub async fn watch_received_message_queue(
     config: &MessageHandlerConfig,
 ) {
     let mut q = Queue::with_capacity(100);
+
     while let Some(mut message) = input_queue.recv().await {
         debug!("[Message Handler] GOT: {}", message);
 
