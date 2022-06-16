@@ -18,16 +18,15 @@ pub struct UDPSenderServer {
 impl UDPSenderServer {
     pub async fn send_message(&self, message: serde_json::Value) {
         trace!("{}: {}", self.proto_name, message.to_string());
+
         // send the message to the socket
-        // TODO: There may be a bug here
-        // In testing, the listener nc on two different machines
-        // Won't get the messages always. It seems like it happens if the listeners
-        // Are listening BEFORE the program starts. Need to diagnose and see if I'm losing my mind
-        let message = message.to_string() + "\n";
-        let message = message.as_bytes();
+
+        let message_out = message["out_json"].clone();
+        let message_as_string = message_out.to_string() + "\n";
+        let message_as_bytes = message_as_string.as_bytes();
         for addr in &self.host {
             // TODO: Verify exceptionally large messages are sent correctly
-            let bytes_sent = self.socket.send_to(message, addr).await;
+            let bytes_sent = self.socket.send_to(message_as_bytes, addr).await;
             match bytes_sent {
                 Ok(bytes_sent) => {
                     trace!("{} sent {} bytes to {}", self.proto_name, bytes_sent, addr);

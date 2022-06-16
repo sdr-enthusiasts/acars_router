@@ -10,7 +10,7 @@ use serde_json::Value;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-pub fn hash_message(mut message: Value) -> u64 {
+pub fn hash_message(mut message: Value) -> (u64, Value) {
     let mut hasher = DefaultHasher::new();
     message = match message.get("vdl2") {
         Some(_) => generate_dumpvdl2_hashable_data(message),
@@ -19,7 +19,8 @@ pub fn hash_message(mut message: Value) -> u64 {
     let msg = message.to_string();
     trace!("[Hasher] Message to be hashed: {}", msg);
     msg.hash(&mut hasher);
-    hasher.finish()
+    let hashed_value = hasher.finish();
+    return (hashed_value, message);
 }
 
 fn generate_acarsdec_or_vdlm2dec_hashable_data(mut message: Value) -> Value {

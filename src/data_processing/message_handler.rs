@@ -6,11 +6,8 @@
 //
 
 use crate::hasher::hash_message;
-use log::debug;
-use log::error;
-use log::trace;
-use log::warn;
-use queue::Queue;
+use log::{debug, error, trace};
+use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -28,15 +25,40 @@ pub async fn watch_received_message_queue(
     output_queue: Sender<serde_json::Value>,
     config: &MessageHandlerConfig,
 ) {
-    let mut q = Queue::with_capacity(100);
+    let mut dedupe_queue: VecDeque<(u64, u64)> = VecDeque::with_capacity(100);
 
     while let Some(mut message) = input_queue.recv().await {
         trace!("[Message Handler {}] GOT: {}", config.queue_type, message);
+        let original_message = message.clone();
 
         let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(n) => n.as_secs(),
             Err(_) => 0,
         };
+
+        // Clean up the dedupe queue
+        // TODO: Can this be done....better?
+
+        if !dedupe_queue.is_empty() {
+            // iterate through dedupe_que and remove old messages
+            // TODO: Can this be done in one shot using remove while iterating the queue?
+            let mut indexes_to_remove = Vec::with_capacity(dedupe_queue.len());
+            for (i, (time, _)) in dedupe_queue.iter().enumerate() {
+                if current_time - time > config.dedupe_window {
+                    indexes_to_remove.push(i);
+                }
+            }
+
+            trace!(
+                "[Message Handler {}] Removing {} old messages from dedupe queue",
+                config.queue_type,
+                indexes_to_remove.len()
+            );
+
+            for index in indexes_to_remove.iter().rev() {
+                dedupe_queue.remove(*index);
+            }
+        }
 
         // acarsdec/vdlm2dec use floating point message times. dumpvdl2 uses ints.
         // Determine if the message is dumpvdl2 or not, and handle correctly
@@ -63,15 +85,22 @@ pub async fn watch_received_message_queue(
         // TODO: This gives me the willies and seems like a terrible hack. Do better.
 
         if message_time > current_time {
-            warn!(
+            if (message_time - current_time) > config.skew_window {
+                error!(
+                    "[Message Handler {}] Message is from the future. Skipping. Current time {}, Message time {}. Difference {}",
+                    config.queue_type, current_time, message_time, message_time - current_time
+                );
+                continue;
+            }
+
+            trace!(
                 "[Message Handler {}] Message is from the future. Current time {}, Message time {}. Difference {}",
                 config.queue_type, current_time, message_time, message_time - current_time
             );
             message_time = current_time;
         }
-
         // If the message is older than the skew window, reject it
-        if (current_time - message_time) > config.skew_window {
+        else if (current_time - message_time) > config.skew_window {
             error!(
                 "[Message Handler {}] Message is {} seconds old. Skipping message. {}",
                 config.queue_type,
@@ -81,28 +110,22 @@ pub async fn watch_received_message_queue(
             continue;
         }
 
-        // Hash the message, but only if we have deduping on
-        // No need to spend the cpu cycles hashing the message if we are not deduping
+        // Time to hash the message
+        let (hashed_value, hashed_message) = hash_message(message.clone());
 
         if config.dedupe {
-            // TODO: after supporting the pythonic convention for hashing, remove old messages outside of the window from the queue
-            if (current_time - message_time) < config.dedupe_window {
-                trace!(
-                    "[Message Handler {}] Message Within DeDuplication Window. Hashing.",
-                    config.queue_type
-                );
-                let hashed_message = hash_message(message.clone());
-                if q.vec().contains(&hashed_message) {
+            for (_, hashed_value) in dedupe_queue.iter() {
+                if hashed_value == hashed_value {
                     debug!(
-                        "[Message Handler {}] DUPLICATE: {}",
-                        config.queue_type, message
+                        "[Message Handler {}] Message is a duplicate. Skipping message.",
+                        config.queue_type
                     );
                     continue;
-                } else {
-                    q.force_queue(hashed_message);
                 }
             }
         }
+
+        dedupe_queue.push_back((message_time, hashed_value.clone()));
 
         if config.add_proxy_id {
             trace!(
@@ -135,15 +158,28 @@ pub async fn watch_received_message_queue(
             }
         }
 
-        // TODO: to follow acars_router pythonic conventions
-        // Add in the hashed message to the message
-        // We'll need the hasher to return both the hashed value and the hashed message
-        // And move the actual message we're sending to the appropriate field
         debug!(
             "[Message Handler {}] SENDING: {}",
             config.queue_type, message
         );
+        let mut final_message = serde_json::Value::Object(serde_json::map::Map::new());
+
+        // Set up the final json object following the pythonic convention
+        // "data" stores the input JSON
+        // "hash" stores the hashed value
+        // "msg_time" stores the message time (I added this, not in the pythonic JSON format)
+        // "out_json" stores the output JSON
+        // We are not following the pythonic convention fully. There is a "JSON" field where a bunch of internal structures are stored.
+        // I'll just store the message that was hashed here
+
+        final_message["msg_time"] =
+            serde_json::Value::Number(serde_json::Number::from(message_time));
+        final_message["hash"] = serde_json::Value::Number(serde_json::Number::from(hashed_value));
+        final_message["out_json"] = message;
+        final_message["data"] = original_message;
+        final_message["json"] = hashed_message;
+
         // Send to the output methods for emitting on the network
-        output_queue.send(message).await.unwrap();
+        output_queue.send(final_message).await.unwrap();
     }
 }
