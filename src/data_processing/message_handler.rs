@@ -114,8 +114,8 @@ pub async fn watch_received_message_queue(
         let (hashed_value, hashed_message) = hash_message(message.clone());
 
         if config.dedupe {
-            for (_, hashed_value) in dedupe_queue.iter() {
-                if hashed_value == hashed_value {
+            for (_, hashed_value_saved) in dedupe_queue.iter() {
+                if *hashed_value_saved == hashed_value {
                     debug!(
                         "[Message Handler {}] Message is a duplicate. Skipping message.",
                         config.queue_type
