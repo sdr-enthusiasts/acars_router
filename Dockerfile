@@ -24,6 +24,8 @@ RUN set -x && \
     TEMP_PACKAGES=(gcc) && \
     KEPT_PACKAGES=() && \
     TEMP_PACKAGES+=(build-essential) && \
+    KEPT_PACKAGES+=(libzmq3-dev) && \
+    TEMP_PACKAGES+=(pkg-config) && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
     "${KEPT_PACKAGES[@]}" \
