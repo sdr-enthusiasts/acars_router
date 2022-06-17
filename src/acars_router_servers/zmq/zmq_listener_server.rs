@@ -19,8 +19,7 @@ pub struct ZMQListnerServer {
 
 impl ZMQListnerServer {
     pub async fn run(self, channel: Sender<serde_json::Value>) -> Result<()> {
-        trace!("{}", self.proto_name);
-        trace!("{}", self.host);
+        trace!("[ZMQ Server {}] Starting", self.proto_name);
         let address = "tcp://".to_string() + &self.host;
         let mut socket = subscribe(&Context::new())
             .connect(&address)?
@@ -49,7 +48,6 @@ impl ZMQListnerServer {
                 }
             }
         }
-        warn!("oh no!");
         Ok(())
     }
 }

@@ -5,7 +5,7 @@
 // Full license information available in the project LICENSE file.
 //
 
-use log::{info, trace, warn};
+use log::{error, info, trace, warn};
 use std::io;
 use std::net::SocketAddr;
 use std::str;
@@ -24,52 +24,69 @@ impl UDPListenerServer {
         listen_udp_port: String,
         channel: Sender<serde_json::Value>,
     ) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind(&listen_udp_port).await.unwrap();
-
         let UDPListenerServer {
             mut buf,
             mut to_send,
             proto_name,
         } = self;
 
-        info!(
-            "[UDP SERVER: {}]: Listening on: {}",
-            proto_name,
-            socket.local_addr()?
-        );
+        let s = UdpSocket::bind(&listen_udp_port).await;
 
-        loop {
-            if let Some((size, peer)) = to_send {
-                let s = match str::from_utf8(buf[..size].as_ref()) {
-                    Ok(s) => s.strip_suffix("\r\n").or(s.strip_suffix("\n")).unwrap_or(s),
-                    Err(_) => {
-                        warn!(
-                            "[UDP SERVER: {}] Invalid message received from {}",
-                            proto_name, peer
-                        );
-                        continue;
-                    }
-                };
-                // TODO: This fails if the message is not valid JSON. This is good, but we should
-                // Handle messages exceeding the buffer size and being sent in two pieces or message
-                // packets out of order and attempt to re-assemble the message later.
-                match serde_json::from_str::<serde_json::Value>(s) {
-                    Ok(msg) => {
-                        trace!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, msg);
+        match s {
+            Ok(socket) => {
+                info!(
+                    "[UDP SERVER: {}]: Listening on: {}",
+                    proto_name,
+                    socket.local_addr()?
+                );
 
-                        match channel.send(msg).await {
-                            Ok(_) => trace!("[UDP SERVER: {}] Message sent to channel", proto_name),
-                            Err(e) => warn!(
-                                "[UDP SERVER: {}] Error sending message to channel: {}",
-                                proto_name, e
-                            ),
+                loop {
+                    if let Some((size, peer)) = to_send {
+                        let s = match str::from_utf8(buf[..size].as_ref()) {
+                            Ok(s) => s.strip_suffix("\r\n").or(s.strip_suffix("\n")).unwrap_or(s),
+                            Err(_) => {
+                                warn!(
+                                    "[UDP SERVER: {}] Invalid message received from {}",
+                                    proto_name, peer
+                                );
+                                continue;
+                            }
+                        };
+                        // TODO: This fails if the message is not valid JSON. This is good, but we should
+                        // Handle messages exceeding the buffer size and being sent in two pieces or message
+                        // packets out of order and attempt to re-assemble the message later.
+                        match serde_json::from_str::<serde_json::Value>(s) {
+                            Ok(msg) => {
+                                trace!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, msg);
+
+                                match channel.send(msg).await {
+                                    Ok(_) => trace!(
+                                        "[UDP SERVER: {}] Message sent to channel",
+                                        proto_name
+                                    ),
+                                    Err(e) => warn!(
+                                        "[UDP SERVER: {}] Error sending message to channel: {}",
+                                        proto_name, e
+                                    ),
+                                };
+                            }
+                            Err(e) => {
+                                warn!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, e)
+                            }
                         };
                     }
-                    Err(e) => warn!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, e),
-                };
+
+                    to_send = Some(socket.recv_from(&mut buf).await?);
+                }
             }
 
-            to_send = Some(socket.recv_from(&mut buf).await?);
-        }
+            Err(e) => {
+                error!(
+                    "[UDP SERVER: {}] Error listening on port: {}",
+                    proto_name, e
+                );
+            }
+        };
+        Ok(())
     }
 }
