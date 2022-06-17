@@ -14,3 +14,7 @@ tokio-stream = "0.1.9"
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
 derive-getters = "0.2.0"
+zmq = "0.9"
+tmq = "0.3.0"
+futures = "0.3.21"
+failure = "0.1.8"

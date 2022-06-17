@@ -89,6 +89,13 @@ pub fn check_config_option_sanity(config_options: &ACARSRouterSettings) -> Resul
         is_input_sane = false;
     }
 
+    if !check_ports_are_valid_with_host(
+        config_options.receive_zmq_vdlm2(),
+        "AR_RECEIVE_ZMQ_VDLM2/--receive-zmq-vdlm2",
+    ) {
+        is_input_sane = false;
+    }
+
     if !check_ports_are_valid(
         config_options.serve_tcp_acars(),
         "AR_SERVE_TCP_ACARS/--serve-tcp-acars",
@@ -165,6 +172,14 @@ fn check_ports_are_valid_with_host(ports: &Vec<String>, name: &str) -> bool {
         // split the host and port
 
         let split_port: Vec<&str> = port.split(":").collect();
+
+        if split_port.len() != 2 {
+            error!(
+                "{} Port is not in the format host:port. Found: {}",
+                name, port
+            );
+            return false;
+        }
 
         match split_port[1].chars().all(char::is_numeric) {
             true => trace!("{} UDP Port is numeric. Found: {}", name, port),

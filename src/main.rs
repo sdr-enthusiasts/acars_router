@@ -29,6 +29,8 @@ mod tcp_listener_server;
 mod udp_listener_server;
 #[path = "./acars_router_servers/udp/udp_sender_server.rs"]
 mod udp_sender_server;
+#[path = "./acars_router_servers/zmq/zmq_listener_server.rs"]
+mod zmq_listener_server;
 
 use config_options::ACARSRouterSettings;
 use message_handler::{watch_received_message_queue, MessageHandlerConfig};
@@ -36,6 +38,7 @@ use sanity_checker::check_config_option_sanity;
 use tcp_listener_server::TCPListenerServer;
 use udp_listener_server::UDPListenerServer;
 use udp_sender_server::UDPSenderServer;
+use zmq_listener_server::ZMQListnerServer;
 
 fn exit_process(code: i32) {
     std::process::exit(code);
@@ -43,6 +46,29 @@ fn exit_process(code: i32) {
 
 fn should_start_service(config: &Vec<String>) -> bool {
     config.len() > 0 && config[0].len() > 0
+}
+
+fn start_zmq_listener_servers(
+    decoder_type: &String,
+    hosts: &Vec<String>,
+    channel: Sender<serde_json::Value>,
+) {
+    for host in hosts {
+        let new_channel = channel.clone();
+        let proto_name = decoder_type.to_string() + "_ZMQ_RECEIVER_" + host;
+        let server_host = host.clone();
+
+        tokio::spawn(async move {
+            let zmq_listener_server = ZMQListnerServer {
+                host: server_host.to_string(),
+                proto_name: proto_name.to_string(),
+            };
+            match zmq_listener_server.run(new_channel).await {
+                Ok(_) => debug!("{} connection closed", proto_name),
+                Err(e) => error!("{} connection error: {}", proto_name.clone(), e),
+            };
+        });
+    }
 }
 
 fn start_tcp_listener_servers(
@@ -242,6 +268,19 @@ async fn start_processes() {
         );
     } else {
         trace!("No VDLM2 TCP ports to listen on. Skipping");
+    }
+
+    // Start the ZMQ listeners
+
+    if should_start_service(config.receive_zmq_vdlm2()) {
+        // Start the ZMQ listener servers for ACARS
+        start_zmq_listener_servers(
+            &"VDLM".to_string(),
+            config.receive_zmq_vdlm2(),
+            tx_recevers_vdlm.clone(),
+        );
+    } else {
+        trace!("No VDLM ZMQ ports to listen on. Skipping");
     }
 
     // Start the message handler tasks.

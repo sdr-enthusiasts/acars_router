@@ -58,6 +58,9 @@ struct Args {
     #[clap(long, default_value = "")]
     /// Semi-Colon separated list of arguments. ie 5555;5556;1557
     receive_tcp_vdlm2: String,
+    /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
+    #[clap(long, default_value = "")]
+    receive_zmq_vdlm2: String,
     // JSON Output options
     // ACARS
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
@@ -103,6 +106,7 @@ pub struct ACARSRouterSettings {
     pub listen_udp_vdlm2: Vec<String>,
     pub listen_tcp_vdlm2: Vec<String>,
     pub receive_tcp_vdlm2: Vec<String>,
+    pub receive_zmq_vdlm2: Vec<String>,
     pub send_udp_acars: Vec<String>,
     pub send_tcp_acars: Vec<String>,
     pub serve_tcp_acars: Vec<String>,
@@ -122,6 +126,7 @@ impl ACARSRouterSettings {
         debug!("AR_LISTEN_UDP_VDLM2: {:?}", self.listen_udp_vdlm2);
         debug!("AR_LISTEN_TCP_VDLM2: {:?}", self.listen_tcp_vdlm2);
         debug!("AR_RECV_TCP_VDLM2: {:?}", self.receive_tcp_vdlm2);
+        debug!("AR_RECV_ZMQ_VDLM2: {:?}", self.receive_zmq_vdlm2);
         debug!("AR_SEND_UDP_ACARS: {:?}", self.send_udp_acars);
         debug!("AR_SEND_TCP_ACARS: {:?}", self.send_tcp_acars);
         debug!("AR_SERVE_TCP_ACARS: {:?}", self.serve_tcp_acars);
@@ -177,6 +182,11 @@ impl ACARSRouterSettings {
             receive_tcp_vdlm2: get_value_as_vector(
                 "AR_RECV_TCP_VDLM2",
                 &args.receive_tcp_vdlm2,
+                "",
+            ),
+            receive_zmq_vdlm2: get_value_as_vector(
+                "AR_RECV_ZMQ_VDLM2",
+                &args.receive_zmq_vdlm2,
                 "",
             ),
             send_udp_acars: get_value_as_vector("AR_SEND_UDP_ACARS", &args.send_udp_acars, ""),
