@@ -25,6 +25,7 @@ pub fn start_listener_servers(
     // Make sure we have at least one UDP port to listen on
     if should_start_service(config.listen_udp_acars()) {
         // Start the UDP listener servers for ACARS
+        info!("Starting UDP listener servers for ACARS");
         start_udp_listener_servers(
             &"ACARS".to_string(),
             config.listen_udp_acars(),
@@ -35,6 +36,7 @@ pub fn start_listener_servers(
     }
 
     if should_start_service(config.listen_udp_vdlm2()) {
+        info!("Starting UDP listener servers for VDLM2");
         // Start the UDP listener servers for VDLM
         start_udp_listener_servers(
             &"VDLM2".to_string(),
@@ -49,6 +51,7 @@ pub fn start_listener_servers(
 
     if should_start_service(config.listen_tcp_acars()) {
         // Start the TCP listener servers for ACARS
+        info!("Starting TCP listener servers for ACARS");
         start_tcp_listener_servers(
             &"ACARS".to_string(),
             config.listen_tcp_acars(),
@@ -60,6 +63,7 @@ pub fn start_listener_servers(
 
     if should_start_service(config.listen_tcp_vdlm2()) {
         // Start the TCP listener servers for VDLM
+        info!("Starting TCP listener servers for VDLM");
         start_tcp_listener_servers(
             &"VDLM2".to_string(),
             config.listen_tcp_vdlm2(),
@@ -73,6 +77,7 @@ pub fn start_listener_servers(
 
     if should_start_service(config.receive_zmq_vdlm2()) {
         // Start the ZMQ listener servers for ACARS
+        info!("Starting ZMQ listener servers for VDLM2");
         start_zmq_listener_servers(
             &"VDLM".to_string(),
             config.receive_zmq_vdlm2(),

@@ -12,7 +12,7 @@ use std::error::Error;
 use std::io::Write;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Receiver;
 use tokio::time::{sleep, Duration};
 
 #[path = "./config_options.rs"]
@@ -126,7 +126,7 @@ async fn start_processes() {
     let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
 
     // start the input servers
-
+    debug!("Starting input servers");
     start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
 
     //TODO: Move the sender service to it's own wrapper to handle all output types

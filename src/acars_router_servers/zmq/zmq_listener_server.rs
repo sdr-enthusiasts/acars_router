@@ -8,7 +8,7 @@
 // NOTE: This is a listener. WE **SUB** to a *PUB* socket.
 
 use futures::StreamExt;
-use log::{error, info, trace, warn};
+use log::{error, trace};
 use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::Sender;
 
@@ -33,7 +33,11 @@ impl ZMQListnerServer {
                 .collect::<Vec<&str>>();
 
             let message_string = composed_message.join(" ");
-            info!("{}", message_string);
+            trace!(
+                "[ZMQ Server {}] Received: {}",
+                self.proto_name,
+                message_string
+            );
             let stripped = &message_string
                 .strip_suffix("\r\n")
                 .or(message_string.strip_suffix("\n"))
