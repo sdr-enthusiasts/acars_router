@@ -8,7 +8,7 @@
 use crate::config_options::ACARSRouterSettings;
 use crate::helper_functions::should_start_service;
 use crate::udp_sender_server::UDPSenderServer;
-use log::{debug, trace};
+use log::{debug, error, trace};
 use serde_json::Value;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Receiver;
@@ -52,9 +52,7 @@ pub async fn start_sender_servers(
                 Some(ref acars_udp_server) => {
                     acars_udp_server.send_message(message).await;
                 }
-                None => {
-                    debug!("No ACARS UDP ports to send on. Skipping");
-                }
+                None => (),
             }
         }
     });
@@ -65,9 +63,7 @@ pub async fn start_sender_servers(
                 Some(ref vdlm_udp_server) => {
                     vdlm_udp_server.send_message(message).await;
                 }
-                None => {
-                    debug!("No VDLM2 UDP ports to send on. Skipping");
-                }
+                None => (),
             }
         }
     });
@@ -78,12 +74,24 @@ async fn start_udp_senders_servers(
     ports: &Vec<String>,
 ) -> Option<UDPSenderServer> {
     // Create an ephermeal socket for the UDP sender server
-    let sock = UdpSocket::bind("0.0.0.0:0".to_string()).await.unwrap();
+    let socket = UdpSocket::bind("0.0.0.0:0".to_string()).await;
 
-    let server: UDPSenderServer = UDPSenderServer {
+    // Verify the socket was bound correctly
+
+    match &socket {
+        Ok(_) => (), // valid socket, move on
+        Err(e) => {
+            // socket did not bind, return None. We don't want the program to think it has a socket to work with
+            error!("{} failed to create socket: {:?}", decoder_type, e);
+            return None;
+        }
+    }
+
+    // We have a valid socket, return it
+
+    return Some(UDPSenderServer {
         proto_name: decoder_type.to_string() + "_UDP_SEND",
         host: ports.clone(),
-        socket: sock,
-    };
-    return Some(server);
+        socket: socket.unwrap(),
+    });
 }
