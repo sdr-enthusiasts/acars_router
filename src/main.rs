@@ -10,9 +10,7 @@ use env_logger::Builder;
 use log::{debug, error, info, trace};
 use std::error::Error;
 use std::io::Write;
-use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::Receiver;
 use tokio::time::{sleep, Duration};
 
 #[path = "./config_options.rs"]
@@ -42,35 +40,11 @@ mod sender_servers;
 mod helper_functions;
 
 use config_options::ACARSRouterSettings;
-use helper_functions::{exit_process, should_start_service};
+use helper_functions::exit_process;
 use listener_servers::start_listener_servers;
 use message_handler::{watch_received_message_queue, MessageHandlerConfig};
 use sanity_checker::check_config_option_sanity;
 use sender_servers::start_sender_servers;
-use udp_sender_server::UDPSenderServer;
-
-async fn start_udp_senders_servers(
-    decoder_type: &String,
-    ports: &Vec<String>,
-    mut channel: Receiver<serde_json::Value>,
-) {
-    let sock = UdpSocket::bind("0.0.0.0:0".to_string())
-        .await
-        // create an empty socket
-        .unwrap();
-
-    let server: UDPSenderServer = UDPSenderServer {
-        proto_name: decoder_type.to_string() + "_UDP_SEND",
-        host: ports.clone(),
-        socket: sock,
-    };
-    trace!("Starting {} UDP sender server", decoder_type);
-    tokio::spawn(async move {
-        while let Some(message) = channel.recv().await {
-            server.send_message(message.clone()).await;
-        }
-    });
-}
 
 async fn start_processes() {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
@@ -132,31 +106,11 @@ async fn start_processes() {
     // start the input servers
     debug!("Starting input servers");
     start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
-
-    //TODO: Move the sender service to it's own wrapper to handle all output types
-    if should_start_service(config.send_udp_acars()) {
-        // Start the UDP sender servers for ACARS
-        start_udp_senders_servers(
-            &"ACARS".to_string(),
-            config.send_udp_acars(),
-            rx_processed_acars,
-        )
-        .await;
-    } else {
-        trace!("No ACARS UDP ports to send on. Skipping");
-    }
-
-    if should_start_service(config.send_udp_vdlm2()) {
-        // Start the UDP sender servers for VDLM
-        start_udp_senders_servers(
-            &"VDLM2".to_string(),
-            config.send_udp_vdlm2(),
-            rx_processed_vdlm,
-        )
-        .await;
-    } else {
-        trace!("No VDLM2 UDP ports to send on. Skipping");
-    }
+    // start the output servers
+    debug!("Starting output servers");
+    tokio::spawn(async move {
+        start_sender_servers(&config, rx_processed_acars, rx_processed_vdlm).await
+    });
 
     // Start the message handler tasks.
     tokio::spawn(async move {
