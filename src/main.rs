@@ -32,8 +32,11 @@ mod udp_sender_server;
 #[path = "./acars_router_servers/zmq/zmq_listener_server.rs"]
 mod zmq_listener_server;
 
-#[path = "./listener_servers.rs"]
+#[path = "./acars_router_servers/listener_servers.rs"]
 mod listener_servers;
+
+#[path = "./acars_router_servers/sender_servers.rs"]
+mod sender_servers;
 
 #[path = "./helper_functions.rs"]
 mod helper_functions;
@@ -43,6 +46,7 @@ use helper_functions::{exit_process, should_start_service};
 use listener_servers::start_listener_servers;
 use message_handler::{watch_received_message_queue, MessageHandlerConfig};
 use sanity_checker::check_config_option_sanity;
+use sender_servers::start_sender_servers;
 use udp_sender_server::UDPSenderServer;
 
 async fn start_udp_senders_servers(
