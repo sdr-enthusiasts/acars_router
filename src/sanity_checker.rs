@@ -145,10 +145,16 @@ fn check_ports_are_valid(ports: &Vec<String>, name: &str) -> bool {
     let mut is_input_sane = true;
 
     for port in ports {
-        match port.chars().all(char::is_numeric) {
+        match port.chars().all(char::is_numeric)
+            && port.parse().unwrap_or(0) > 0
+            && port.parse().unwrap_or(65536) < 65535
+        {
             true => trace!("{} UDP Port is numeric. Found: {}", name, port),
             false => {
-                error!("{} UDP Listen Port is not numeric. Found: {}", name, port);
+                error!(
+                    "{} UDP Listen Port is not numeric or out of the range of 1-65353. Found: {}",
+                    name, port
+                );
                 is_input_sane = false;
             }
         }
@@ -181,10 +187,16 @@ fn check_ports_are_valid_with_host(ports: &Vec<String>, name: &str) -> bool {
             return false;
         }
 
-        match split_port[1].chars().all(char::is_numeric) {
+        match split_port[1].chars().all(char::is_numeric)
+            && split_port[1].parse().unwrap_or(0) > 0
+            && split_port[1].parse().unwrap_or(65536) < 65535
+        {
             true => trace!("{} UDP Port is numeric. Found: {}", name, port),
             false => {
-                error!("{} UDP Listen Port is not numeric. Found: {}", name, port);
+                error!(
+                    "{} UDP Listen Port is not numeric or out of the range of 1-65353. Found: {}",
+                    name, port
+                );
                 is_input_sane = false;
             }
         }
