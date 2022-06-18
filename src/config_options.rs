@@ -12,7 +12,7 @@ use std::env;
 use std::str;
 
 #[derive(Parser, Debug)]
-#[clap(author = "Mike Nye / Fred Clausen", version = "1.0", about = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers.", long_about = None)]
+#[clap(name = "ACARS Router", author = "Mike Nye / Fred Clausen", version = "1.0", about = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers.", long_about = None)]
 struct Args {
     // Output Options
     #[clap(short = 'v', long = "verbose", default_value = "info")]
