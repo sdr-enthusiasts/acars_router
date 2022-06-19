@@ -15,6 +15,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "stubborn-io",
  "tmq",
  "tokio",
  "tokio-stream",
@@ -688,6 +689,16 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "stubborn-io"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dac97f21a9b0cedb0948f2a92ba70ff2be8e56efa08eddd6890d28d40bc4470a"
+dependencies = [
+ "log",
+ "tokio",
+]
 
 [[package]]
 name = "syn"

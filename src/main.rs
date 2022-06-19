@@ -39,8 +39,11 @@ mod sender_servers;
 #[path = "./helper_functions.rs"]
 mod helper_functions;
 
-#[path = "./acars_router_servers/zmq/zmq_sender_server.rs"]
-mod zmq_sender_server;
+// #[path = "./acars_router_servers/zmq/zmq_sender_server.rs"]
+// mod zmq_sender_server;
+
+#[path = "./acars_router_servers/tcp/tcp_receiver_server.rs"]
+mod tcp_receiver_server;
 
 use config_options::ACARSRouterSettings;
 use helper_functions::exit_process;

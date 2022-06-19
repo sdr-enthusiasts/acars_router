@@ -10,6 +10,7 @@
 use crate::config_options::ACARSRouterSettings;
 use crate::helper_functions::should_start_service;
 use crate::tcp_listener_server::TCPListenerServer;
+use crate::tcp_receiver_server::TCPReceiverServer;
 use crate::udp_listener_server::UDPListenerServer;
 use crate::zmq_listener_server::ZMQListnerServer;
 use log::{debug, error, info, trace};
@@ -84,7 +85,29 @@ pub fn start_listener_servers(
             tx_receivers_vdlm.clone(),
         );
     } else {
-        trace!("No VDLM ZMQ ports to listen on. Skipping");
+        trace!("No VDLM TCP Receive ports to listen on. Skipping");
+    }
+
+    if should_start_service(config.receive_tcp_acars()) {
+        info!("Starting TCP Receiver servers for ACARS");
+        start_tcp_receiver_servers(
+            &"ACARS".to_string(),
+            config.receive_tcp_acars(),
+            tx_receivers_acars.clone(),
+        );
+    } else {
+        trace!("No ACARS Receive ports to listen on. Skipping");
+    }
+
+    if should_start_service(config.receive_tcp_vdlm2()) {
+        info!("Starting TCP Receiver servers for VDLM");
+        start_tcp_receiver_servers(
+            &"VDLM2".to_string(),
+            config.receive_tcp_vdlm2(),
+            tx_receivers_vdlm.clone(),
+        );
+    } else {
+        trace!("No VDLM2 Receive ports to listen on. Skipping");
     }
 }
 
@@ -153,5 +176,25 @@ fn start_udp_listener_servers(
             decoder_type, server_udp_port
         );
         tokio::spawn(async move { server.run(server_udp_port, new_channel).await });
+    }
+}
+
+fn start_tcp_receiver_servers(
+    decoder_type: &str,
+    hosts: &Vec<String>,
+    channel: Sender<serde_json::Value>,
+) {
+    for host in hosts {
+        let new_channel = channel.clone();
+        let proto_name = decoder_type.to_string() + "_TCP_RECEIVER_" + host;
+        let server_host = host.clone();
+
+        tokio::spawn(async move {
+            let tcp_receiver_server = TCPReceiverServer {
+                host: server_host.to_string(),
+                proto_name: proto_name.to_string(),
+            };
+            tcp_receiver_server.run(new_channel).await;
+        });
     }
 }
