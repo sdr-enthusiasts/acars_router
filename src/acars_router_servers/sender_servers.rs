@@ -8,8 +8,11 @@
 use crate::config_options::ACARSRouterSettings;
 use crate::helper_functions::should_start_service;
 use crate::udp_sender_server::UDPSenderServer;
-use log::{debug, error, trace};
+//use crate::zmq_sender_server::ZMQSenderServer;
+use log::{error, trace};
 use serde_json::Value;
+//use std::sync::{Arc, Mutex};
+//use tmq::{publish, Context};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Receiver;
 
@@ -28,6 +31,7 @@ pub async fn start_sender_servers(
 
     let mut acars_udp_server: Option<UDPSenderServer> = None;
     let mut vdlm_udp_server: Option<UDPSenderServer> = None;
+    //let mut acars_zmq_publish_server: Vec<Arc<Mutex<ZMQSenderServer>>> = Vec::new();
 
     if should_start_service(config.send_udp_acars()) {
         // Start the UDP sender servers for ACARS
@@ -45,15 +49,45 @@ pub async fn start_sender_servers(
         trace!("No VDLM2 UDP ports to send on. Skipping");
     }
 
+    // if should_start_service(config.serve_zmq_acars()) {
+    //     // Start the ZMQ sender servers for ACARS
+    //     for port in config.serve_zmq_acars() {
+    //         let server_address = "tcp://127.0.0.1:".to_string() + &port;
+    //         let name = "ZMQ_SENDER_SERVER_ACARS_".to_string() + &port;
+    //         let socket = publish(&Context::new()).bind(&server_address);
+    //         match socket {
+    //             Ok(socket) => {
+    //                 acars_zmq_publish_server.push(Arc::new(Mutex::new(ZMQSenderServer {
+    //                     socket: socket,
+    //                     proto_name: name,
+    //                     host: port.to_string(),
+    //                 })));
+    //             }
+    //             Err(e) => {
+    //                 error!("Error starting ZMQ ACARS server on port {}: {}", port, e);
+    //             }
+    //         }
+    //     }
+    // } else {
+    //     trace!("No ACARS ZMQ ports to send on. Skipping");
+    // }
+
     trace!("Starting the ACARS Output Queue");
+    // FIXME: This setup works, but all of the async awaits are blocking
+    // We should async move the send_message function
     tokio::spawn(async move {
         while let Some(message) = rx_processed_acars.recv().await {
             match acars_udp_server {
                 Some(ref acars_udp_server) => {
-                    acars_udp_server.send_message(message).await;
+                    acars_udp_server.send_message(message.clone()).await;
                 }
                 None => (),
             }
+
+            // for server in acars_zmq_publish_server.iter() {
+            //     // lock the server and call send_message
+            //     let mut server = server.lock().unwrap().send_message(message.clone());
+            // }
         }
     });
     trace!("Starting the VDLM Output Queue");
