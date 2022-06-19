@@ -5,6 +5,7 @@
 // Full license information available in the project LICENSE file.
 //
 
+use crate::helper_functions::strip_line_endings;
 use log::{debug, error, info, trace};
 use std::error::Error;
 use std::io;
@@ -33,12 +34,16 @@ impl TCPListenerServer {
         );
 
         loop {
-            trace!("Waiting for connection");
+            trace!("[TCP SERVER: {}]: Waiting for connection", proto_name);
             // Asynchronously wait for an inbound TcpStream.
             let (stream, addr) = listener.accept().await?;
             let new_channel = channel.clone();
             let new_proto_name = proto_name.clone();
-            debug!("accepted connection from {}", addr);
+            trace!(
+                "[TCP SERVER: {}]:accepted connection from {}",
+                proto_name,
+                addr
+            );
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
                 match process_tcp_sockets(stream, &new_proto_name, new_channel).await {
@@ -59,12 +64,9 @@ async fn process_tcp_sockets(
 
     while let Some(Ok(line)) = lines.next().await {
         // Clean up the line endings. This is probably unnecessary but it's here for safety.
-        let stripped = line
-            .strip_suffix("\r\n")
-            .or(line.strip_suffix("\n"))
-            .unwrap_or(&line);
+        let stripped = strip_line_endings(&line).to_owned();
 
-        match serde_json::from_str::<serde_json::Value>(stripped) {
+        match serde_json::from_str::<serde_json::Value>(stripped.as_str()) {
             Ok(msg) => {
                 trace!("[TCP SERVER: {}]: {}", proto_name, msg);
                 match channel.send(msg).await {

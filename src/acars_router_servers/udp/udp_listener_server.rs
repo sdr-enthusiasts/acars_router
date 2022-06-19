@@ -5,6 +5,7 @@
 // Full license information available in the project LICENSE file.
 //
 
+use crate::helper_functions::strip_line_endings;
 use log::{error, info, trace, warn};
 use std::io;
 use std::net::SocketAddr;
@@ -42,8 +43,8 @@ impl UDPListenerServer {
 
                 loop {
                     if let Some((size, peer)) = to_send {
-                        let s = match str::from_utf8(buf[..size].as_ref()) {
-                            Ok(s) => s.strip_suffix("\r\n").or(s.strip_suffix("\n")).unwrap_or(s),
+                        let s: String = match str::from_utf8(buf[..size].as_ref()) {
+                            Ok(s) => strip_line_endings(&s.to_string()).to_owned(),
                             Err(_) => {
                                 warn!(
                                     "[UDP SERVER: {}] Invalid message received from {}",
@@ -55,7 +56,7 @@ impl UDPListenerServer {
                         // TODO: This fails if the message is not valid JSON. This is good, but we should
                         // Handle messages exceeding the buffer size and being sent in two pieces or message
                         // packets out of order and attempt to re-assemble the message later.
-                        match serde_json::from_str::<serde_json::Value>(s) {
+                        match serde_json::from_str::<serde_json::Value>(s.as_str()) {
                             Ok(msg) => {
                                 trace!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, msg);
 
