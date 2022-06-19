@@ -23,11 +23,11 @@ mod message_handler;
 mod sanity_checker;
 #[path = "./acars_router_servers/tcp/tcp_listener_server.rs"]
 mod tcp_listener_server;
-#[path = "./acars_router_servers/udp/udp_listener_server.rs"]
+#[path = "./acars_router_servers/udp/inputs/udp_listener_server.rs"]
 mod udp_listener_server;
-#[path = "./acars_router_servers/udp/udp_sender_server.rs"]
+#[path = "./acars_router_servers/udp/outputs/udp_sender_server.rs"]
 mod udp_sender_server;
-#[path = "./acars_router_servers/zmq/zmq_listener_server.rs"]
+#[path = "./acars_router_servers/zmq/inputs/zmq_listener_server.rs"]
 mod zmq_listener_server;
 
 #[path = "./acars_router_servers/listener_servers.rs"]
