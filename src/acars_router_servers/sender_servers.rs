@@ -7,13 +7,13 @@
 
 use crate::config_options::ACARSRouterSettings;
 use crate::helper_functions::should_start_service;
-use crate::tcp_sender_server::send_message;
+use crate::tcp_sender_server::TCPSenderServer;
 use crate::udp_sender_server::UDPSenderServer;
-//use crate::zmq_sender_server::ZMQSenderServer;
+use crate::zmq_sender_server::ZMQSenderServer;
 use log::{error, trace};
 use serde_json::Value;
 //use std::sync::{Arc, Mutex};
-//use tmq::{publish, Context};
+use tmq::{publish, Context};
 
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::StreamExt;
@@ -22,8 +22,8 @@ use stubborn_io::tokio::StubbornIo;
 use stubborn_io::StubbornTcpStream;
 use tokio::net::TcpStream;
 use tokio::net::UdpSocket;
-use tokio::sync::mpsc::Receiver;
-use tokio::sync::Mutex;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 pub async fn start_sender_servers(
     config: &ACARSRouterSettings,
@@ -40,9 +40,10 @@ pub async fn start_sender_servers(
 
     let mut acars_udp_server: Option<UDPSenderServer> = None;
     let mut vdlm_udp_server: Option<UDPSenderServer> = None;
-    let mut acars_tcp_sender_servers: Vec<StubbornIo<TcpStream, String>> = Vec::new();
-    let mut vdlm_tcp_sender_servers: Vec<StubbornIo<TcpStream, String>> = Vec::new();
-    //let mut acars_zmq_publish_server: Vec<Arc<Mutex<ZMQSenderServer>>> = Vec::new();
+    let mut acars_tcp_sender_servers: Vec<Sender<Value>> = Vec::new();
+    let mut vdlm_tcp_sender_servers: Vec<Sender<Value>> = Vec::new();
+    let mut acars_zmq_publish_server: Vec<ZMQSenderServer> = Vec::new();
+    let mut vdlm_zmq_publish_server: Vec<ZMQSenderServer> = Vec::new();
 
     if should_start_service(config.send_udp_acars()) {
         // Start the UDP sender servers for ACARS
@@ -66,7 +67,17 @@ pub async fn start_sender_servers(
             let socket = StubbornTcpStream::connect(host.clone()).await;
             match socket {
                 Ok(socket) => {
-                    acars_tcp_sender_servers.push(socket);
+                    let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
+                    let tcp_sender_server = TCPSenderServer {
+                        host: host.clone(),
+                        proto_name: "ACARS".to_string(),
+                        socket: socket,
+                        channel: rx_processed_acars,
+                    };
+                    acars_tcp_sender_servers.push(tx_processed_acars);
+                    tokio::spawn(async move {
+                        tcp_sender_server.send_message().await;
+                    });
                 }
                 Err(e) => {
                     error!("[TCP SENDER ACARS]: Error connecting to {}: {}", host, e);
@@ -75,70 +86,75 @@ pub async fn start_sender_servers(
         }
     }
 
-    // if should_start_service(config.send_tcp_vdlm2()) {
-    //     // Start the TCP sender servers for VDLM
-    //     for host in config.send_tcp_vdlm2() {
-    //         let socket = StubbornTcpStream::connect(host.clone()).await;
-    //         match socket {
-    //             Ok(socket) => {
-    //                 let tcp_sender_server = TCPSenderServer {
-    //                     host: host.to_string(),
-    //                     proto_name: "VDLM2".to_string() + &host,
-    //                     socket: socket,
-    //                 };
-    //                 vdlm_tcp_sender_servers.push(tcp_sender_server);
-    //             }
-    //             Err(e) => {
-    //                 error!("[TCP SENDER VDLM2]: Error connecting to {}: {}", host, e);
-    //             }
-    //         }
-    //     }
-    // }
+    if should_start_service(config.send_tcp_vdlm2()) {
+        // Start the TCP sender servers for VDLM
+        for host in config.send_tcp_vdlm2() {
+            let socket = StubbornTcpStream::connect(host.clone()).await;
+            match socket {
+                Ok(socket) => {
+                    let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
+                    let tcp_sender_server = TCPSenderServer {
+                        host: host.clone(),
+                        proto_name: "VDLM2".to_string(),
+                        socket: socket,
+                        channel: rx_processed_vdlm,
+                    };
+                    vdlm_tcp_sender_servers.push(tx_processed_vdlm);
+                    tokio::spawn(async move {
+                        tcp_sender_server.send_message().await;
+                    });
+                }
+                Err(e) => {
+                    error!("[TCP SENDER VDLM2]: Error connecting to {}: {}", host, e);
+                }
+            }
+        }
+    }
 
-    // if should_start_service(config.serve_zmq_acars()) {
-    //     // Start the ZMQ sender servers for ACARS
-    //     for port in config.serve_zmq_acars() {
-    //         let server_address = "tcp://127.0.0.1:".to_string() + &port;
-    //         let name = "ZMQ_SENDER_SERVER_ACARS_".to_string() + &port;
-    //         let socket = publish(&Context::new()).bind(&server_address);
-    //         match socket {
-    //             Ok(socket) => {
-    //                 acars_zmq_publish_server.push(Arc::new(Mutex::new(ZMQSenderServer {
-    //                     socket: socket,
-    //                     proto_name: name,
-    //                     host: port.to_string(),
-    //                 })));
-    //             }
-    //             Err(e) => {
-    //                 error!("Error starting ZMQ ACARS server on port {}: {}", port, e);
-    //             }
-    //         }
-    //     }
-    // } else {
-    //     trace!("No ACARS ZMQ ports to send on. Skipping");
-    // }
+    if should_start_service(config.serve_zmq_acars()) {
+        // Start the ZMQ sender servers for ACARS
+        for port in config.serve_zmq_acars() {
+            let server_address = "tcp://127.0.0.1:".to_string() + &port;
+            let name = "ZMQ_SENDER_SERVER_ACARS_".to_string() + &port;
+            let socket = publish(&Context::new()).bind(&server_address);
+            match socket {
+                Ok(socket) => {
+                    acars_zmq_publish_server.push(ZMQSenderServer {
+                        socket: socket,
+                        proto_name: name,
+                        host: port.to_string(),
+                    });
+                }
+                Err(e) => {
+                    error!("Error starting ZMQ ACARS server on port {}: {}", port, e);
+                }
+            }
+        }
+    } else {
+        trace!("No ACARS ZMQ ports to send on. Skipping");
+    }
 
     trace!("Starting the ACARS Output Queue");
 
-    // tokio::spawn(async move {
-    //     while let Some(message) = rx_processed_acars.recv().await {
-    //         match acars_udp_server {
-    //             Some(ref acars_udp_server) => {
-    //                 acars_udp_server.send_message(message.clone()).await;
-    //             }
-    //             None => (),
-    //         }
+    tokio::spawn(async move {
+        while let Some(message) = rx_processed_acars.recv().await {
+            match acars_udp_server {
+                Some(ref acars_udp_server) => {
+                    acars_udp_server.send_message(message.clone()).await;
+                }
+                None => (),
+            }
 
-    //         for tcp_sender_server in acars_tcp_sender_servers.iter() {
-    //             send_message(*tcp_sender_server, message.clone()).await;
-    //         }
+            for tcp_sender_server in acars_tcp_sender_servers.iter() {
+                tcp_sender_server.send(message.clone()).await;
+            }
 
-    //         // for server in acars_zmq_publish_server.iter() {
-    //         //     // lock the server and call send_message
-    //         //     let mut server = server.lock().unwrap().send_message(message.clone());
-    //         // }
-    //     }
-    // });
+            // for server in acars_zmq_publish_server.iter() {
+            //     // lock the server and call send_message
+            //     let mut server = server.send_message(message.clone());
+            // }
+        }
+    });
 
     trace!("Starting the VDLM Output Queue");
 
@@ -146,10 +162,19 @@ pub async fn start_sender_servers(
         while let Some(message) = rx_processed_vdlm.recv().await {
             match vdlm_udp_server {
                 Some(ref vdlm_udp_server) => {
-                    vdlm_udp_server.send_message(message).await;
+                    vdlm_udp_server.send_message(message.clone()).await;
                 }
                 None => (),
             }
+
+            for tcp_sender_server in vdlm_tcp_sender_servers.iter() {
+                tcp_sender_server.send(message.clone()).await;
+            }
+
+            // for server in vdlm_zmq_publish_server.iter() {
+            //     // lock the server and call send_message
+            //     let mut server = server.send_message(message.clone());
+            // }
         }
     });
 }
