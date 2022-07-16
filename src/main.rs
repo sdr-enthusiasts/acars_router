@@ -96,6 +96,8 @@ async fn start_processes() {
         dedupe_window: config.dedupe_window,
         skew_window: config.skew_window,
         queue_type: "ACARS".to_string(),
+        should_override_station_name: config.should_override_station_name,
+        station_name: config.override_station_name.clone(),
     };
 
     let mut message_handler_config_vdlm = message_handler_config_acars.clone();

@@ -5,6 +5,7 @@
 // Full license information available in the project LICENSE file.
 //
 
+use crate::helper_functions::strip_line_endings;
 use clap::Parser;
 use derive_getters::Getters;
 use log::debug;
@@ -33,6 +34,9 @@ struct Args {
     /// Set to true to enable message modification
     /// This will add a "proxied" field to the message
     dont_add_proxy_id: bool,
+    #[clap(long, default_value = "")]
+    /// Override the station name in the message.
+    override_station_name: String,
 
     // Input Options
 
@@ -100,6 +104,10 @@ pub struct ACARSRouterSettings {
     pub dedupe: bool,
     pub dedupe_window: u64,
     pub skew_window: u64,
+    // The name that should be overridden in the message.
+    pub override_station_name: String,
+    // A bool for ease of app logic to flag if we should override the station name.
+    pub should_override_station_name: bool,
     pub listen_udp_acars: Vec<String>,
     pub listen_tcp_acars: Vec<String>,
     pub receive_tcp_acars: Vec<String>,
@@ -150,6 +158,15 @@ impl ACARSRouterSettings {
             dedupe: get_value_as_bool("AR_ENABLE_DEDUPE", &args.enable_dedupe),
             dedupe_window: get_value_as_u64("AR_DEDUPE_WINDOW", &args.dedupe_window),
             skew_window: get_value_as_u64("AR_SKEW_WINDOW", &args.skew_window),
+            override_station_name: get_value_as_string(
+                "AR_OVERRIDE_STATION_NAME",
+                &args.override_station_name,
+                "",
+            ),
+            should_override_station_name: get_value_as_bool_from_string(
+                "AR_OVERRIDE_STATION_NAME",
+                &args.override_station_name,
+            ),
             add_proxy_id: get_value_as_bool_invert_bool(
                 "AR_DONT_ADD_PROXY_ID",
                 &args.dont_add_proxy_id,
@@ -268,6 +285,20 @@ fn get_value_as_bool(env_name: &str, args: &bool) -> bool {
     match args {
         true => return true,
         false => return false,
+    };
+}
+
+fn get_value_as_bool_from_string(env_name: &str, args: &String) -> bool {
+    let env = get_env_variable(env_name);
+
+    if env.is_some() {
+        return true;
+    };
+
+    match strip_line_endings(&args.to_lowercase()).len() {
+        x if x == 0 => return false,
+        x if x > 0 => return true,
+        _ => return false,
     };
 }
 

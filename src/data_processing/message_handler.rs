@@ -18,6 +18,8 @@ pub struct MessageHandlerConfig {
     pub dedupe_window: u64,
     pub skew_window: u64,
     pub queue_type: String,
+    pub should_override_station_name: bool,
+    pub station_name: String,
 }
 
 pub async fn watch_received_message_queue(
@@ -126,6 +128,26 @@ pub async fn watch_received_message_queue(
         }
 
         dedupe_queue.push_back((message_time, hashed_value.clone()));
+
+        if config.should_override_station_name {
+            trace!(
+                "[Message Handler {}] Overriding station name to {}",
+                config.queue_type,
+                config.station_name
+            );
+
+            match message["vdlm2"].get("app") {
+                // dumpvdl2 message
+                Some(_) => {
+                    message["vdlm2"]["station"] =
+                        serde_json::Value::String(config.station_name.clone());
+                }
+                // acarsdec or vdlm2dec message
+                None => {
+                    message["station_id"] = serde_json::Value::String(config.station_name.clone());
+                }
+            }
+        }
 
         if config.add_proxy_id {
             trace!(
