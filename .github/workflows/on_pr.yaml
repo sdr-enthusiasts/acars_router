@@ -136,6 +136,18 @@ jobs:
             !*.md
             !*.MD
 
+      # https://github.com/marketplace/actions/docker-on-tmpfs
+      # https://github.com/rust-lang/cargo/issues/8719
+      # https://github.com/rust-lang/cargo/issues/9545
+
+      - name: Run Docker on tmpfs
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: JonasAlfredsson/docker-on-tmpfs@v1
+        with:
+          tmpfs_size: 5
+          swap_size: 4
+          swap_location: "/mnt/swapfile"
+
       # Set up QEMU for multi-arch builds
       - name: Set up QEMU
         if: steps.changed-files-specific.outputs.any_changed == 'true'

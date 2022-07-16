@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:experimental
-
 FROM rust:1.62-bullseye as builder
 WORKDIR /tmp/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
@@ -7,11 +5,8 @@ RUN set -x && \
     apt-get update && \
     apt-get install -y --no-install-recommends libzmq3-dev
 COPY . .
-# hadolint ignore=DL3001
-RUN --security=insecure mkdir -p /root/.cargo && \
-    chmod 777 /root/.cargo && \
-    mount -t tmpfs none /root/.cargo && \
-    cargo build --release
+
+RUN cargo build --release
 
 FROM ghcr.io/sdr-enthusiasts/docker-baseimage:base
 
