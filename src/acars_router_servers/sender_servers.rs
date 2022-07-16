@@ -108,8 +108,8 @@ pub async fn start_sender_servers(
         // Start the TCP servers for ACARS
 
         for host in config.send_tcp_acars() {
-            //FIXME
-            let socket = TcpStream::connect(host.clone()).await;
+            let hostname = "0.0.0.0:".to_string() + host.as_str().clone();
+            let socket = TcpStream::connect(hostname.clone()).await;
 
             match socket {
                 Ok(socket) => {
@@ -135,8 +135,8 @@ pub async fn start_sender_servers(
     if should_start_service(config.serve_tcp_vdlm2()) {
         // Start the TCP servers for VDLM
         for host in config.send_tcp_vdlm2() {
-            //FIXME
-            let socket = TcpStream::connect(host.clone()).await;
+            let hostname = "0.0.0.0:".to_string() + host.as_str().clone();
+            let socket = TcpStream::connect(hostname).await;
 
             match socket {
                 Ok(socket) => {
