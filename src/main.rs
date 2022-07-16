@@ -98,6 +98,7 @@ async fn start_processes() {
         queue_type: "ACARS".to_string(),
         should_override_station_name: config.should_override_station_name,
         station_name: config.override_station_name.clone(),
+        stats_every: config.stats_every,
     };
 
     let mut message_handler_config_vdlm = message_handler_config_acars.clone();
@@ -130,6 +131,9 @@ async fn start_processes() {
     });
 
     // Start the message handler tasks.
+    // TODO: this starts up tasks even if there are no valid input servers.
+    // Don't start the queue watcher UNLESS there is a valid input source
+
     tokio::spawn(async move {
         watch_received_message_queue(
             rx_receivers_acars,

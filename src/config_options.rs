@@ -37,6 +37,9 @@ struct Args {
     #[clap(long, default_value = "")]
     /// Override the station name in the message.
     override_station_name: String,
+    #[clap(long, default_value = "5")]
+    /// Print statistics every N minutes
+    stats_every: u64,
 
     // Input Options
 
@@ -104,6 +107,7 @@ pub struct ACARSRouterSettings {
     pub dedupe: bool,
     pub dedupe_window: u64,
     pub skew_window: u64,
+    pub stats_every: u64,
     // The name that should be overridden in the message.
     pub override_station_name: String,
     // A bool for ease of app logic to flag if we should override the station name.
@@ -144,6 +148,12 @@ impl ACARSRouterSettings {
         debug!("AR_ENABLE_DEDUPE: {:?}", self.dedupe);
         debug!("AR_DEDUPE_WINDOW: {:?}", self.dedupe_window);
         debug!("AR_SKEW_WINDOW: {:?}", self.skew_window);
+        debug!("AR_STATS_EVERY: {:?}", self.stats_every);
+        debug!("AR_OVERRIDE_STATION_NAME: {:?}", self.override_station_name);
+        debug!(
+            "AR_OVERRIDE_STATION_NAME: {:?}",
+            self.should_override_station_name
+        );
         debug!("AR_SEND_UDP_VDLM2: {:?}", self.send_udp_vdlm2);
         debug!("AR_SEND_TCP_VDLM2: {:?}", self.send_tcp_vdlm2);
         debug!("AR_SERVE_TCP_VDLM2: {:?}", self.serve_tcp_vdlm2);
@@ -158,6 +168,7 @@ impl ACARSRouterSettings {
             dedupe: get_value_as_bool("AR_ENABLE_DEDUPE", &args.enable_dedupe),
             dedupe_window: get_value_as_u64("AR_DEDUPE_WINDOW", &args.dedupe_window),
             skew_window: get_value_as_u64("AR_SKEW_WINDOW", &args.skew_window),
+            stats_every: get_value_as_u64("AR_STATS_EVERY", &args.stats_every),
             override_station_name: get_value_as_string(
                 "AR_OVERRIDE_STATION_NAME",
                 &args.override_station_name,

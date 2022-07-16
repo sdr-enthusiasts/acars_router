@@ -10,6 +10,7 @@ use log::{debug, error, info, trace};
 use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::time::{sleep, Duration};
 
 #[derive(Clone, Debug)]
 pub struct MessageHandlerConfig {
@@ -20,6 +21,7 @@ pub struct MessageHandlerConfig {
     pub queue_type: String,
     pub should_override_station_name: bool,
     pub station_name: String,
+    pub stats_every: u64,
 }
 
 pub async fn watch_received_message_queue(
@@ -28,9 +30,36 @@ pub async fn watch_received_message_queue(
     config: &MessageHandlerConfig,
 ) {
     let mut dedupe_queue: VecDeque<(u64, u64)> = VecDeque::with_capacity(100);
+    let mut total_messages_processed = 0;
+    let mut total_messages_since_last = 0;
+    let queue_type = config.queue_type.clone();
+    let stats_every = config.stats_every.clone() * 60; // Value has to be in seconds. Input is in minutes.
+
+    // Generate an async loop that sleeps for the requested stats print duration and then logs
+    // The stats values to the console.
+
+    tokio::spawn(async move {
+        loop {
+            sleep(Duration::from_secs(stats_every)).await;
+            info!(
+                "Total {} messages processed: {}",
+                &queue_type, total_messages_processed
+            );
+
+            info!(
+                "Total {} messages processed since last update: {}",
+                &queue_type, total_messages_since_last
+            );
+
+            total_messages_since_last = 0;
+        }
+    });
 
     while let Some(mut message) = input_queue.recv().await {
+        total_messages_since_last += 1;
+        total_messages_processed += 1;
         trace!("[Message Handler {}] GOT: {}", config.queue_type, message);
+
         let original_message = message.clone();
 
         let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
