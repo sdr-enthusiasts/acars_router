@@ -4,7 +4,7 @@ PORT1=$(shuf -i 5000-5999 -n 1)
 PORT2=$(shuf -i 6000-6999 -n 1)
 
 # Start acars_router
-timeout 30s python3 ./acars_router/acars_router.py -vv --dont-add-proxy-id --skew-window 300 --receive-tcp-"$1"="127.0.0.1:${PORT1}" --serve-tcp-"$1" "${PORT2}" &
+timeout 30s python3 ./acars_router/acars_router.py -vv --add-proxy-id --skew-window 300 --receive-tcp-"$1"="127.0.0.1:${PORT1}" --serve-tcp-"$1" "${PORT2}" &
 sleep 1
 
 # Start fake destination server for acars_router output

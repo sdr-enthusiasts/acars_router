@@ -9,7 +9,7 @@ socat -d -t5 TCP-LISTEN:"${PORT1}",fork OPEN:/tmp/"$1".tcplisten.tcpsend.out,cre
 sleep 1
 
 # Start acars_router
-python3 ./acars_router/acars_router.py -vv --dont-add-proxy-id --skew-window 300 --listen-tcp-"$1" "${PORT2}" --send-tcp-"$1" 127.0.0.1:"${PORT1}" &
+python3 ./acars_router/acars_router.py -vv --add-proxy-id --skew-window 300 --listen-tcp-"$1" "${PORT2}" --send-tcp-"$1" 127.0.0.1:"${PORT1}" &
 sleep 1
 
 # Send test data thru acars_router
