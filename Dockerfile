@@ -18,7 +18,7 @@ COPY Cargo.* /tmp/acars_router/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# hadolint ignore=DL3008,DL3003
+# hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
     TEMP_PACKAGES=(build-essential) && \
     TEMP_PACKAGES=(gcc) && \
@@ -33,6 +33,7 @@ RUN set -x && \
     && \
     # install rust
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    source "/usr/local/rust/env" && \
     # build acars_router
     cd /tmp/acars_router && \
     cargo build --release && \
