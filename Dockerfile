@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:experimental
+
 FROM rust:1.62-bullseye as builder
 WORKDIR /tmp/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
