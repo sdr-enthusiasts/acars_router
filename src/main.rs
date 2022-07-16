@@ -48,6 +48,9 @@ mod tcp_receiver_server;
 #[path = "./acars_router_servers/tcp/outputs/tcp_sender_server.rs"]
 mod tcp_sender_server;
 
+#[path = "./acars_router_servers/tcp/outputs/tcp_server.rs"]
+mod tcp_server;
+
 #[path = "./generics.rs"]
 mod generics;
 
