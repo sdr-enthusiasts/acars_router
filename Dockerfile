@@ -5,7 +5,11 @@ RUN set -x && \
     apt-get update && \
     apt-get install -y --no-install-recommends libzmq3-dev
 COPY . .
-RUN cargo build --release
+# hadolint ignore=DL3001
+RUN --security=insecure mkdir -p /root/.cargo && \
+    chmod 777 /root/.cargo && \
+    mount -t tmpfs none /root/.cargo && \
+    cargo build --release
 
 FROM ghcr.io/sdr-enthusiasts/docker-baseimage:base
 
