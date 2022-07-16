@@ -21,7 +21,7 @@ mod hasher;
 mod message_handler;
 #[path = "./sanity_checker.rs"]
 mod sanity_checker;
-#[path = "./acars_router_servers/tcp/tcp_listener_server.rs"]
+#[path = "./acars_router_servers/tcp/inputs/tcp_listener_server.rs"]
 mod tcp_listener_server;
 #[path = "./acars_router_servers/udp/inputs/udp_listener_server.rs"]
 mod udp_listener_server;
@@ -42,8 +42,11 @@ mod helper_functions;
 // #[path = "./acars_router_servers/zmq/zmq_sender_server.rs"]
 // mod zmq_sender_server;
 
-#[path = "./acars_router_servers/tcp/tcp_receiver_server.rs"]
+#[path = "./acars_router_servers/tcp/inputs/tcp_receiver_server.rs"]
 mod tcp_receiver_server;
+
+#[path = "./acars_router_servers/tcp/outputs/tcp_sender_server.rs"]
+mod tcp_sender_server;
 
 use config_options::ACARSRouterSettings;
 use helper_functions::exit_process;
