@@ -9,7 +9,6 @@
 
 use futures::SinkExt;
 use serde_json::Value;
-use std::sync::{Arc, Mutex};
 use tmq::publish::Publish;
 
 pub struct ZMQSenderServer {

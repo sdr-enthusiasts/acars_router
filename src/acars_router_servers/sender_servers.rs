@@ -12,15 +12,9 @@ use crate::udp_sender_server::UDPSenderServer;
 use crate::zmq_sender_server::ZMQSenderServer;
 use log::{error, trace};
 use serde_json::Value;
-//use std::sync::{Arc, Mutex};
 use tmq::{publish, Context};
 
-use futures::stream::futures_unordered::FuturesUnordered;
-use futures::stream::StreamExt;
-use std::sync::Arc;
-use stubborn_io::tokio::StubbornIo;
 use stubborn_io::StubbornTcpStream;
-use tokio::net::TcpStream;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -146,7 +140,12 @@ pub async fn start_sender_servers(
             }
 
             for tcp_sender_server in acars_tcp_sender_servers.iter() {
-                tcp_sender_server.send(message.clone()).await;
+                match tcp_sender_server.send(message.clone()).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("[TCP SENDER ACARS]: Error sending message: {}", e);
+                    }
+                }
             }
 
             // for server in acars_zmq_publish_server.iter() {
@@ -168,7 +167,12 @@ pub async fn start_sender_servers(
             }
 
             for tcp_sender_server in vdlm_tcp_sender_servers.iter() {
-                tcp_sender_server.send(message.clone()).await;
+                match tcp_sender_server.send(message.clone()).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("[TCP SENDER VDLM2]: Error sending message: {}", e);
+                    }
+                }
             }
 
             // for server in vdlm_zmq_publish_server.iter() {
