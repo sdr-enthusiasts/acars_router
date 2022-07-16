@@ -5,21 +5,13 @@
 // Full license information available in the project LICENSE file.
 //
 
+use crate::generics::SenderServer;
 use log::error;
-use serde_json::Value;
 use stubborn_io::tokio::StubbornIo;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::sync::mpsc::Receiver;
 
-pub struct TCPSenderServer<T> {
-    pub host: String,
-    pub proto_name: String,
-    pub socket: T,
-    pub channel: Receiver<Value>,
-}
-
-impl TCPSenderServer<StubbornIo<TcpStream, String>> {
+impl SenderServer<StubbornIo<TcpStream, String>> {
     pub async fn send_message(mut self) {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {

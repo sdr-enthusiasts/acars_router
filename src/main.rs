@@ -48,6 +48,9 @@ mod tcp_receiver_server;
 #[path = "./acars_router_servers/tcp/outputs/tcp_sender_server.rs"]
 mod tcp_sender_server;
 
+#[path = "./generics.rs"]
+mod generics;
+
 use config_options::ACARSRouterSettings;
 use helper_functions::exit_process;
 use listener_servers::start_listener_servers;

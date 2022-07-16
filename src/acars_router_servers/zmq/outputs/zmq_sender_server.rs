@@ -7,21 +7,27 @@
 
 // NOTE: This is a sender. WE **PUB** to a *SUB* socket.
 
+use crate::generics::SenderServer;
 use futures::SinkExt;
-use serde_json::Value;
+use log::error;
 use tmq::publish::Publish;
 
-pub struct ZMQSenderServer {
-    pub host: String,
-    pub proto_name: String,
-    pub socket: Publish,
-}
+impl SenderServer<Publish> {
+    pub async fn send_message(mut self) {
+        tokio::spawn(async move {
+            while let Some(message) = self.channel.recv().await {
+                // send message to all client
+                let message_out = message["out_json"].clone().to_string() + "\n";
 
-impl ZMQSenderServer {
-    pub fn send_message(mut self, message: Value) {
-        let mut message = message.to_string();
-        message.push_str("\n");
+                match self.socket.send(vec!["", &message_out]).await {
+                    Ok(_) => (),
+                    Err(e) => error!("[TCP SENDER]: Error sending message: {}", e),
+                };
+            }
+        });
+        // let mut message = message.to_string();
+        // message.push_str("\n");
 
-        self.socket.send(vec!["", &message]);
+        // self.socket.send(vec!["", &message]);
     }
 }
