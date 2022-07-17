@@ -129,7 +129,7 @@ if __name__ == "__main__":
                     (remote_ip, udp_vdlm_remote_port),
                 )
         else:
-            message["timestamp"] = int(time.time())
+            message["timestamp"] = float(time.time())
             acars_sock.sendto(
                 json.dumps(message).encode() + b"\n", (remote_ip, udp_acars_remote_port)
             )
