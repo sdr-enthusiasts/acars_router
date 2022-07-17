@@ -58,6 +58,7 @@ pub async fn watch_received_message_queue(
     while let Some(mut message) = input_queue.recv().await {
         total_messages_since_last += 1;
         total_messages_processed += 1;
+
         trace!("[Message Handler {}] GOT: {}", config.queue_type, message);
 
         let original_message = message.clone();
@@ -160,10 +161,10 @@ pub async fn watch_received_message_queue(
 
             if rejected {
                 continue;
+            } else {
+                dedupe_queue.push_back((message_time, hashed_value.clone()));
             }
         }
-
-        dedupe_queue.push_back((message_time, hashed_value.clone()));
 
         if config.should_override_station_name {
             trace!(

@@ -5,6 +5,7 @@ import random
 import socket
 import time
 import sys
+import argparse
 from threading import Thread, Event  # noqa: E402
 from collections import deque  # noqa: E402
 
@@ -17,27 +18,13 @@ def UDPSocketListener(port, queue):
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(5)
             sock.bind(('', port))
-            data, _ = sock.recvfrom(1024)
+            data, _ = sock.recvfrom(3000)
             if data:
-                queue.append(data)
-        except socket.timeout:
-            pass
-        except Exception as e:
-            print(e)
-
-def TCPSocketLisenter(port, queue):
-    global thread_stop_event
-
-    while not thread_stop_event.is_set():
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(5)
-            sock.bind(('', port))
-            sock.listen(1)
-            conn, addr = sock.accept()
-            data = conn.recv(1024)
-            if data:
-                queue.append(data)
+                try:
+                    data = json.loads(data.decode('utf-8'))
+                    queue.append(data)
+                except Exception as e:
+                    print('Invalid data received')
         except socket.timeout:
             pass
         except Exception as e:
@@ -45,12 +32,21 @@ def TCPSocketLisenter(port, queue):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Test data feeder")
+    parser.add_argument(
+        '--check-for-dupes',
+        action='store_true',
+        help='Check for duplicate packets'
+    )
+
+    args = parser.parse_args()
     TEST_PASSED = True
     test_messages = []
     received_messages_queue_acars = deque()
     received_messages_queue_vdlm = deque()
     number_of_expected_acars_messages = 0;
     number_of_expected_vdlm_messages = 0;
+    check_for_dupes = args.check_for_dupes
 
     with open("acars_other", "r") as acars:
         for line in acars:
@@ -70,18 +66,14 @@ if __name__ == "__main__":
     # Socket ports
     # inputs ACARS
     udp_acars_port = 15550
-    tcp_vdlm_port = 25550
     # inputs VDLM
     udp_vdlm_port = 15555
-    tcp_acars_port = 25555
 
     # Remote listening ports
     # ACARS
     udp_acars_remote_port = 15551
-    tcp_vdlm_remote_port = 25551
     # VDLM
     udp_vdlm_remote_port = 15556
-    tcp_acars_remote_port = 25556
 
     remote_ip = "127.0.0.1"
 
@@ -89,16 +81,12 @@ if __name__ == "__main__":
     thread_vdlm2_udp_listener = Thread(target=UDPSocketListener, args=(udp_vdlm_port, received_messages_queue_vdlm))
     thread_vdlm2_udp_listener.start()
 
-    thread_vdlm2_tcp_listener = Thread(target=TCPSocketLisenter, args=(tcp_vdlm_port, received_messages_queue_vdlm))
-    thread_vdlm2_tcp_listener.start()
 
     # ACARS
 
     thread_acars_udp_listener = Thread(target=UDPSocketListener, args=(udp_acars_port, received_messages_queue_acars))
     thread_acars_udp_listener.start()
 
-    thread_acars_tcp_listener = Thread(target=TCPSocketLisenter, args=(tcp_acars_port, received_messages_queue_acars))
-    thread_acars_tcp_listener.start()
 
     # create all of the output sockets
     # UDP
@@ -112,14 +100,14 @@ if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((remote_ip, 25555))
 
-    print("STARTING UDP SEND/RECEIVE DUPLICATION TEST")
+    print(f"STARTING UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ''}TEST\n\n")
     message_count = 0
     duplicated = 0
     for message in test_messages:
         # UDP
         print(f"Sending message {message_count + 1}")
         # Randomly decide if the message should be sent twice
-        if random.randint(0, 10) == 0:
+        if random.randint(0, 10) < 3:
             send_twice = True
             duplicated += 1
         else:
@@ -130,6 +118,7 @@ if __name__ == "__main__":
             message["vdl2"]["t"]["sec"] = int(time.time())
             vdlm_sock.sendto(json.dumps(message).encode(), (remote_ip, udp_vdlm_remote_port))
             if send_twice:
+                time.sleep(.2)
                 print("Sending VDLM duplicate")
                 vdlm_sock.sendto(json.dumps(message).encode(), (remote_ip, udp_vdlm_remote_port))
         else:
@@ -137,6 +126,7 @@ if __name__ == "__main__":
             message["timestamp"] = int(time.time())
             acars_sock.sendto(json.dumps(message).encode(), (remote_ip, udp_acars_remote_port))
             if send_twice:
+                time.sleep(.2)
                 print("Sending ACARS duplicate")
                 acars_sock.sendto(json.dumps(message).encode(), (remote_ip, udp_acars_remote_port))
 
@@ -144,18 +134,23 @@ if __name__ == "__main__":
         time.sleep(.5)
 
     time.sleep(5)
-    print("UDP SEND/RECEIVE DUPLICATION TEST COMPLETE\n\n")
+    print(f"UDP SEND/RECEIVE {'DUPLICATION' if check_for_dupes else ''}TEST COMPLETE\n\n")
     print(f"Sent {message_count} original messages")
     print(f"Sent {duplicated} duplicates")
+    print(f"Sent {number_of_expected_acars_messages} of non dup ACARS messages")
+    print(f"Sent {number_of_expected_vdlm_messages} of non dup VDLM messages")
     print(f"Sent {message_count + duplicated} total messages")
-    print(f"Expected number of messages {number_of_expected_acars_messages + number_of_expected_vdlm_messages}")
+    print(f"Expected number of messages {number_of_expected_acars_messages + number_of_expected_vdlm_messages + (duplicated if not check_for_dupes else 0)}")
     print(f"Received number of messages {len(received_messages_queue_acars) + len(received_messages_queue_vdlm)}")
 
-    if len(received_messages_queue_acars) + len(received_messages_queue_vdlm) == number_of_expected_acars_messages + number_of_expected_vdlm_messages:
-        print("UDP SEND/RECEIVE DUPLICATION TEST PASSED")
+    if len(received_messages_queue_acars) + len(received_messages_queue_vdlm) == number_of_expected_acars_messages \
+        + number_of_expected_vdlm_messages + (duplicated if not check_for_dupes else 0):
+        print(f"UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ''}TEST PASSED")
     else:
-        print("UDP SEND/RECEIVE DUPLICATION TEST FAILED")
+        print(f"UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ''}TEST FAILED")
         TEST_PASSED = False
+
+    # Clean up
 
     acars_sock.close()
     vdlm_sock.close()
