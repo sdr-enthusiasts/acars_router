@@ -18,7 +18,7 @@ def UDPSocketListener(port, queue):
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(5)
             sock.bind(('', port))
-            data, _ = sock.recvfrom(3000)
+            data, _ = sock.recvfrom(25000)
             if data:
                 try:
                     data = json.loads(data.decode('utf-8'))
@@ -116,19 +116,18 @@ if __name__ == "__main__":
         if "vdl2" in message:
             # replace message["vdlm"]["t"]["sec"] with current unix epoch time
             message["vdl2"]["t"]["sec"] = int(time.time())
-            vdlm_sock.sendto(json.dumps(message).encode(), (remote_ip, udp_vdlm_remote_port))
+            vdlm_sock.sendto(json.dumps(message).encode() + b'\n', (remote_ip, udp_vdlm_remote_port))
             if send_twice:
                 time.sleep(.2)
                 print("Sending VDLM duplicate")
-                vdlm_sock.sendto(json.dumps(message).encode(), (remote_ip, udp_vdlm_remote_port))
+                vdlm_sock.sendto(json.dumps(message).encode() + b'\n', (remote_ip, udp_vdlm_remote_port))
         else:
-            pass
             message["timestamp"] = int(time.time())
-            acars_sock.sendto(json.dumps(message).encode(), (remote_ip, udp_acars_remote_port))
+            acars_sock.sendto(json.dumps(message).encode() + b'\n', (remote_ip, udp_acars_remote_port))
             if send_twice:
                 time.sleep(.2)
                 print("Sending ACARS duplicate")
-                acars_sock.sendto(json.dumps(message).encode(), (remote_ip, udp_acars_remote_port))
+                acars_sock.sendto(json.dumps(message).encode() + b'\n', (remote_ip, udp_acars_remote_port))
 
         message_count += 1
         time.sleep(.5)
