@@ -133,9 +133,10 @@ pub async fn watch_received_message_queue(
         // If the message is older than the skew window, reject it
         else if (current_time - message_time) > config.skew_window {
             error!(
-                "[Message Handler {}] Message is {} seconds old. Skipping message. {}",
+                "[Message Handler {}] Message is {} seconds old. Time in message {}. Skipping message. {}",
                 config.queue_type,
                 current_time - message_time,
+                message_time,
                 config.skew_window
             );
             continue;
@@ -145,14 +146,20 @@ pub async fn watch_received_message_queue(
         let (hashed_value, hashed_message) = hash_message(message.clone());
 
         if config.dedupe {
+            let mut rejected = false;
             for (_, hashed_value_saved) in dedupe_queue.iter() {
                 if *hashed_value_saved == hashed_value {
                     info!(
                         "[Message Handler {}] Message is a duplicate. Skipping message.",
                         config.queue_type
                     );
+                    rejected = true;
                     continue;
                 }
+            }
+
+            if rejected {
+                continue;
             }
         }
 
