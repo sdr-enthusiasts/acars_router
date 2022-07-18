@@ -40,6 +40,28 @@ jobs:
       - name: Run hadolint against Dockerfiles
         run: docker run --rm -i -v "$PWD":/workdir --workdir /workdir --entrypoint hadolint hadolint/hadolint --ignore DL3013 --ignore DL3008 $(find . -type f -iname "Dockerfile*")
 
+  test_rust_functionality:
+    name: Build and test rust functionality
+    runs-on: ubuntu-latest
+    needs: flake8-lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+      - name: Build acars_router
+        run: |
+          cargo build --release
+      - name: Run tests
+        run: |
+          cd test_data
+          ./run_acars_ruster_test.sh
+
   test_functionality:
     name: "Test Functionality"
     runs-on: ubuntu-latest
@@ -109,7 +131,7 @@ jobs:
   test_build:
     name: Test Build
     runs-on: ubuntu-latest
-    needs: [hadolint, flake8-lint]
+    needs: [hadolint, flake8-lint, test_rust_functionality]
     strategy:
       matrix:
         docker-platform:
