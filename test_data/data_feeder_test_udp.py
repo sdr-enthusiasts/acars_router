@@ -42,6 +42,7 @@ if __name__ == "__main__":
         "--check-for-no-proxy-id", action="store_true", help="No proxy id"
     )
     parser.add_argument("--check-for-station-id", type=str, nargs="*", default="")
+    parser.add_argument("--check-data-continuity", action="store_true")
 
     args = parser.parse_args()
     TEST_PASSED = True
@@ -51,7 +52,9 @@ if __name__ == "__main__":
     number_of_expected_acars_messages = 0
     number_of_expected_vdlm_messages = 0
     check_for_dupes = args.check_for_dupes
-    check_for_station_id = args.check_for_station_id
+    check_for_station_id = (
+        args.check_for_station_id[0] if args.check_for_station_id else None
+    )
     check_for_no_proxy_id = args.check_for_no_proxy_id
 
     with open("acars_other", "r") as acars:
@@ -217,6 +220,42 @@ if __name__ == "__main__":
             print("Proxy ID check passed")
         else:
             print("Proxy ID check failed")
+
+    if check_for_station_id:
+        station_pass = True
+        print("Checking for station ID")
+        for message in received_messages_queue_acars:
+            if "station_id" not in message:
+                print("Station ID not found in ACARS message")
+                TEST_PASSED = False
+                station_pass = False
+            elif message["station_id"] != check_for_station_id:
+                print(
+                    "Station ID does not match expected value in ACARS message. Found {}".format(
+                        message["station_id"]
+                    )
+                )
+                TEST_PASSED = False
+                station_pass = False
+        for message in received_messages_queue_vdlm:
+            if "station" not in message["vdl2"]:
+                print("Station ID not found in VDLM message")
+                TEST_PASSED = False
+                station_pass = False
+            elif message["vdl2"]["station"] != check_for_station_id:
+                print(
+                    "Station ID does not match expected value in VDLM message. Found {}".format(
+                        message["vdl2"]["station"]
+                    )
+                )
+                TEST_PASSED = False
+                station_pass = False
+
+        if station_pass:
+            print("Station ID check passed")
+        else:
+            print("Station ID check failed")
+
     # Clean up
 
     acars_sock.close()
