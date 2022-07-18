@@ -9,11 +9,13 @@ on:
     # Only publish on push to main branch
     branches:
       - main
-    # Only run if the PR yaml has changed or a Dockerfile has changed
+    # Only run if the PR yaml, Dockerfile, sh, py or rs files have changed
     paths:
       - Dockerfile**
       - "**on_pr.yml"
       - "**.py"
+      - "**.rs"
+      - "**.sh"
 
 jobs:
   flake8-lint:
