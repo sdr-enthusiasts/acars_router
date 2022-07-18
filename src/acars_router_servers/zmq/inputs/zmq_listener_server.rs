@@ -30,7 +30,7 @@ impl ZMQListnerServer {
                 Ok(message) => message,
                 Err(e) => {
                     error!("[ZMQ Server {}] Error: {}", self.proto_name, e);
-                    return Err(e);
+                    continue;
                 }
             };
 
