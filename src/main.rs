@@ -5,6 +5,9 @@
 // Full license information available in the project LICENSE file.
 //
 
+// TODO: Remove as many .unwraps()s as possible. This is a temporary fix to get the code to compile.
+// We should handle all error cases
+
 use chrono::Local;
 use env_logger::Builder;
 use log::{debug, error, info, trace};
