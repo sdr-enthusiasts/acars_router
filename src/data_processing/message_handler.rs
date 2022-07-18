@@ -173,10 +173,10 @@ pub async fn watch_received_message_queue(
                 config.station_name
             );
 
-            match message["vdlm2"].get("app") {
+            match message["vdl2"].get("app") {
                 // dumpvdl2 message
                 Some(_) => {
-                    message["vdlm2"]["station"] =
+                    message["vdl2"]["station"] =
                         serde_json::Value::String(config.station_name.clone());
                 }
                 // acarsdec or vdlm2dec message
