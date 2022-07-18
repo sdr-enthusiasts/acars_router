@@ -50,5 +50,13 @@ python3 data_feeder_test_udp.py --check-for-dupes --check-for-station-id TEST ||
 
 pkill acars_router
 
+echo "UDP Send/Receive data continuity"
+
+"$ACARS_ROUTER_PATH" --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe --dont-add-proxy-id &
+
+python3 data_feeder_test_udp.py --check-for-dupes --check-data-continuity --check-for-no-proxy-id || task_failed
+
+pkill acars_router
+
 echo "ALL TESTS PASSED"
 exit 0

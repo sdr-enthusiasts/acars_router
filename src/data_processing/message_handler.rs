@@ -98,6 +98,10 @@ pub async fn watch_received_message_queue(
             Some(_) => message["vdl2"]["t"]["sec"].as_u64().unwrap_or(0),
             // TODO: I'd like to do this better. The as_u64() function did not give a correct value
             // So we take the f64 value, round it, then cast it to u64.
+            // ALSO we seem to truncate the timestamp if the timestamp is too long.
+            // We're losing like.....pico seconds of precision or something. I don't care
+            // But we probably should? It is in fact mangling the output either here
+            // Or somewhere along the way. Perhaps it's the conversion from Value back to string....
             None => message["timestamp"].as_f64().unwrap_or(0.0).round() as u64,
         };
 

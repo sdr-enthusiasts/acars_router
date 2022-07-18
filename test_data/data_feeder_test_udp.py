@@ -56,6 +56,7 @@ if __name__ == "__main__":
         args.check_for_station_id[0] if args.check_for_station_id else None
     )
     check_for_no_proxy_id = args.check_for_no_proxy_id
+    check_data_continuity = args.check_data_continuity
 
     with open("acars_other", "r") as acars:
         for line in acars:
@@ -139,7 +140,9 @@ if __name__ == "__main__":
                     (remote_ip, udp_vdlm_remote_port),
                 )
         else:
-            message["timestamp"] = float(time.time())
+            # We are rounding to avoid an issue where acars_router will truncate the time
+            # and thus the continunity check will fail even though it's good (sort of)
+            message["timestamp"] = round(float(time.time()), 3)
             acars_sock.sendto(
                 json.dumps(message).encode() + b"\n", (remote_ip, udp_acars_remote_port)
             )
@@ -256,13 +259,33 @@ if __name__ == "__main__":
         else:
             print("Station ID check failed")
 
+    if check_data_continuity:
+        data_is_good = True
+        print("Checking data continuity")
+        for message in received_messages_queue_acars:
+            if message not in test_messages:
+                print("ACARS message not found in test messages")
+                TEST_PASSED = False
+                data_is_good = False
+        for message in received_messages_queue_vdlm:
+            if message not in test_messages:
+                print("VDLM message not found in test messages")
+                TEST_PASSED = False
+                data_is_good = False
+
+        if data_is_good:
+            print("Data continuity check passed")
+        else:
+            print("Data continuity check failed")
+
     # Clean up
 
+    print("Cleaning up sockets....standby")
     acars_sock.close()
     vdlm_sock.close()
 
     # stop all threads
 
     thread_stop_event.set()
-
+    print("Done")
     sys.exit(0 if TEST_PASSED else 1)
