@@ -243,6 +243,19 @@ pub async fn watch_received_message_queue(
         final_message["json"] = hashed_message;
 
         // Send to the output methods for emitting on the network
-        output_queue.send(final_message).await.unwrap();
+        match output_queue.send(final_message).await {
+            Ok(_) => {
+                debug!(
+                    "[Message Handler {}] Message sent to output queue",
+                    config.queue_type
+                );
+            }
+            Err(e) => {
+                error!(
+                    "[Message Handler {}] Error sending message to output queue: {}",
+                    config.queue_type, e
+                );
+            }
+        };
     }
 }

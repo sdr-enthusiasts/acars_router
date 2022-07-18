@@ -7,6 +7,7 @@
 
 // TODO: Remove as many .unwraps()s as possible. This is a temporary fix to get the code to compile.
 // We should handle all error cases
+// TODO: Clean up, add in, etc all trace and debug statements to make diagnostics easier to understand and to trace program logic better.
 
 use chrono::Local;
 use env_logger::Builder;

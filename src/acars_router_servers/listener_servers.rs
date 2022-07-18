@@ -194,7 +194,10 @@ fn start_tcp_receiver_servers(
                 host: server_host.to_string(),
                 proto_name: proto_name.to_string(),
             };
-            tcp_receiver_server.run(new_channel).await;
+            match tcp_receiver_server.run(new_channel).await {
+                Ok(_) => debug!("{} connection closed", proto_name),
+                Err(e) => error!("{} connection error: {}", proto_name.clone(), e),
+            }
         });
     }
 }

@@ -18,11 +18,23 @@ pub struct TCPReceiverServer {
 }
 
 impl TCPReceiverServer {
-    pub async fn run(self, channel: Sender<serde_json::Value>) {
+    pub async fn run(
+        self,
+        channel: Sender<serde_json::Value>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TCPReceiverServer { host, proto_name } = self;
         trace!("[TCP Receiver Server {}] Starting", proto_name);
 
-        let stream = StubbornTcpStream::connect(host.clone()).await.unwrap();
+        let stream = match StubbornTcpStream::connect(host.clone()).await {
+            Ok(stream) => stream,
+            Err(e) => {
+                error!(
+                    "[TCP Receiver Server {}] Error connecting to {}: {}",
+                    proto_name, host, e
+                );
+                Err(e)?
+            }
+        };
 
         // create a buffered reader and send the messages to the channel
 
@@ -44,5 +56,7 @@ impl TCPReceiverServer {
                 Err(e) => error!("{}", e),
             }
         }
+
+        Ok(())
     }
 }

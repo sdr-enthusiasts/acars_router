@@ -271,20 +271,18 @@ async fn start_udp_senders_servers(
 
     // Verify the socket was bound correctly
 
-    match &socket {
-        Ok(_) => (), // valid socket, move on
+    match socket {
+        Ok(s) => {
+            return Some(UDPSenderServer {
+                proto_name: decoder_type.to_string() + "_UDP_SEND",
+                host: ports.clone(),
+                socket: s,
+            });
+        } // valid socket, move on
         Err(e) => {
             // socket did not bind, return None. We don't want the program to think it has a socket to work with
             error!("{} failed to create socket: {:?}", decoder_type, e);
             return None;
         }
     }
-
-    // We have a valid socket, return it
-
-    return Some(UDPSenderServer {
-        proto_name: decoder_type.to_string() + "_UDP_SEND",
-        host: ports.clone(),
-        socket: socket.unwrap(),
-    });
 }

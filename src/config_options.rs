@@ -263,13 +263,19 @@ fn get_value_as_vector(env_name: &str, args: &str, default: &str) -> Vec<String>
     let env = split_env_safely(env_name);
 
     if env.is_some() {
-        return env.unwrap();
+        match env {
+            Some(val) => return val,
+            None => return vec![],
+        }
     };
 
     let args = split_string_on_semi_colon(&args.to_string());
 
     if args.is_some() {
-        return args.unwrap();
+        match args {
+            Some(val) => return val,
+            None => return vec![],
+        }
     };
 
     return vec![default.to_string()];
@@ -279,7 +285,10 @@ fn get_value_as_u64(env_name: &str, args: &u64) -> u64 {
     let env = get_env_variable(env_name);
 
     if env.is_some() {
-        return env.unwrap().parse::<u64>().unwrap();
+        match env {
+            Some(val) => return val.parse::<u64>().unwrap_or(0),
+            None => return 0,
+        }
     };
 
     return *args;
@@ -331,7 +340,7 @@ fn get_value_as_string(env_name: &str, args: &str, default: &str) -> String {
     let env = get_env_variable(env_name);
 
     if env.is_some() {
-        return env.unwrap();
+        return env.unwrap_or(default.to_string());
     };
 
     if args != "" {

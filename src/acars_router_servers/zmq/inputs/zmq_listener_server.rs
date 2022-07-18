@@ -26,7 +26,14 @@ impl ZMQListnerServer {
             .subscribe(b"")?;
 
         while let Some(msg) = socket.next().await {
-            let message = msg.unwrap();
+            let message = match msg {
+                Ok(message) => message,
+                Err(e) => {
+                    error!("[ZMQ Server {}] Error: {}", self.proto_name, e);
+                    return Err(e);
+                }
+            };
+
             let composed_message = message
                 .iter()
                 .map(|item| item.as_str().unwrap_or("invalid text"))
@@ -44,9 +51,10 @@ impl ZMQListnerServer {
                 .unwrap_or(&message_string);
 
             match serde_json::from_str::<serde_json::Value>(stripped) {
-                Ok(json) => {
-                    channel.send(json).await.unwrap();
-                }
+                Ok(json) => match channel.send(json).await {
+                    Ok(_) => trace!("Message sent to channel"),
+                    Err(e) => error!("Error sending message to channel: {}", e),
+                },
                 Err(e) => {
                     error!("{}", e);
                 }
