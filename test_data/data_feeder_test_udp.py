@@ -38,6 +38,11 @@ if __name__ == "__main__":
         "--check-for-dupes", action="store_true", help="Check for duplicate packets"
     )
 
+    parser.add_argument(
+        "--check-for-no-proxy-id", action="store_true", help="No proxy id"
+    )
+    parser.add_argument("--check-for-station-id", type=str, nargs="*", default="")
+
     args = parser.parse_args()
     TEST_PASSED = True
     test_messages = []
@@ -46,6 +51,8 @@ if __name__ == "__main__":
     number_of_expected_acars_messages = 0
     number_of_expected_vdlm_messages = 0
     check_for_dupes = args.check_for_dupes
+    check_for_station_id = args.check_for_station_id
+    check_for_no_proxy_id = args.check_for_no_proxy_id
 
     with open("acars_other", "r") as acars:
         for line in acars:
@@ -174,6 +181,42 @@ if __name__ == "__main__":
         )
         TEST_PASSED = False
 
+    if check_for_no_proxy_id:
+        proxy_pass = True
+        print("Checking for no proxy ID")
+        for message in received_messages_queue_acars:
+            if "app" in message and "proxied" in message:
+                print("Proxy ID found in ACARS message")
+                TEST_PASSED = False
+                proxy_pass = False
+        for message in received_messages_queue_vdlm:
+            if "proxied" in message["vdl2"]["app"]:
+                print("Proxy ID found in VDLM message")
+                TEST_PASSED = False
+                proxy_pass = False
+
+        if proxy_pass:
+            print("Proxy ID check passed")
+        else:
+            print("Proxy ID check failed")
+    else:
+        proxy_pass = True
+        print("Checking for proxy ID")
+        for message in received_messages_queue_acars:
+            if "app" not in message and "proxied" not in message:
+                print("Proxy ID not found in ACARS message")
+                TEST_PASSED = False
+                proxy_pass = False
+        for message in received_messages_queue_vdlm:
+            if "proxied" not in message["vdl2"]["app"]:
+                print("Proxy ID not found in VDLM message")
+                TEST_PASSED = False
+                proxy_pass = False
+
+        if proxy_pass:
+            print("Proxy ID check passed")
+        else:
+            print("Proxy ID check failed")
     # Clean up
 
     acars_sock.close()
