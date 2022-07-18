@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: flake8-lint
     env:
-      ACARS_ROUTER_PATH: cargo run --
+      ACARS_ROUTER_PATH: ../target/release/acars_router
 
     steps:
       - name: Checkout
