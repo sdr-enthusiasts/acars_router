@@ -8,8 +8,10 @@
 use crate::hasher::hash_message;
 use log::{debug, error, info, trace};
 use std::collections::VecDeque;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 
 #[derive(Clone, Debug)]
@@ -24,40 +26,68 @@ pub struct MessageHandlerConfig {
     pub stats_every: u64,
 }
 
+pub async fn print_stats(
+    total_all_time: Arc<Mutex<i32>>,
+    total_since_last: Arc<Mutex<i32>>,
+    stats_every: u64,
+    queue_type: &str,
+) {
+    let stats_minutes = stats_every / 60;
+    loop {
+        sleep(Duration::from_secs(stats_every)).await;
+        info!("{queue_type} in the last {stats_minutes} minute(s):");
+        info!(
+            "Total {} messages processed: {}",
+            &queue_type,
+            total_all_time.lock().await
+        );
+
+        info!(
+            "Total {} messages processed since last update: {}",
+            &queue_type,
+            total_since_last.lock().await
+        );
+
+        *total_since_last.lock().await = 0;
+    }
+}
+
 pub async fn watch_received_message_queue(
     mut input_queue: Receiver<serde_json::Value>,
     output_queue: Sender<serde_json::Value>,
     config: &MessageHandlerConfig,
 ) {
     let mut dedupe_queue: VecDeque<(u64, u64)> = VecDeque::with_capacity(100);
-    let mut total_messages_processed = 0;
-    let mut total_messages_since_last = 0;
+    let total_messages_processed = Arc::new(Mutex::new(0));
+    let total_messages_since_last = Arc::new(Mutex::new(0));
     let queue_type = config.queue_type.clone();
     let stats_every = config.stats_every.clone() * 60; // Value has to be in seconds. Input is in minutes.
 
     // Generate an async loop that sleeps for the requested stats print duration and then logs
+    // Give it the context for the counters
     // The stats values to the console.
 
+    let stats_total_messages_context = Arc::clone(&total_messages_processed);
+    let stats_total_messages_since_last_context = Arc::clone(&total_messages_since_last);
+
     tokio::spawn(async move {
-        loop {
-            sleep(Duration::from_secs(stats_every)).await;
-            info!(
-                "Total {} messages processed: {}",
-                &queue_type, total_messages_processed
-            );
-
-            info!(
-                "Total {} messages processed since last update: {}",
-                &queue_type, total_messages_since_last
-            );
-
-            total_messages_since_last = 0;
-        }
+        print_stats(
+            stats_total_messages_context,
+            stats_total_messages_since_last_context,
+            stats_every,
+            &queue_type,
+        )
+        .await;
     });
 
     while let Some(mut message) = input_queue.recv().await {
-        total_messages_since_last += 1;
-        total_messages_processed += 1;
+        let stats_total_loop_context = Arc::clone(&total_messages_processed);
+        let stats_total_loop_since_last_context = Arc::clone(&total_messages_since_last);
+        *stats_total_loop_since_last_context.lock().await += 1;
+        *stats_total_loop_context.lock().await += 1;
+
+        // total_messages_since_last += 1;
+        // total_messages_processed += 1;
 
         trace!("[Message Handler {}] GOT: {}", config.queue_type, message);
 
