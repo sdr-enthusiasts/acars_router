@@ -99,28 +99,21 @@ pub async fn watch_received_message_queue(
             Err(_) => 0,
         };
 
-        // Clean up the dedupe queue
-        // TODO: Can this be done....better?
+        // Remove old messages from the dedupe_queue
 
         if !dedupe_queue.is_empty() {
             // iterate through dedupe_que and remove old messages
-            // TODO: Can this be done in one shot using remove while iterating the queue?
-            let mut indexes_to_remove = Vec::with_capacity(dedupe_queue.len());
-            for (i, (time, _)) in dedupe_queue.iter().enumerate() {
-                if current_time - time > config.dedupe_window {
-                    indexes_to_remove.push(i);
+            dedupe_queue.retain(|message| {
+                let (timestamp, _) = message;
+                let diff = current_time - timestamp;
+                if diff > config.dedupe_window {
+                    false
+                } else {
+                    true
                 }
-            }
+            });
 
-            trace!(
-                "[Message Handler {}] Removing {} old messages from dedupe queue",
-                config.queue_type,
-                indexes_to_remove.len()
-            );
-
-            for index in indexes_to_remove.iter().rev() {
-                dedupe_queue.remove(*index);
-            }
+            debug!("dedupe queue size {}", dedupe_queue.len());
         }
 
         // acarsdec/vdlm2dec use floating point message times. dumpvdl2 uses ints.
