@@ -138,6 +138,8 @@ async fn start_processes() {
     // TODO: this starts up tasks even if there are no valid input servers.
     // Don't start the queue watcher UNLESS there is a valid input source
 
+    debug!("Starting the message handler tasks");
+
     tokio::spawn(async move {
         watch_received_message_queue(
             rx_receivers_acars,

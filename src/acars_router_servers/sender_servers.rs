@@ -256,7 +256,6 @@ async fn start_udp_senders_servers(
     let socket = UdpSocket::bind("0.0.0.0:0".to_string()).await;
 
     // Verify the socket was bound correctly
-
     match socket {
         Ok(s) => {
             return Some(UDPSenderServer {

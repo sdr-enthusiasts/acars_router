@@ -50,8 +50,12 @@ impl TCPListenerServer {
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
                 match process_tcp_sockets(stream, &new_proto_name, new_channel).await {
-                    Ok(_) => debug!("{} connection closed", new_proto_name),
-                    Err(e) => error!("{} connection error: {}", new_proto_name.clone(), e),
+                    Ok(_) => debug!("[TCP SERVER {}] connection closed", new_proto_name),
+                    Err(e) => error!(
+                        "[TCP SERVER {}] connection error: {}",
+                        new_proto_name.clone(),
+                        e
+                    ),
                 };
             });
         }
@@ -73,11 +77,14 @@ async fn process_tcp_sockets(
             Ok(msg) => {
                 trace!("[TCP SERVER: {}]: {}", proto_name, msg);
                 match channel.send(msg).await {
-                    Ok(_) => debug!("Message sent to channel"),
-                    Err(e) => error!("Error sending message to channel: {}", e),
+                    Ok(_) => debug!("[TCP SERVER {proto_name}] Message sent to channel"),
+                    Err(e) => error!(
+                        "[TCP SERVER {}] sending message to channel: {}",
+                        proto_name, e
+                    ),
                 };
             }
-            Err(e) => error!("{}", e),
+            Err(e) => error!("[TCP SERVER {}] {}", proto_name, e),
         }
     }
 

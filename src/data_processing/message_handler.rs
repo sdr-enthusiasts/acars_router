@@ -8,6 +8,7 @@
 use crate::hasher::hash_message;
 use log::{debug, error, info, trace};
 use std::collections::VecDeque;
+use std::env;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -62,6 +63,7 @@ pub async fn watch_received_message_queue(
     let total_messages_since_last = Arc::new(Mutex::new(0));
     let queue_type = config.queue_type.clone();
     let stats_every = config.stats_every.clone() * 60; // Value has to be in seconds. Input is in minutes.
+    let version = env!("CARGO_PKG_VERSION");
 
     // Generate an async loop that sleeps for the requested stats print duration and then logs
     // Give it the context for the counters
@@ -81,16 +83,15 @@ pub async fn watch_received_message_queue(
     });
 
     while let Some(mut message) = input_queue.recv().await {
+        // Grab the mutexes for the stats counter and increment the total messages processed by the message handler.
         let stats_total_loop_context = Arc::clone(&total_messages_processed);
         let stats_total_loop_since_last_context = Arc::clone(&total_messages_since_last);
         *stats_total_loop_since_last_context.lock().await += 1;
         *stats_total_loop_context.lock().await += 1;
 
-        // total_messages_since_last += 1;
-        // total_messages_processed += 1;
-
         trace!("[Message Handler {}] GOT: {}", config.queue_type, message);
 
+        // Create a copy of what we received. Not really used anywhere in the program but it's useful for debugging
         let original_message = message.clone();
 
         let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
@@ -231,6 +232,8 @@ pub async fn watch_received_message_queue(
                     message["vdl2"]["app"]["proxied"] = serde_json::Value::Bool(true);
                     message["vdl2"]["app"]["proxied_by"] =
                         serde_json::Value::String("acars_router".to_string());
+                    message["vdl2"]["app"]["acars_router_version"] =
+                        serde_json::Value::String(version.to_string());
                 }
                 // acarsdec or vdlm2dec message
                 None => match message.get("app") {
@@ -238,6 +241,8 @@ pub async fn watch_received_message_queue(
                         message["app"]["proxied"] = serde_json::Value::Bool(true);
                         message["app"]["proxied_by"] =
                             serde_json::Value::String("acars_router".to_string());
+                        message["app"]["acars_router_version"] =
+                            serde_json::Value::String(version.to_string());
                     }
                     None => {
                         // insert app in to message
@@ -246,6 +251,8 @@ pub async fn watch_received_message_queue(
                         message["app"]["proxied"] = serde_json::Value::Bool(true);
                         message["app"]["proxied_by"] =
                             serde_json::Value::String("acars_router".to_string());
+                        message["app"]["acars_router_version"] =
+                            serde_json::Value::String(version.to_string());
                     }
                 },
             }
@@ -271,6 +278,12 @@ pub async fn watch_received_message_queue(
         final_message["out_json"] = message;
         final_message["data"] = original_message;
         final_message["json"] = hashed_message;
+
+        trace!(
+            "[Message Handler {}] Final message: {}",
+            config.queue_type,
+            final_message
+        );
 
         // Send to the output methods for emitting on the network
         match output_queue.send(final_message).await {

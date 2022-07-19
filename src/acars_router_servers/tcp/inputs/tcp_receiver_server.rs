@@ -57,11 +57,14 @@ impl TCPReceiverServer {
                 Ok(msg) => {
                     trace!("[TCP SERVER: {}]: {}", proto_name, msg);
                     match channel.send(msg).await {
-                        Ok(_) => debug!("Message sent to channel"),
-                        Err(e) => error!("Error sending message to channel: {}", e),
+                        Ok(_) => debug!("[TCP SERVER {proto_name}] Message sent to channel"),
+                        Err(e) => error!(
+                            "[TCP SERVER {}] Error sending message to channel: {}",
+                            proto_name, e
+                        ),
                     };
                 }
-                Err(e) => error!("{}", e),
+                Err(e) => error!("[TCP SERVER {}] {}", proto_name, e),
             }
         }
 

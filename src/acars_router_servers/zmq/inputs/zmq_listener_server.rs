@@ -8,7 +8,7 @@
 // NOTE: This is a listener. WE **SUB** to a *PUB* socket.
 
 use futures::StreamExt;
-use log::{error, trace};
+use log::{debug, error, trace};
 use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::Sender;
 
@@ -19,7 +19,7 @@ pub struct ZMQListnerServer {
 
 impl ZMQListnerServer {
     pub async fn run(self, channel: Sender<serde_json::Value>) -> Result<()> {
-        trace!("[ZMQ Server {}] Starting", self.proto_name);
+        debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
         let address = "tcp://".to_string() + &self.host;
         let mut socket = subscribe(&Context::new())
             .connect(&address)?
@@ -29,7 +29,7 @@ impl ZMQListnerServer {
             let message = match msg {
                 Ok(message) => message,
                 Err(e) => {
-                    error!("[ZMQ Server {}] Error: {}", self.proto_name, e);
+                    error!("[ZMQ LISTENER SERVER {}] Error: {}", self.proto_name, e);
                     continue;
                 }
             };
@@ -41,7 +41,7 @@ impl ZMQListnerServer {
 
             let message_string = composed_message.join(" ");
             trace!(
-                "[ZMQ Server {}] Received: {}",
+                "[ZMQ LISTENER SERVER {}] Received: {}",
                 self.proto_name,
                 message_string
             );
@@ -52,8 +52,14 @@ impl ZMQListnerServer {
 
             match serde_json::from_str::<serde_json::Value>(stripped) {
                 Ok(json) => match channel.send(json).await {
-                    Ok(_) => trace!("Message sent to channel"),
-                    Err(e) => error!("Error sending message to channel: {}", e),
+                    Ok(_) => trace!(
+                        "[ZMQ LISTENER SERVER {}] Message sent to channel",
+                        self.proto_name
+                    ),
+                    Err(e) => error!(
+                        "[ZMQ LISTENER SERVER {}] Error sending message to channel: {}",
+                        self.proto_name, e
+                    ),
                 },
                 Err(e) => {
                     error!("{}", e);

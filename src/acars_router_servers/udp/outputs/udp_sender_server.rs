@@ -35,7 +35,7 @@ impl UDPSenderServer {
                 }
                 Err(e) => {
                     warn!(
-                        "{} failed to send message to {}: {:?}",
+                        "[UDP SENDER {}] failed to send message to {}: {:?}",
                         self.proto_name, addr, e
                     );
                 }
