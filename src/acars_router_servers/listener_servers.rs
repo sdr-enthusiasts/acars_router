@@ -13,7 +13,7 @@ use crate::tcp_listener_server::TCPListenerServer;
 use crate::tcp_receiver_server::TCPReceiverServer;
 use crate::udp_listener_server::UDPListenerServer;
 use crate::zmq_listener_server::ZMQListnerServer;
-use log::{debug, error, info, trace};
+use log::{debug, error, info};
 use tokio::sync::mpsc::Sender;
 
 pub fn start_listener_servers(

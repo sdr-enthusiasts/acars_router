@@ -60,6 +60,7 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libzmq3-dev
+          python3 -m pip install zmq
 
       - name: Build acars_router
         run: |
