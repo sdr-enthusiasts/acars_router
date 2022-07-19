@@ -68,5 +68,11 @@ pkill acars_router
 
 # TCP SEND / LISTEN
 
+echo "TCP Send/Receive with deduping"
+
+"$ACARS_ROUTER_PATH" --listen-tcp-acars 15551 --listen-tcp-vdlm2 15556 --serve-tcp-acars 15550 --serve-tcp-vdlm2 15555 --enable-dedupe &
+sleep 3
+python3 data_feeder_test_sender_tcp.py --check-for-dupes || task_failed
+
 echo "ALL TESTS PASSED"
 exit 0
