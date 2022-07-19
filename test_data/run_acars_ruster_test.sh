@@ -74,5 +74,7 @@ echo "TCP Send/Receive with deduping"
 sleep 3
 python3 data_feeder_test_sender_tcp.py --check-for-dupes || task_failed
 
+pkill acars_router
+
 echo "ALL TESTS PASSED"
 exit 0
