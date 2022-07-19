@@ -32,8 +32,6 @@ pub fn start_listener_servers(
             config.listen_udp_acars(),
             tx_receivers_acars.clone(),
         );
-    } else {
-        trace!("No ACARS UDP ports to listen on. Skipping");
     }
 
     if should_start_service(config.listen_udp_vdlm2()) {
@@ -44,8 +42,6 @@ pub fn start_listener_servers(
             config.listen_udp_vdlm2(),
             tx_receivers_vdlm.clone(),
         );
-    } else {
-        trace!("No VDLM2 UDP ports to listen on. Skipping");
     }
 
     // Start the TCP listeners
@@ -58,8 +54,6 @@ pub fn start_listener_servers(
             config.listen_tcp_acars(),
             tx_receivers_acars.clone(),
         );
-    } else {
-        trace!("No ACARS TCP ports to listen on. Skipping");
     }
 
     if should_start_service(config.listen_tcp_vdlm2()) {
@@ -70,8 +64,6 @@ pub fn start_listener_servers(
             config.listen_tcp_vdlm2(),
             tx_receivers_vdlm.clone(),
         );
-    } else {
-        trace!("No VDLM2 TCP ports to listen on. Skipping");
     }
 
     // Start the ZMQ listeners
@@ -84,8 +76,6 @@ pub fn start_listener_servers(
             config.receive_zmq_vdlm2(),
             tx_receivers_vdlm.clone(),
         );
-    } else {
-        trace!("No VDLM TCP Receive ports to listen on. Skipping");
     }
 
     if should_start_service(config.receive_tcp_acars()) {
@@ -95,8 +85,6 @@ pub fn start_listener_servers(
             config.receive_tcp_acars(),
             tx_receivers_acars.clone(),
         );
-    } else {
-        trace!("No ACARS Receive ports to listen on. Skipping");
     }
 
     if should_start_service(config.receive_tcp_vdlm2()) {
@@ -106,8 +94,6 @@ pub fn start_listener_servers(
             config.receive_tcp_vdlm2(),
             tx_receivers_vdlm.clone(),
         );
-    } else {
-        trace!("No VDLM2 Receive ports to listen on. Skipping");
     }
 }
 
