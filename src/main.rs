@@ -5,8 +5,6 @@
 // Full license information available in the project LICENSE file.
 //
 
-// TODO: Remove as many .unwraps()s as possible. This is a temporary fix to get the code to compile.
-// We should handle all error cases
 // TODO: Clean up, add in, etc all trace and debug statements to make diagnostics easier to understand and to trace program logic better.
 
 use chrono::Local;

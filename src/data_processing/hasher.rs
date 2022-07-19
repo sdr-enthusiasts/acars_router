@@ -26,34 +26,46 @@ pub fn hash_message(mut message: Value) -> (u64, Value) {
 fn generate_acarsdec_or_vdlm2dec_hashable_data(mut message: Value) -> Value {
     // if app is present, remove it
     match message.get("app").is_some() {
-        true => {
-            message.as_object_mut().unwrap().remove("app");
-        }
+        true => match message.as_object_mut() {
+            Some(obj) => {
+                obj.remove("app");
+            }
+            None => (),
+        },
         false => (),
     }
     // if error is present, remove it
     match message.get("error").is_some() {
-        true => {
-            message.as_object_mut().unwrap().remove("error");
-        }
+        true => match message.as_object_mut() {
+            Some(obj) => {
+                obj.remove("error");
+            }
+            None => (),
+        },
         false => (),
     }
 
     // if level is present, remove it
 
     match message.get("level").is_some() {
-        true => {
-            message.as_object_mut().unwrap().remove("level");
-        }
+        true => match message.as_object_mut() {
+            Some(obj) => {
+                obj.remove("level");
+            }
+            None => (),
+        },
         false => (),
     }
 
     // if station_id is present, remove it
 
     match message.get("station_id").is_some() {
-        true => {
-            message.as_object_mut().unwrap().remove("station_id");
-        }
+        true => match message.as_object_mut() {
+            Some(obj) => {
+                obj.remove("station_id");
+            }
+            None => (),
+        },
         false => (),
     }
 
@@ -61,7 +73,12 @@ fn generate_acarsdec_or_vdlm2dec_hashable_data(mut message: Value) -> Value {
 
     match message.get("timestamp").is_some() {
         true => {
-            message.as_object_mut().unwrap().remove("timestamp");
+            match message.as_object_mut() {
+                Some(obj) => {
+                    obj.remove("timestamp");
+                }
+                None => (),
+            };
         }
         false => (),
     }
@@ -69,9 +86,12 @@ fn generate_acarsdec_or_vdlm2dec_hashable_data(mut message: Value) -> Value {
     // if channel is present, remove it
 
     match message.get("channel").is_some() {
-        true => {
-            message.as_object_mut().unwrap().remove("channel");
-        }
+        true => match message.as_object_mut() {
+            Some(obj) => {
+                obj.remove("channel");
+            }
+            None => (),
+        },
         false => (),
     }
 
@@ -83,16 +103,24 @@ fn generate_acarsdec_or_vdlm2dec_hashable_data(mut message: Value) -> Value {
 fn generate_dumpvdl2_hashable_data(mut message: Value) -> Value {
     // if app is present in vdl2, remove it
     match message["vdl2"].get("app").is_some() {
-        true => {
-            message["vdl2"].as_object_mut().unwrap().remove("app");
-        }
+        true => match message["vdl2"].as_object_mut() {
+            Some(vdl2) => {
+                vdl2.remove("app");
+            }
+            None => (),
+        },
         false => (),
     }
 
     // if freq_skew is present in vdl2, remove it
     match message["vdl2"].get("freq_skew").is_some() {
         true => {
-            message["vdl2"].as_object_mut().unwrap().remove("freq_skew");
+            match message["vdl2"].as_object_mut() {
+                Some(vdl2) => {
+                    vdl2.remove("freq_skew");
+                }
+                None => (),
+            };
         }
         false => (),
     }
@@ -100,12 +128,12 @@ fn generate_dumpvdl2_hashable_data(mut message: Value) -> Value {
     // if hdr_bits_fixed in vdl2, remove it
 
     match message["vdl2"].get("hdr_bits_fixed").is_some() {
-        true => {
-            message["vdl2"]
-                .as_object_mut()
-                .unwrap()
-                .remove("hdr_bits_fixed");
-        }
+        true => match message["vdl2"].as_object_mut() {
+            Some(vdl2) => {
+                vdl2.remove("hdr_bits_fixed");
+            }
+            None => (),
+        },
         false => (),
     }
 
@@ -113,10 +141,12 @@ fn generate_dumpvdl2_hashable_data(mut message: Value) -> Value {
 
     match message["vdl2"].get("noise_level").is_some() {
         true => {
-            message["vdl2"]
-                .as_object_mut()
-                .unwrap()
-                .remove("noise_level");
+            match message["vdl2"].as_object_mut() {
+                Some(vdl2) => {
+                    vdl2.remove("noise_level");
+                }
+                None => (),
+            };
         }
         false => (),
     }
@@ -124,12 +154,12 @@ fn generate_dumpvdl2_hashable_data(mut message: Value) -> Value {
     // if octets_corrected_by_fec is present in vdl2, remove it
 
     match message["vdl2"].get("octets_corrected_by_fec").is_some() {
-        true => {
-            message["vdl2"]
-                .as_object_mut()
-                .unwrap()
-                .remove("octets_corrected_by_fec");
-        }
+        true => match message["vdl2"].as_object_mut() {
+            Some(obj) => {
+                obj.remove("octets_corrected_by_fec");
+            }
+            None => (),
+        },
         false => (),
     }
 
@@ -137,7 +167,12 @@ fn generate_dumpvdl2_hashable_data(mut message: Value) -> Value {
 
     match message["vdl2"].get("sig_level").is_some() {
         true => {
-            message["vdl2"].as_object_mut().unwrap().remove("sig_level");
+            match message["vdl2"].as_object_mut() {
+                Some(obj) => {
+                    obj.remove("sig_level");
+                }
+                None => (),
+            };
         }
         false => (),
     }
@@ -145,18 +180,24 @@ fn generate_dumpvdl2_hashable_data(mut message: Value) -> Value {
     // if station is present in vdl2, remove it
 
     match message["vdl2"].get("station").is_some() {
-        true => {
-            message["vdl2"].as_object_mut().unwrap().remove("station");
-        }
+        true => match message["vdl2"].as_object_mut() {
+            Some(vdl2) => {
+                vdl2.remove("station");
+            }
+            None => (),
+        },
         false => (),
     }
 
     // if t is present in vdl2, remove it
 
     match message["vdl2"].get("t").is_some() {
-        true => {
-            message["vdl2"].as_object_mut().unwrap().remove("t");
-        }
+        true => match message["vdl2"].as_object_mut() {
+            Some(vdl2) => {
+                vdl2.remove("t");
+            }
+            None => (),
+        },
         false => (),
     }
 
