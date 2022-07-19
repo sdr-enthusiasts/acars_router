@@ -5,6 +5,11 @@
 // Full license information available in the project LICENSE file.
 //
 
+// Funny name for a file, but it's named after the command line flag that will use it
+// TCP server used to send data out. Will monitor for new TCP connections and send data to them.
+// AKA....just because I am thick and will forget in a day and a half, this socket passively
+// listens for new connections. It does not actively connect to new clients.
+
 use futures::SinkExt;
 use log::{debug, error, info};
 use std::collections::HashMap;

@@ -5,6 +5,8 @@
 // Full license information available in the project LICENSE file.
 //
 
+// Used to go connection to consumers of data, and then send data to them as it comes in
+
 use crate::generics::SenderServer;
 use log::error;
 use stubborn_io::tokio::StubbornIo;

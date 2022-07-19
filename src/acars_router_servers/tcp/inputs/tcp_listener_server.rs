@@ -5,6 +5,9 @@
 // Full license information available in the project LICENSE file.
 //
 
+// A receiver of data that passively listens for a TCP connection
+// aka does not connect and then sends the data in to be processed internally
+
 use crate::helper_functions::strip_line_endings;
 use log::{debug, error, info, trace};
 use std::error::Error;

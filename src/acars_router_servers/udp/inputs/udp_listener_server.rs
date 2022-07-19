@@ -5,6 +5,8 @@
 // Full license information available in the project LICENSE file.
 //
 
+// Server used to receive UDP data
+
 use crate::helper_functions::strip_line_endings;
 use log::{error, info, trace, warn};
 use std::io;

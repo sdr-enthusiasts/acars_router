@@ -5,6 +5,9 @@
 // Full license information available in the project LICENSE file.
 //
 
+// Server used to connect out to a client over TCP to receive data
+
+use crate::generics::reconnect_options;
 use crate::helper_functions::strip_line_endings;
 use log::{debug, error, trace};
 use stubborn_io::StubbornTcpStream;
@@ -25,7 +28,12 @@ impl TCPReceiverServer {
         let TCPReceiverServer { host, proto_name } = self;
         trace!("[TCP Receiver Server {}] Starting", proto_name);
 
-        let stream = match StubbornTcpStream::connect(host.clone()).await {
+        let stream = match StubbornTcpStream::connect_with_options(
+            host.clone(),
+            reconnect_options(),
+        )
+        .await
+        {
             Ok(stream) => stream,
             Err(e) => {
                 error!(

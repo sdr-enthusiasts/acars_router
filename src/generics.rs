@@ -7,6 +7,7 @@
 use serde_json::Value;
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use stubborn_io::ReconnectOptions;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
 
@@ -25,4 +26,13 @@ pub struct SenderServer<T> {
 
 pub struct Shared {
     pub peers: HashMap<SocketAddr, Tx>,
+}
+
+// create ReconnectOptions. We want the TCP stuff that goes out and connects to clients
+// to attempt to reconnect
+// TODO: Should we modify the reconnect intervals? Right now it increases in time.
+// See: https://docs.rs/stubborn-io/latest/src/stubborn_io/config.rs.html#93
+
+pub fn reconnect_options() -> ReconnectOptions {
+    return ReconnectOptions::new().with_exit_if_first_connect_fails(false);
 }

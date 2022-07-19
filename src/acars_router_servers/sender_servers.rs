@@ -6,6 +6,7 @@
 //
 
 use crate::config_options::ACARSRouterSettings;
+use crate::generics::reconnect_options;
 use crate::generics::SenderServer;
 use crate::generics::Shared;
 use crate::helper_functions::should_start_service;
@@ -60,7 +61,8 @@ pub async fn start_sender_servers(
     if should_start_service(config.send_tcp_acars()) {
         // Start the TCP sender servers for ACARS
         for host in config.send_tcp_acars() {
-            let socket = StubbornTcpStream::connect(host.clone()).await;
+            let socket =
+                StubbornTcpStream::connect_with_options(host.clone(), reconnect_options()).await;
             match socket {
                 Ok(socket) => {
                     let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
@@ -85,7 +87,8 @@ pub async fn start_sender_servers(
     if should_start_service(config.send_tcp_vdlm2()) {
         // Start the TCP sender servers for VDLM
         for host in config.send_tcp_vdlm2() {
-            let socket = StubbornTcpStream::connect(host.clone()).await;
+            let socket =
+                StubbornTcpStream::connect_with_options(host.clone(), reconnect_options()).await;
             match socket {
                 Ok(socket) => {
                     let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
