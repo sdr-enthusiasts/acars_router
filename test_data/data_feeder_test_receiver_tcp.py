@@ -22,17 +22,8 @@ from collections import deque  # noqa: E402
 thread_stop_event = Event()
 
 
-def TCPSocketListener(host, port, queue):
+def TCPSocketListener(sock, queue):
     global thread_stop_event
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(5)
-    try:
-        sock.connect((host, port))
-    except socket.error as msg:
-        print("Error: " + str(msg))
-
-        return
 
     while not thread_stop_event.is_set():
         try:
@@ -46,8 +37,8 @@ def TCPSocketListener(host, port, queue):
                     print(f"{data}")
         except socket.timeout:
             pass
-        except Exception as e:
-            print(e)
+        except Exception:
+            return
 
 
 if __name__ == "__main__":
@@ -93,30 +84,44 @@ if __name__ == "__main__":
 
     remote_ip = "127.0.0.1"
 
+    # This is slow, but we're going to start each socket one at a time, and then move on to the next
+    # the idea here is that the router will not be started at first and won't be actively connecting until
+    # some indeterminate amount of time
+
     # VDLM2
+    vdlm_sock_receive = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    vdlm_sock_receive.bind((remote_ip, tcp_vdlm_port))
+    vdlm_sock_receive.listen(5)
+    vdlm_client, addr = vdlm_sock_receive.accept()
+
     thread_vdlm2_tcp_listener = Thread(
         target=TCPSocketListener,
-        args=(remote_ip, tcp_vdlm_port, received_messages_queue_vdlm),
+        args=(vdlm_client, received_messages_queue_vdlm),
     )
     thread_vdlm2_tcp_listener.start()
 
     # ACARS
-
+    acars_sock_receive = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    acars_sock_receive.bind((remote_ip, tcp_acars_port))
+    acars_sock_receive.listen(5)
+    acars_client, addr = acars_sock_receive.accept()
     thread_acars_tcp_listener = Thread(
         target=TCPSocketListener,
-        args=(remote_ip, tcp_acars_port, received_messages_queue_acars),
+        args=(acars_client, received_messages_queue_acars),
     )
     thread_acars_tcp_listener.start()
 
     # create all of the output sockets
 
     acars_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    acars_sock.settimeout(1)
-    acars_sock.connect((remote_ip, tcp_acars_remote_port))
+    acars_sock.bind((remote_ip, tcp_acars_remote_port))
+    acars_sock.listen(5)
+    acars_client_remote, addr = acars_sock.accept()
 
     vdlm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    vdlm_sock.settimeout(1)
-    vdlm_sock.connect((remote_ip, tcp_vdlm_remote_port))
+    vdlm_sock.bind((remote_ip, tcp_vdlm_remote_port))
+    vdlm_sock.listen(5)
+    vdlm_client_remote, addr = vdlm_sock.accept()
 
     print(
         f"STARTING TCP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ''}TEST\n\n"
@@ -135,25 +140,25 @@ if __name__ == "__main__":
         if "vdl2" in message:
             # replace message["vdlm"]["t"]["sec"] with current unix epoch time
             message["vdl2"]["t"]["sec"] = int(time.time())
-            vdlm_sock.sendto(
+            vdlm_client_remote.sendto(
                 json.dumps(message).encode() + b"\n", (remote_ip, tcp_vdlm_remote_port)
             )
             if send_twice:
                 time.sleep(0.2)
                 print("Sending VDLM duplicate")
-                vdlm_sock.sendto(
+                vdlm_client_remote.sendto(
                     json.dumps(message).encode() + b"\n",
                     (remote_ip, tcp_vdlm_remote_port),
                 )
         else:
             message["timestamp"] = float(time.time())
-            acars_sock.sendto(
+            acars_client_remote.sendto(
                 json.dumps(message).encode() + b"\n", (remote_ip, tcp_acars_remote_port)
             )
             if send_twice:
                 time.sleep(0.2)
                 print("Sending ACARS duplicate")
-                acars_sock.sendto(
+                acars_client_remote.sendto(
                     json.dumps(message).encode() + b"\n",
                     (remote_ip, tcp_acars_remote_port),
                 )
@@ -193,8 +198,10 @@ if __name__ == "__main__":
 
     # Clean up
 
-    acars_sock.close()
-    vdlm_sock.close()
+    vdlm_client.close()
+    acars_client.close()
+    acars_client_remote.close()
+    vdlm_client_remote.close()
 
     # stop all threads
 

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
+# Copyright (c) Mike Nye, Fred Clausen
+#
+# Licensed under the MIT license: https://opensource.org/licenses/MIT
+# Permission is granted to use, copy, modify, and redistribute the work.
+# Full license information available in the project LICENSE file.
+#
+
 task_failed() {
   echo "Test failed"
-  pkill acars_router
-  exit 1
-}
-
-router_failed() {
-  echo "Router failed"
   pkill acars_router
   exit 1
 }
@@ -73,6 +74,14 @@ echo "TCP Send/Receive with deduping"
 "$ACARS_ROUTER_PATH" --listen-tcp-acars 15551 --listen-tcp-vdlm2 15556 --serve-tcp-acars 15550 --serve-tcp-vdlm2 15555 --enable-dedupe &
 sleep 3
 python3 data_feeder_test_sender_tcp.py --check-for-dupes || task_failed
+
+pkill acars_router
+
+echo "TCP Listen/Send with deduping"
+
+"$ACARS_ROUTER_PATH" --receive-tcp-acars 127.0.0.1:15551 --receive-tcp-vdlm2 127.0.0.1:15556 --send-tcp-acars 127.0.0.1:15550 --send-tcp-vdlm2 127.0.0.1:15555 --enable-dedupe &
+
+python3 data_feeder_test_receiver_tcp.py --check-for-dupes || task_failed
 
 pkill acars_router
 

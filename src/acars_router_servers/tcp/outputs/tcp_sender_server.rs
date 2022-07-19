@@ -13,6 +13,10 @@ use stubborn_io::tokio::StubbornIo;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
+// TODO: The error and info messages kicked out by StubbornIO are kinda...useless.
+// It doesn't include things like host, port, etc.
+// Can we fix that?
+
 impl SenderServer<StubbornIo<TcpStream, String>> {
     pub async fn send_message(mut self) {
         tokio::spawn(async move {
