@@ -85,12 +85,14 @@ python3 data_feeder_test_receiver_tcp.py --check-for-dupes || task_failed
 
 pkill acars_router
 
+# ZMQ SEND / LISTEN
+
 echo "ZMQ VDLM Send/UDP ACARS Send and ZMQ Receive"
 
 "$ACARS_ROUTER_PATH" --listen-udp-acars 15551 --receive-zmq-vdlm2 127.0.0.1:15556 --serve-zmq-acars 15550 --serve-zmq-vdlm2 15555 --enable-dedupe &
 
 python3 data_feeder_test_zmq.py --check-for-dupes || task_failed
-
+sleep 3
 pkill acars_router
 
 echo "ALL TESTS PASSED"
