@@ -30,7 +30,7 @@ pub struct Shared {
 
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients
 // to attempt to reconnect
-// TODO: Should we modify the reconnect intervals? Right now it increases in time.
+// TODO: Should we modify the reconnect intervals? Right now it increases in time to something like 30 minutes between attempts
 // See: https://docs.rs/stubborn-io/latest/src/stubborn_io/config.rs.html#93
 
 pub fn reconnect_options() -> ReconnectOptions {
