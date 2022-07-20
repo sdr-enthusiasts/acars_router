@@ -75,7 +75,7 @@ async fn process_tcp_sockets(
 
         match serde_json::from_str::<serde_json::Value>(stripped.as_str()) {
             Ok(msg) => {
-                trace!("[TCP SERVER: {}]: {}", proto_name, msg);
+                trace!("[TCP SERVER: {}] Received message: {}", proto_name, msg);
                 match channel.send(msg).await {
                     Ok(_) => debug!("[TCP SERVER {proto_name}] Message sent to channel"),
                     Err(e) => error!(
