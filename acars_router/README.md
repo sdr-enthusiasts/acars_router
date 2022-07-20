@@ -12,11 +12,12 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 
 #### ACARS Input
 
-| Argument              | Environment Variable  | Description                                                                                                                                             | Default |
-| --------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `--listen-udp-acars`  | `AR_LISTEN_UDP_ACARS` | UDP port to listen for ACARS JSON messages. Can be specified multiple times (separated by `;`) to listen on multiple ports.                             |         |
-| `--listen-tcp-acars`  | `AR_LISTEN_TCP_ACARS` | TCP port to listen for ACARS JSON messages. Can be specified multiple times (separated by `;`) to listen on multiple ports.                             |         |
-| `--receive-tcp-acars` | `AR_RECV_TCP_ACARS`   | Connect to "host:port" (over TCP) and receive ACARS JSON messages. Can be specified multiple times (separated by `;`) to receive from multiple sources. |         |
+| Argument              | Environment Variable  | Description                                                                                                                                                                | Default |
+| --------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--listen-udp-acars`  | `AR_LISTEN_UDP_ACARS` | UDP port to listen for ACARS JSON messages. Can be specified multiple times (separated by `;`) to listen on multiple ports.                                                |         |
+| `--listen-tcp-acars`  | `AR_LISTEN_TCP_ACARS` | TCP port to listen for ACARS JSON messages. Can be specified multiple times (separated by `;`) to listen on multiple ports.                                                |         |
+| `--receive-tcp-acars` | `AR_RECV_TCP_ACARS`   | Connect to "host:port" (over TCP) and receive ACARS JSON messages. Can be specified multiple times (separated by `;`) to receive from multiple sources.                    |         |
+| `--receive-zmq-acars` | `AR_RECV_ZMQ_ACARS`   | Connect to a ZeroMQ publisher at `host:port` (over TCP) and receive ACARS JSON messages as a subscriber. Can be specified multiple times to receive from multiple sources. |         |
 
 #### VDLM2 Input
 

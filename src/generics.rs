@@ -37,6 +37,13 @@ pub struct SenderServerConfig {
     pub serve_zmq: Vec<String>,
 }
 
+pub struct OutputServerConfig {
+    pub send_udp: Vec<String>,
+    pub send_tcp: Vec<String>,
+    pub serve_tcp: Vec<String>,
+    pub serve_zmq: Vec<String>,
+}
+
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients
 // to attempt to reconnect
 // TODO: Should we modify the reconnect intervals? Right now it increases in time to something like 30 minutes between attempts
