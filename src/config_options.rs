@@ -137,7 +137,8 @@ impl ACARSRouterSettings {
     pub fn should_start_acars_inputs(&self) -> bool {
         return should_start_service(self.receive_tcp_acars())
             || should_start_service(self.listen_udp_acars())
-            || should_start_service(self.listen_tcp_acars());
+            || should_start_service(self.listen_tcp_acars())
+            || should_start_service(self.receive_zmq_acars());
     }
 
     pub fn should_start_acars_outputs(&self) -> bool {
