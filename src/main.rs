@@ -66,6 +66,8 @@ use sender_servers::start_sender_servers;
 async fn start_processes() {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
     let log_level = config.log_level();
+    let should_start_acars_watcher = config.should_start_acars_watcher();
+    let should_start_vdlm_watcher = config.should_start_vdlm2_watcher();
 
     Builder::new()
         .format(|buf, record| {
@@ -133,28 +135,35 @@ async fn start_processes() {
     });
 
     // Start the message handler tasks.
-    // TODO: this starts up tasks even if there are no valid input servers.
     // Don't start the queue watcher UNLESS there is a valid input source
 
     debug!("Starting the message handler tasks");
 
-    tokio::spawn(async move {
-        watch_received_message_queue(
-            rx_receivers_acars,
-            tx_processed_acars,
-            &message_handler_config_acars,
-        )
-        .await
-    });
+    if should_start_acars_watcher {
+        tokio::spawn(async move {
+            watch_received_message_queue(
+                rx_receivers_acars,
+                tx_processed_acars,
+                &message_handler_config_acars,
+            )
+            .await
+        });
+    } else {
+        info!("Not starting the ACARS message handler task. No input sources specified.");
+    }
 
-    tokio::spawn(async move {
-        watch_received_message_queue(
-            rx_receivers_vdlm,
-            tx_processed_vdlm,
-            &message_handler_config_vdlm,
-        )
-        .await;
-    });
+    if should_start_vdlm_watcher {
+        tokio::spawn(async move {
+            watch_received_message_queue(
+                rx_receivers_vdlm,
+                tx_processed_vdlm,
+                &message_handler_config_vdlm,
+            )
+            .await;
+        });
+    } else {
+        info!("Not starting the VDLM message handler task. No input sources specified.");
+    }
 
     // TODO: Is this the best way of doing this?
     // Without sleeping and waiting the entire program exits immediately.

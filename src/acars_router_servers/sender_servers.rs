@@ -224,7 +224,7 @@ async fn monitor_queues(
         }
     });
 
-    trace!("Starting the VDLM Output Queue");
+    debug!("Starting the VDLM Output Queue");
 
     tokio::spawn(async move {
         while let Some(message) = rx_processed_vdlm.recv().await {

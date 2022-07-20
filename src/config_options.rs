@@ -5,7 +5,7 @@
 // Full license information available in the project LICENSE file.
 //
 
-use crate::helper_functions::strip_line_endings;
+use crate::helper_functions::{should_start_service, strip_line_endings};
 use clap::Parser;
 use derive_getters::Getters;
 use log::debug;
@@ -130,6 +130,19 @@ pub struct ACARSRouterSettings {
 }
 
 impl ACARSRouterSettings {
+    pub fn should_start_acars_watcher(&self) -> bool {
+        return should_start_service(self.receive_tcp_acars())
+            || should_start_service(self.listen_udp_acars())
+            || should_start_service(self.listen_tcp_acars());
+    }
+
+    pub fn should_start_vdlm2_watcher(&self) -> bool {
+        return should_start_service(self.receive_tcp_vdlm2())
+            || should_start_service(self.listen_udp_vdlm2())
+            || should_start_service(self.listen_tcp_vdlm2())
+            || should_start_service(self.receive_zmq_vdlm2());
+    }
+
     pub fn print_values(&self) {
         debug!("The Following configuration values were loaded:");
         debug!("AR_LISTEN_UDP_ACARS: {:?}", self.listen_udp_acars);
