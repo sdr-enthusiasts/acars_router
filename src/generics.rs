@@ -37,11 +37,12 @@ pub struct SenderServerConfig {
     pub serve_zmq: Vec<String>,
 }
 
+#[derive(Getters, Clone)]
 pub struct OutputServerConfig {
-    pub send_udp: Vec<String>,
-    pub send_tcp: Vec<String>,
-    pub serve_tcp: Vec<String>,
-    pub serve_zmq: Vec<String>,
+    pub listen_udp: Vec<String>,
+    pub listen_tcp: Vec<String>,
+    pub receive_tcp: Vec<String>,
+    pub receive_zmq: Vec<String>,
 }
 
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients

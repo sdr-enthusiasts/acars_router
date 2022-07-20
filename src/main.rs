@@ -57,6 +57,7 @@ mod tcp_serve_server;
 mod generics;
 
 use config_options::ACARSRouterSettings;
+use generics::OutputServerConfig;
 use generics::SenderServerConfig;
 use helper_functions::exit_process;
 use listener_servers::start_listener_servers;
@@ -130,7 +131,42 @@ async fn start_processes() {
 
     // start the input servers
     debug!("Starting input servers");
-    start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
+    // start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
+
+    if config.should_start_acars_inputs() {
+        // start the acars input servers
+        info!("Starting ACARS input servers");
+        let acars_input_config = OutputServerConfig {
+            listen_udp: config.listen_udp_acars().clone(),
+            listen_tcp: config.listen_tcp_acars().clone(),
+            receive_zmq: config.receive_zmq_acars().clone(),
+            receive_tcp: config.receive_tcp_acars().clone(),
+        };
+
+        tokio::spawn(async move {
+            start_listener_servers(acars_input_config, tx_receivers_acars, "ACARS".to_string());
+        });
+    } else {
+        info!("No valid ACARS input servers configured. Not starting ACARS Input Servers");
+    }
+
+    if config.should_start_vdlm2_inputs() {
+        // start the vdlm input servers
+        info!("Starting VDLM2 input servers");
+        let vdlm_input_config = OutputServerConfig {
+            listen_udp: config.listen_udp_vdlm2().clone(),
+            listen_tcp: config.listen_tcp_vdlm2().clone(),
+            receive_zmq: config.receive_zmq_vdlm2().clone(),
+            receive_tcp: config.receive_tcp_vdlm2().clone(),
+        };
+
+        tokio::spawn(async move {
+            start_listener_servers(vdlm_input_config, tx_receivers_vdlm, "VDLM".to_string());
+        });
+    } else {
+        info!("No valid VDLM2 input servers configured. Not starting VDLM2 Input Servers");
+    }
+
     // start the output servers
     debug!("Starting output servers");
     if config.should_start_acars_outputs() {

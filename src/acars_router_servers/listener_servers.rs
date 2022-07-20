@@ -7,7 +7,7 @@
 
 // NOTE: This is a sender. WE **PUB** to a *SUB* socket.
 
-use crate::config_options::ACARSRouterSettings;
+use crate::generics::OutputServerConfig;
 use crate::helper_functions::should_start_service;
 use crate::tcp_listener_server::TCPListenerServer;
 use crate::tcp_receiver_server::TCPReceiverServer;
@@ -17,83 +17,38 @@ use log::{debug, error, info};
 use tokio::sync::mpsc::Sender;
 
 pub fn start_listener_servers(
-    config: &ACARSRouterSettings,
-    tx_receivers_acars: Sender<serde_json::Value>,
-    tx_receivers_vdlm: Sender<serde_json::Value>,
+    config: OutputServerConfig,
+    tx_receivers: Sender<serde_json::Value>,
+    server_type: String,
 ) {
     // Start the UDP listener servers
 
     // Make sure we have at least one UDP port to listen on
-    if should_start_service(config.listen_udp_acars()) {
-        // Start the UDP listener servers for ACARS
-        info!("Starting UDP listener servers for ACARS");
-        start_udp_listener_servers(
-            &"ACARS".to_string(),
-            config.listen_udp_acars(),
-            tx_receivers_acars.clone(),
-        );
-    }
-
-    if should_start_service(config.listen_udp_vdlm2()) {
-        info!("Starting UDP listener servers for VDLM2");
-        // Start the UDP listener servers for VDLM
-        start_udp_listener_servers(
-            &"VDLM2".to_string(),
-            config.listen_udp_vdlm2(),
-            tx_receivers_vdlm.clone(),
-        );
+    if should_start_service(config.listen_udp()) {
+        // Start the UDP listener servers for server_type
+        info!("Starting UDP listener servers for {server_type}");
+        start_udp_listener_servers(&server_type, config.listen_udp(), tx_receivers.clone());
     }
 
     // Start the TCP listeners
 
-    if should_start_service(config.listen_tcp_acars()) {
-        // Start the TCP listener servers for ACARS
-        info!("Starting TCP listener servers for ACARS");
-        start_tcp_listener_servers(
-            &"ACARS".to_string(),
-            config.listen_tcp_acars(),
-            tx_receivers_acars.clone(),
-        );
-    }
-
-    if should_start_service(config.listen_tcp_vdlm2()) {
-        // Start the TCP listener servers for VDLM
-        info!("Starting TCP listener servers for VDLM");
-        start_tcp_listener_servers(
-            &"VDLM2".to_string(),
-            config.listen_tcp_vdlm2(),
-            tx_receivers_vdlm.clone(),
-        );
+    if should_start_service(config.listen_tcp()) {
+        // Start the TCP listener servers for server_type
+        info!("Starting TCP listener servers for {server_type}");
+        start_tcp_listener_servers(&server_type, config.listen_tcp(), tx_receivers.clone());
     }
 
     // Start the ZMQ listeners
 
-    if should_start_service(config.receive_zmq_vdlm2()) {
-        // Start the ZMQ listener servers for ACARS
-        info!("Starting ZMQ listener servers for VDLM2");
-        start_zmq_listener_servers(
-            &"VDLM".to_string(),
-            config.receive_zmq_vdlm2(),
-            tx_receivers_vdlm.clone(),
-        );
+    if should_start_service(config.receive_zmq()) {
+        // Start the ZMQ listener servers for {server_type}
+        info!("Starting ZMQ Receiver servers for {server_type}");
+        start_zmq_listener_servers(&server_type, config.receive_zmq(), tx_receivers.clone());
     }
 
-    if should_start_service(config.receive_tcp_acars()) {
-        info!("Starting TCP Receiver servers for ACARS");
-        start_tcp_receiver_servers(
-            &"ACARS".to_string(),
-            config.receive_tcp_acars(),
-            tx_receivers_acars.clone(),
-        );
-    }
-
-    if should_start_service(config.receive_tcp_vdlm2()) {
-        info!("Starting TCP Receiver servers for VDLM");
-        start_tcp_receiver_servers(
-            &"VDLM2".to_string(),
-            config.receive_tcp_vdlm2(),
-            tx_receivers_vdlm.clone(),
-        );
+    if should_start_service(config.receive_tcp()) {
+        info!("Starting TCP Receiver servers for {server_type}");
+        start_tcp_receiver_servers(&server_type, config.receive_tcp(), tx_receivers.clone());
     }
 }
 
