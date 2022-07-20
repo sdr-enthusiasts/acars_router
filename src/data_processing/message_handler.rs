@@ -53,15 +53,51 @@ pub async fn print_stats(
     }
 }
 
+pub async fn clean_up_dedupe_queue(
+    dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>>,
+    dedupe_window: u64,
+    queue_type: &str,
+) {
+    loop {
+        sleep(Duration::from_secs(dedupe_window)).await;
+        // Remove old messages from the dedupe_queue
+        if !dedupe_queue.lock().await.is_empty() {
+            // iterate through dedupe_que and remove old messages
+            let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+                Ok(n) => n.as_secs(),
+                Err(_) => 0,
+            };
+
+            dedupe_queue.lock().await.retain(|message| {
+                let (timestamp, _) = message;
+                let diff = current_time - timestamp;
+                if diff > dedupe_window {
+                    false
+                } else {
+                    true
+                }
+            });
+
+            debug!(
+                "[Message Handler {}] dedupe queue size after pruning {}",
+                queue_type,
+                dedupe_queue.lock().await.len()
+            );
+        }
+    }
+}
+
 pub async fn watch_received_message_queue(
     mut input_queue: Receiver<serde_json::Value>,
     output_queue: Sender<serde_json::Value>,
     config: &MessageHandlerConfig,
 ) {
-    let mut dedupe_queue: VecDeque<(u64, u64)> = VecDeque::with_capacity(100);
+    let dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>> =
+        Arc::new(Mutex::new(VecDeque::with_capacity(100)));
     let total_messages_processed = Arc::new(Mutex::new(0));
     let total_messages_since_last = Arc::new(Mutex::new(0));
-    let queue_type = config.queue_type.clone();
+    let queue_type_stats = config.queue_type.clone();
+    let queue_type_dedupe = config.queue_type.clone();
     let stats_every = config.stats_every.clone() * 60; // Value has to be in seconds. Input is in minutes.
     let version = env!("CARGO_PKG_VERSION");
 
@@ -77,15 +113,33 @@ pub async fn watch_received_message_queue(
             stats_total_messages_context,
             stats_total_messages_since_last_context,
             stats_every,
-            &queue_type,
+            queue_type_stats.as_str(),
         )
         .await;
     });
+
+    // Generate an async loop that sleeps for the requested dedupe window and then cleans the queue
+    // Give it the context for the dedupe queue
+    // The dedupe queue to be cleaned.
+    if config.dedupe {
+        let dedupe_queue_context = Arc::clone(&dedupe_queue);
+        let dedupe_window = config.dedupe_window.clone();
+
+        tokio::spawn(async move {
+            clean_up_dedupe_queue(
+                dedupe_queue_context,
+                dedupe_window,
+                queue_type_dedupe.as_str(),
+            )
+            .await;
+        });
+    }
 
     while let Some(mut message) = input_queue.recv().await {
         // Grab the mutexes for the stats counter and increment the total messages processed by the message handler.
         let stats_total_loop_context = Arc::clone(&total_messages_processed);
         let stats_total_loop_since_last_context = Arc::clone(&total_messages_since_last);
+        let dedupe_queue_loop = Arc::clone(&dedupe_queue);
         *stats_total_loop_since_last_context.lock().await += 1;
         *stats_total_loop_context.lock().await += 1;
 
@@ -98,27 +152,6 @@ pub async fn watch_received_message_queue(
             Ok(n) => n.as_secs(),
             Err(_) => 0,
         };
-
-        // Remove old messages from the dedupe_queue
-
-        if !dedupe_queue.is_empty() {
-            // iterate through dedupe_que and remove old messages
-            dedupe_queue.retain(|message| {
-                let (timestamp, _) = message;
-                let diff = current_time - timestamp;
-                if diff > config.dedupe_window {
-                    false
-                } else {
-                    true
-                }
-            });
-
-            debug!(
-                "[Message Handler {}] dedupe queue size after pruning {}",
-                config.queue_type,
-                dedupe_queue.len()
-            );
-        }
 
         // acarsdec/vdlm2dec use floating point message times. dumpvdl2 uses ints.
         // Determine if the message is dumpvdl2 or not, and handle correctly
@@ -180,7 +213,7 @@ pub async fn watch_received_message_queue(
 
         if config.dedupe {
             let mut rejected = false;
-            for (_, hashed_value_saved) in dedupe_queue.iter() {
+            for (_, hashed_value_saved) in dedupe_queue_loop.lock().await.iter() {
                 if *hashed_value_saved == hashed_value {
                     info!(
                         "[Message Handler {}] Message is a duplicate. Skipping message.",
@@ -194,7 +227,10 @@ pub async fn watch_received_message_queue(
             if rejected {
                 continue;
             } else {
-                dedupe_queue.push_back((message_time, hashed_value.clone()));
+                dedupe_queue_loop
+                    .lock()
+                    .await
+                    .push_back((message_time, hashed_value.clone()));
             }
         }
 
