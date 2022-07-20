@@ -5,21 +5,16 @@
 // Full license information available in the project LICENSE file.
 //
 
-use crate::generics::reconnect_options;
-use crate::generics::SenderServer;
-use crate::generics::SenderServerConfig;
-use crate::generics::Shared;
+use crate::generics::{reconnect_options, SenderServer, SenderServerConfig, Shared};
 use crate::helper_functions::should_start_service;
 use crate::tcp_serve_server::TCPServeServer;
 use crate::udp_sender_server::UDPSenderServer;
 use log::{debug, error};
 use serde_json::Value;
-use tmq::{publish, Context};
-
 use std::sync::Arc;
 use stubborn_io::StubbornTcpStream;
-use tokio::net::TcpListener;
-use tokio::net::UdpSocket;
+use tmq::{publish, Context};
+use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{mpsc, Mutex};
 

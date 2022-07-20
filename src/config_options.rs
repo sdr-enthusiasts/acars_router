@@ -9,8 +9,7 @@ use crate::helper_functions::{should_start_service, strip_line_endings};
 use clap::Parser;
 use derive_getters::Getters;
 use log::debug;
-use std::env;
-use std::str;
+use std::{env, str};
 
 #[derive(Parser, Debug)]
 #[clap(name = "ACARS Router", author = "Mike Nye / Fred Clausen", version = "1.0", about = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers.", long_about = None)]

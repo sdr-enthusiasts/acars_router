@@ -12,14 +12,6 @@
 // Basically using the concept of UdpFramed (and maybe TCPFramed as well?) to function as the stream deserializer, and use that to
 // Capture "bad" packets for potential reassembly.
 
-use chrono::Local;
-use env_logger::Builder;
-use log::{debug, error, info, trace};
-use std::error::Error;
-use std::io::Write;
-use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration};
-
 #[path = "./config_options.rs"]
 mod config_options;
 #[path = "./data_processing/hasher.rs"]
@@ -61,14 +53,20 @@ mod tcp_serve_server;
 #[path = "./generics.rs"]
 mod generics;
 
+use chrono::Local;
 use config_options::ACARSRouterSettings;
-use generics::OutputServerConfig;
-use generics::SenderServerConfig;
+use env_logger::Builder;
+use generics::{OutputServerConfig, SenderServerConfig};
 use helper_functions::exit_process;
 use listener_servers::start_listener_servers;
+use log::{debug, error, info, trace};
 use message_handler::{watch_received_message_queue, MessageHandlerConfig};
 use sanity_checker::check_config_option_sanity;
 use sender_servers::start_sender_servers;
+use std::error::Error;
+use std::io::Write;
+use tokio::sync::mpsc;
+use tokio::time::{sleep, Duration};
 
 async fn start_processes() {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
