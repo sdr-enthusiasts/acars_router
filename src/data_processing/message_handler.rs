@@ -113,7 +113,11 @@ pub async fn watch_received_message_queue(
                 }
             });
 
-            debug!("dedupe queue size {}", dedupe_queue.len());
+            debug!(
+                "[Message Handler {}] dedupe queue size after pruning {}",
+                config.queue_type,
+                dedupe_queue.len()
+            );
         }
 
         // acarsdec/vdlm2dec use floating point message times. dumpvdl2 uses ints.

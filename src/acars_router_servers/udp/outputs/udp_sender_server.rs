@@ -7,7 +7,7 @@
 
 // Used to send UDP data
 
-use log::{trace, warn};
+use log::{debug, trace, warn};
 use tokio::net::UdpSocket;
 
 #[derive(Debug)]
@@ -32,11 +32,9 @@ impl UDPSenderServer {
             let bytes_sent = self.socket.send_to(message_as_bytes, addr).await;
             match bytes_sent {
                 Ok(bytes_sent) => {
-                    trace!(
+                    debug!(
                         "[UDP SENDER {}] sent {} bytes to {}",
-                        self.proto_name,
-                        bytes_sent,
-                        addr
+                        self.proto_name, bytes_sent, addr
                     );
                 }
                 Err(e) => {
