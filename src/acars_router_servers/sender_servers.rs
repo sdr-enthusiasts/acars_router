@@ -5,9 +5,9 @@
 // Full license information available in the project LICENSE file.
 //
 
-use crate::config_options::ACARSRouterSettings;
 use crate::generics::reconnect_options;
 use crate::generics::SenderServer;
+use crate::generics::SenderServerConfig;
 use crate::generics::Shared;
 use crate::helper_functions::should_start_service;
 use crate::tcp_serve_server::TCPServeServer;
@@ -24,57 +24,41 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{mpsc, Mutex};
 
 pub async fn start_sender_servers(
-    config: &ACARSRouterSettings,
-    rx_processed_acars: Receiver<Value>,
-    rx_processed_vdlm: Receiver<Value>,
+    config: &SenderServerConfig,
+    rx_processed: Receiver<Value>,
+    server_type: String,
 ) {
     // Optional variables to store the output sockets.
     // Using optionals because the queue of messages can only have one "owner" at a time.
     // So we need to separate out the sockets from watching the queue.
     // Flow is check and see if there are any configured outputs for the queue
     // If so, start it up and save it to the appropriate server variables.
-    // Then start watchers for the ACARS and VDLM queue, and once a message comes in that needs to be transmitted
-    // Check if each type of server exists, and if so, send the message to it.
+    // Then start watchers for the input queue
 
-    let mut acars_udp_server: Option<UDPSenderServer> = None;
-    let mut vdlm_udp_server: Option<UDPSenderServer> = None;
+    // TODO: This seems like a stupid way of doing the UDP output. Why did I do it this way?
+    // Why can't it be done in the same way as the other outputs?
 
-    let acars_sender_servers: Arc<Mutex<Vec<Sender<Value>>>> = Arc::new(Mutex::new(Vec::new()));
-    let vdlm_sender_servers: Arc<Mutex<Vec<Sender<Value>>>> = Arc::new(Mutex::new(Vec::new()));
+    let mut udp_server: Option<UDPSenderServer> = None;
+    let sender_servers: Arc<Mutex<Vec<Sender<Value>>>> = Arc::new(Mutex::new(Vec::new()));
 
-    if should_start_service(config.send_udp_acars()) {
-        // Start the UDP sender servers for ACARS
-        acars_udp_server =
-            start_udp_senders_servers(&"ACARS".to_string(), config.send_udp_acars()).await;
+    if should_start_service(config.send_udp()) {
+        // Start the UDP sender servers for {server_type}
+        udp_server = start_udp_senders_servers(server_type.clone(), config.send_udp()).await;
     }
 
-    if should_start_service(config.send_udp_vdlm2()) {
-        // Start the UDP sender servers for VDLM
-        vdlm_udp_server =
-            start_udp_senders_servers(&"VDLM2".to_string(), config.send_udp_vdlm2()).await;
-    }
-
-    if should_start_service(config.send_tcp_acars()) {
-        for host in config.send_tcp_acars() {
-            let new_state = Arc::clone(&acars_sender_servers);
+    if should_start_service(config.send_tcp()) {
+        for host in config.send_tcp() {
+            let new_state = Arc::clone(&sender_servers);
             let hostname = host.clone();
-            tokio::spawn(async move { start_tcp(hostname, "ACARS".to_string(), new_state).await });
+            let s_type = server_type.clone();
+            tokio::spawn(async move { start_tcp(hostname, s_type, new_state).await });
         }
     }
 
-    if should_start_service(config.send_tcp_vdlm2()) {
-        // Start the TCP sender servers for VDLM
-        for host in config.send_tcp_vdlm2() {
-            let new_state = Arc::clone(&vdlm_sender_servers);
-            let hostname = host.clone();
-            tokio::spawn(async move { start_tcp(hostname, "VDLM2".to_string(), new_state).await });
-        }
-    }
+    if should_start_service(config.serve_tcp()) {
+        // Start the TCP servers for {server_type}
 
-    if should_start_service(config.serve_tcp_acars()) {
-        // Start the TCP servers for ACARS
-
-        for host in config.serve_tcp_acars() {
+        for host in config.serve_tcp() {
             let hostname = "0.0.0.0:".to_string() + host.as_str();
             let socket = TcpListener::bind(hostname.clone()).await;
 
@@ -82,7 +66,7 @@ pub async fn start_sender_servers(
                 Ok(socket) => {
                     let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
                     let tcp_sender_server = TCPServeServer { socket: socket };
-                    let new_state = Arc::clone(&acars_sender_servers);
+                    let new_state = Arc::clone(&sender_servers);
                     new_state.lock().await.push(tx_processed_acars.clone());
                     let state = Arc::new(Mutex::new(Shared::new()));
                     tokio::spawn(async move {
@@ -92,44 +76,22 @@ pub async fn start_sender_servers(
                     });
                 }
                 Err(e) => {
-                    error!("[TCP SERVE ACARS]: Error connecting to {}: {}", host, e);
+                    error!(
+                        "[TCP SERVE {server_type}]: Error connecting to {}: {}",
+                        host, e
+                    );
                 }
             }
         }
     }
 
-    if should_start_service(config.serve_tcp_vdlm2()) {
-        // Start the TCP servers for VDLM
-        for host in config.serve_tcp_vdlm2() {
-            let hostname = "0.0.0.0:".to_string() + host.as_str();
-            let socket = TcpListener::bind(hostname.clone()).await;
-            let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
-            let new_state = Arc::clone(&vdlm_sender_servers);
-            match socket {
-                Ok(socket) => {
-                    let tcp_sender_server = TCPServeServer { socket: socket };
-                    new_state.lock().await.push(tx_processed_vdlm);
-                    let state = Arc::new(Mutex::new(Shared::new()));
-                    tokio::spawn(async move {
-                        tcp_sender_server
-                            .watch_for_connections(rx_processed_vdlm, state)
-                            .await;
-                    });
-                }
-                Err(e) => {
-                    error!("[TCP SERVE VDLM2]: Error connecting to {}: {}", host, e);
-                }
-            }
-        }
-    }
-
-    if should_start_service(config.serve_zmq_acars()) {
-        // Start the ZMQ sender servers for ACARS
-        for port in config.serve_zmq_acars() {
+    if should_start_service(config.serve_zmq()) {
+        // Start the ZMQ sender servers for {server_type}
+        for port in config.serve_zmq() {
             let server_address = "tcp://127.0.0.1:".to_string() + &port;
-            let name = "ZMQ_SENDER_SERVER_ACARS_".to_string() + &port;
+            let name = "ZMQ_SENDER_SERVER_{server_type}_".to_string() + &port;
             let socket = publish(&Context::new()).bind(&server_address);
-            let new_state = Arc::clone(&acars_sender_servers);
+            let new_state = Arc::clone(&sender_servers);
             let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
             match socket {
                 Ok(socket) => {
@@ -145,82 +107,29 @@ pub async fn start_sender_servers(
                     });
                 }
                 Err(e) => {
-                    error!("Error starting ZMQ ACARS server on port {}: {}", port, e);
+                    error!(
+                        "Error starting ZMQ {server_type} server on port {}: {}",
+                        port, e
+                    );
                 }
             }
         }
     }
 
-    if should_start_service(config.serve_zmq_vdlm2()) {
-        // Start the ZMQ sender servers for ACARS
-        for port in config.serve_zmq_vdlm2() {
-            let server_address = "tcp://127.0.0.1:".to_string() + &port;
-            let name = "ZMQ_SENDER_SERVER_VDLM_".to_string() + &port;
-            let socket = publish(&Context::new()).bind(&server_address);
-            let new_state = Arc::clone(&vdlm_sender_servers);
-            match socket {
-                Ok(socket) => {
-                    let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
-                    let zmq_sender_server = SenderServer {
-                        host: server_address.clone(),
-                        proto_name: name.clone(),
-                        socket: socket,
-                        channel: rx_processed_vdlm,
-                    };
-                    new_state.lock().await.push(tx_processed_vdlm.clone());
-                    tokio::spawn(async move {
-                        zmq_sender_server.send_message().await;
-                    });
-                }
-                Err(e) => {
-                    error!("Error starting ZMQ VDLM server on port {}: {}", port, e);
-                }
-            }
-        }
-    }
+    let monitor_state = Arc::clone(&sender_servers);
 
-    let monitor_state_acars = Arc::clone(&acars_sender_servers);
-    let monitor_state_vdlm = Arc::clone(&vdlm_sender_servers);
-
-    monitor_queues(
-        rx_processed_acars,
-        rx_processed_vdlm,
-        acars_udp_server,
-        vdlm_udp_server,
-        monitor_state_acars,
-        monitor_state_vdlm,
-    )
-    .await;
-}
-
-async fn monitor_queues(
-    rx_processed_acars: mpsc::Receiver<Value>,
-    rx_processed_vdlm: mpsc::Receiver<Value>,
-    acars_udp_server: Option<UDPSenderServer>,
-    vdlm_udp_server: Option<UDPSenderServer>,
-    acars_sender_servers: Arc<Mutex<Vec<Sender<Value>>>>,
-    vdlm_sender_servers: Arc<Mutex<Vec<Sender<Value>>>>,
-) {
-    debug!("Starting the ACARS Output Queue");
-    let acars_queue_context = Arc::clone(&acars_sender_servers);
-    tokio::spawn(async move {
-        monitor_queue(acars_udp_server, acars_queue_context, rx_processed_acars).await;
-    });
-
-    debug!("Starting the VDLM Output Queue");
-    let vdlm_queue_context = Arc::clone(&vdlm_sender_servers);
-    tokio::spawn(async move {
-        monitor_queue(vdlm_udp_server, vdlm_queue_context, rx_processed_vdlm).await;
-    });
+    monitor_queue(rx_processed, udp_server, monitor_state, server_type).await;
 }
 
 async fn monitor_queue(
-    udp_server: Option<UDPSenderServer>,
-    servers: Arc<Mutex<Vec<Sender<Value>>>>,
     mut rx_processed: mpsc::Receiver<Value>,
+    udp_server: Option<UDPSenderServer>,
+    sender_servers: Arc<Mutex<Vec<Sender<Value>>>>,
+    name: String,
 ) {
+    debug!("Starting the {name} Output Queue");
     while let Some(message) = rx_processed.recv().await {
-        debug!("Message received in the output queue. Sending to VDLM clients");
+        debug!("[CHANNEL SENDER {name}] Message received in the output queue. Sending to {name} clients");
         match udp_server {
             Some(ref vdlm_udp_server) => {
                 vdlm_udp_server.send_message(message.clone()).await;
@@ -228,11 +137,11 @@ async fn monitor_queue(
             None => (),
         }
 
-        for sender_server in servers.lock().await.iter() {
+        for sender_server in sender_servers.lock().await.iter() {
             match sender_server.send(message.clone()).await {
-                Ok(_) => debug!("Successfully sent the VDLM message"),
+                Ok(_) => debug!("[CHANNEL SENDER {name}] Successfully sent the {name} message"),
                 Err(e) => {
-                    error!("[CHANNEL SENDER VDLM2]: Error sending message: {}", e);
+                    error!("[CHANNEL SENDER {name}]: Error sending message: {}", e);
                 }
             }
         }
@@ -240,7 +149,7 @@ async fn monitor_queue(
 }
 
 async fn start_udp_senders_servers(
-    decoder_type: &String,
+    decoder_type: String,
     ports: &Vec<String>,
 ) -> Option<UDPSenderServer> {
     // Create an ephermeal socket for the UDP sender server
@@ -268,7 +177,7 @@ async fn start_tcp(
     socket_type: String,
     sender_server: Arc<Mutex<Vec<Sender<Value>>>>,
 ) {
-    // Start a TCP sender server for ACARS
+    // Start a TCP sender server for {server_type}
     let socket = StubbornTcpStream::connect_with_options(host.clone(), reconnect_options()).await;
     match socket {
         Ok(socket) => {
@@ -285,7 +194,10 @@ async fn start_tcp(
             });
         }
         Err(e) => {
-            error!("[TCP SENDER ACARS]: Error connecting to {}: {}", host, e);
+            error!(
+                "[TCP SENDER {socket_type}]: Error connecting to {}: {}",
+                host, e
+            );
         }
     }
 }

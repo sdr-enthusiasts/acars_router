@@ -57,6 +57,7 @@ mod tcp_serve_server;
 mod generics;
 
 use config_options::ACARSRouterSettings;
+use generics::SenderServerConfig;
 use helper_functions::exit_process;
 use listener_servers::start_listener_servers;
 use message_handler::{watch_received_message_queue, MessageHandlerConfig};
@@ -66,8 +67,10 @@ use sender_servers::start_sender_servers;
 async fn start_processes() {
     let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
     let log_level = config.log_level();
-    let should_start_acars_watcher = config.should_start_acars_watcher();
-    let should_start_vdlm_watcher = config.should_start_vdlm2_watcher();
+    let should_start_acars_watcher =
+        config.should_start_acars_inputs() && config.should_start_acars_outputs();
+    let should_start_vdlm_watcher =
+        config.should_start_vdlm2_inputs() && config.should_start_vdlm2_outputs();
 
     Builder::new()
         .format(|buf, record| {
@@ -130,12 +133,45 @@ async fn start_processes() {
     start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
     // start the output servers
     debug!("Starting output servers");
-    tokio::spawn(async move {
-        start_sender_servers(&config, rx_processed_acars, rx_processed_vdlm).await
-    });
+    if config.should_start_acars_outputs() {
+        info!("Starting ACARS Output Servers");
+        let acars_output_config = SenderServerConfig {
+            send_udp: config.send_udp_acars().clone(),
+            send_tcp: config.send_tcp_acars().clone(),
+            serve_zmq: config.serve_zmq_acars().clone(),
+            serve_tcp: config.serve_tcp_acars().clone(),
+        };
+
+        tokio::spawn(async move {
+            start_sender_servers(
+                &acars_output_config,
+                rx_processed_acars,
+                "ACARS".to_string(),
+            )
+            .await;
+        });
+    } else {
+        info!("No valid ACARS outputs configured. Not starting ACARS Output Servers");
+    }
+
+    if config.should_start_vdlm2_outputs() {
+        info!("Starting VDLM Output Servers");
+        let vdlm_output_config = SenderServerConfig {
+            send_udp: config.send_udp_vdlm2().clone(),
+            send_tcp: config.send_tcp_vdlm2().clone(),
+            serve_zmq: config.serve_zmq_vdlm2().clone(),
+            serve_tcp: config.serve_tcp_vdlm2().clone(),
+        };
+
+        tokio::spawn(async move {
+            start_sender_servers(&vdlm_output_config, rx_processed_vdlm, "VDLM".to_string()).await;
+        });
+    } else {
+        info!("No valid VDLM outputs configured. Not starting VDLM Output Servers");
+    }
 
     // Start the message handler tasks.
-    // Don't start the queue watcher UNLESS there is a valid input source
+    // Don't start the queue watcher UNLESS there is a valid input source AND output source for the message type
 
     debug!("Starting the message handler tasks");
 
@@ -149,7 +185,7 @@ async fn start_processes() {
             .await
         });
     } else {
-        info!("Not starting the ACARS message handler task. No input sources specified.");
+        info!("Not starting the ACARS message handler task. No input and/or output sources specified.");
     }
 
     if should_start_vdlm_watcher {
@@ -162,7 +198,9 @@ async fn start_processes() {
             .await;
         });
     } else {
-        info!("Not starting the VDLM message handler task. No input sources specified.");
+        info!(
+            "Not starting the VDLM message handler task. No input and/or output sources specified."
+        );
     }
 
     // TODO: Is this the best way of doing this?
