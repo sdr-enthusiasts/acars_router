@@ -46,5 +46,6 @@ jobs:
       push_destinations: ghcr.io
       ghcr_repo_owner: ${{ github.repository_owner }}
       ghcr_repo: ${{ github.repository }}
+      build_with_tmpfs: true
     secrets:
       ghcr_token: ${{ secrets.GITHUB_TOKEN }}
