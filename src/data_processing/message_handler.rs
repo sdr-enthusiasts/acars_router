@@ -155,6 +155,14 @@ pub async fn watch_received_message_queue(
 
         // acarsdec/vdlm2dec use floating point message times. dumpvdl2 uses ints.
         // Determine if the message is dumpvdl2 or not, and handle correctly
+        // FIXME: There is some stupid bug here, and it'll probably be fixed by working out the todo below
+        // Basically I'll see the test suite fail super occasionally with an incorrect number of messages sent back,
+        // and a rerun of the test suite will show no issues. I suspect this is due to a message either NOT being marked as dupe when
+        // it should or a message not being marked as dupe when it should. Really this boils down to a) when the dupe queue is cleared,
+        // and b) the fact that we're only being precise as a second.
+        // In practice what this means is we'll probably see some messages get improperly handled, but it's such an edge case
+        // that it's likely this only really is a concern in super-high message rate envs (like the test suite).
+
         let mut message_time = match message.get("vdl2") {
             Some(_) => message["vdl2"]["t"]["sec"].as_u64().unwrap_or(0),
             // TODO: I'd like to do this better. The as_u64() function did not give a correct value
@@ -213,8 +221,11 @@ pub async fn watch_received_message_queue(
 
         if config.dedupe {
             let mut rejected = false;
-            for (_, hashed_value_saved) in dedupe_queue_loop.lock().await.iter() {
-                if *hashed_value_saved == hashed_value {
+            for (time, hashed_value_saved) in dedupe_queue_loop.lock().await.iter() {
+                if *hashed_value_saved == hashed_value
+                    && current_time - *time < config.dedupe_window
+                // Both the time and hash have to be equal to reject the message
+                {
                     info!(
                         "[Message Handler {}] Message is a duplicate. Skipping message.",
                         config.queue_type
