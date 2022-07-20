@@ -74,7 +74,10 @@ impl UDPListenerServer {
                                 };
                             }
                             Err(e) => {
-                                warn!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, e)
+                                warn!(
+                                    "[UDP SERVER: {}] {}/{}: Invalid Message. {}. {}",
+                                    proto_name, size, peer, e, s
+                                )
                             }
                         };
                     }

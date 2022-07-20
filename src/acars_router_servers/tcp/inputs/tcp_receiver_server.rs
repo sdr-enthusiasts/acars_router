@@ -64,7 +64,7 @@ impl TCPReceiverServer {
                         ),
                     };
                 }
-                Err(e) => error!("[TCP SERVER {}] {}", proto_name, e),
+                Err(e) => error!("[TCP SERVER {}] Invalid Message: {}", proto_name, e),
             }
         }
 

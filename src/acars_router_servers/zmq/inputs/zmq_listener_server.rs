@@ -62,7 +62,10 @@ impl ZMQListnerServer {
                     ),
                 },
                 Err(e) => {
-                    error!("{}", e);
+                    error!(
+                        "[ZMQ LISTENER SERVER {}] Invalid Message: {}. {}",
+                        self.proto_name, e, stripped
+                    );
                 }
             }
         }
