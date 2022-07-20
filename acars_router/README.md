@@ -74,13 +74,9 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 
 You should not have to modify any of these for normal operation.
 
-| Argument                           | Environment Variable           | Description                                                          | Default          |
-| ---------------------------------- | ------------------------------ | -------------------------------------------------------------------- | ---------------- |
-| `--skew-window`                    | `AR_SKEW_WINDOW`               | Reject messages with a timestamp greater than +/- this many seconds. | 1                |
-| `--threads-json-deserialiser`      | `AR_THREADS_JSON_DESERIALISER` | Number of threads for JSON deserialisers (per message protocol)      | Number CPU cores |
-| `--threads-hasher`                 | `AR_THREADS_HASHER`            | Number of threads for message hashers (per message protocol)         | Number CPU cores |
-| `--threads-deduper`                | `AR_THREADS_DEDUPER`           | Number of threads for message dedupers                               | Number CPU cores |
-| `--threads-output-queue-populator` | `AR_OUTPUT_QUEUE_POPULATOR`    | Number of threads for output queue populators (per message protocol) | Number CPU cores |
+| Argument        | Environment Variable | Description                                                          | Default |
+| --------------- | -------------------- | -------------------------------------------------------------------- | ------- |
+| `--skew-window` | `AR_SKEW_WINDOW`     | Reject messages with a timestamp greater than +/- this many seconds. | 1       |
 
 ## Internals
 
