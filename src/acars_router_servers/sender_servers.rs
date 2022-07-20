@@ -65,7 +65,10 @@ pub async fn start_sender_servers(
             match socket {
                 Ok(socket) => {
                     let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
-                    let tcp_sender_server = TCPServeServer { socket: socket };
+                    let tcp_sender_server = TCPServeServer {
+                        socket: socket,
+                        proto_name: server_type.clone() + " " + hostname.as_str(),
+                    };
                     let new_state = Arc::clone(&sender_servers);
                     new_state.lock().await.push(tx_processed_acars.clone());
                     let state = Arc::new(Mutex::new(Shared::new()));

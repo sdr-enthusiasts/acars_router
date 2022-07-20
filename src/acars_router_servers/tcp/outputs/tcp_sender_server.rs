@@ -8,7 +8,7 @@
 // Used to go connection to consumers of data, and then send data to them as it comes in
 
 use crate::generics::SenderServer;
-use log::error;
+use log::{error, trace};
 use stubborn_io::tokio::StubbornIo;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
@@ -27,8 +27,11 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
                 let message_as_bytes = message_as_string.as_bytes();
 
                 match self.socket.write_all(message_as_bytes).await {
-                    Ok(_) => (),
-                    Err(e) => error!("[TCP SENDER]: Error sending message: {}", e),
+                    Ok(_) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
+                    Err(e) => error!(
+                        "[TCP SENDER {}]: Error sending message: {}",
+                        self.proto_name, e
+                    ),
                 };
             }
         });

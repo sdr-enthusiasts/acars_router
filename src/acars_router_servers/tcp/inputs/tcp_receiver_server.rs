@@ -9,7 +9,7 @@
 
 use crate::generics::reconnect_options;
 use crate::helper_functions::strip_line_endings;
-use log::{debug, error, trace};
+use log::{error, trace};
 use stubborn_io::StubbornTcpStream;
 use tokio::sync::mpsc::Sender;
 use tokio_stream::StreamExt;
@@ -57,7 +57,7 @@ impl TCPReceiverServer {
                 Ok(msg) => {
                     trace!("[TCP SERVER: {}] Received message: {}", proto_name, msg);
                     match channel.send(msg).await {
-                        Ok(_) => debug!("[TCP SERVER {proto_name}] Message sent to channel"),
+                        Ok(_) => trace!("[TCP SERVER {proto_name}] Message sent to channel"),
                         Err(e) => error!(
                             "[TCP SERVER {}] Error sending message to channel: {}",
                             proto_name, e

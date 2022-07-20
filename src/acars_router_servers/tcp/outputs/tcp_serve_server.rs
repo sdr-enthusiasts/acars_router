@@ -27,6 +27,7 @@ use crate::generics::{Rx, Shared};
 
 pub struct TCPServeServer {
     pub socket: TcpListener,
+    pub proto_name: String,
 }
 
 /// The state for each connected client.
@@ -90,6 +91,7 @@ impl TCPServeServer {
         let new_state = Arc::clone(&state);
         tokio::spawn(async move { handle_message(new_state, channel).await });
         loop {
+            let new_proto = self.proto_name.clone();
             match self.socket.accept().await {
                 Ok((stream, addr)) => {
                     // Clone a handle to the `Shared` state for the new connection.
@@ -97,14 +99,20 @@ impl TCPServeServer {
 
                     // Spawn our handler to be run asynchronously.
                     tokio::spawn(async move {
-                        debug!("accepted connection");
+                        info!("[TCP SERVER {new_proto}] accepted connection");
                         if let Err(e) = process(state, stream, addr).await {
-                            info!("an error occurred; error = {:?}", e);
+                            info!(
+                                "[TCP SERVER {new_proto}] an error occurred; error = {:?}",
+                                e
+                            );
                         }
                     });
                 }
                 Err(e) => {
-                    error!("[TCP SERVER]: Error accepting connection: {}", e);
+                    error!(
+                        "[TCP SERVER {new_proto}]: Error accepting connection: {}",
+                        e
+                    );
                     continue;
                 }
             };
@@ -135,7 +143,7 @@ async fn process(
     let mut peer = match Peer::new(state.clone(), lines).await {
         Ok(peer) => peer,
         Err(e) => {
-            error!("[TCP SERVER]: Error creating peer: {}", e);
+            error!("[TCP SERVER {addr}]: Error creating peer: {}", e);
             return Ok(());
         }
     };
@@ -143,7 +151,14 @@ async fn process(
         tokio::select! {
             // A message was received from a peer. Send it to the current user.
             Some(msg) = peer.rx.recv() => {
-                peer.lines.send(&msg).await?;
+                match peer.lines.send(&msg).await {
+                    Ok(_) => {
+                        debug!("[TCP SERVER {addr}]: Sent message");
+                    }
+                    Err(e) => {
+                        error!("[TCP SERVER {addr}]: Error sending message: {}", e);
+                    }
+                };
             }
             result = peer.lines.next() => match result {
                 // We received a message on this socket. Why? Dunno. Do nothing.
@@ -151,7 +166,7 @@ async fn process(
                 // An error occurred.
                 Some(Err(e)) => {
                     error!(
-                        "an error occurred while processing messages; error = {:?}", e
+                        "[TCP SERVER {addr}]: [YOU SHOULD NEVER SEE THIS!] an error occurred while processing messages; error = {:?}", e
                     );
                 }
                 // The stream has been exhausted.
@@ -160,6 +175,7 @@ async fn process(
         }
     }
     {
+        info!("[TCP SERVER {addr}]: Client disconnected");
         let mut state = state.lock().await;
         state.peers.remove(&addr);
         Ok(())
