@@ -5,7 +5,12 @@
 // Full license information available in the project LICENSE file.
 //
 
-// TODO: Clean up, add in, etc all trace and debug statements to make diagnostics easier to understand and to trace program logic better.
+// TODO: For UDP and probably TCP, we need to cover off over-sized messages exceeding the buffer size
+// TODO: Related to the above, we probably should also track the protocol, port, and address of the sender for all protocols
+// This would be pretty useful for message reconstruction as well as general logging
+// Something to look at would be https://medium.com/tresorit-engineering/collecting-broadcast-udp-packets-using-async-networking-in-rust-7fd93a631eac
+// Basically using the concept of UdpFramed (and maybe TCPFramed as well?) to function as the stream deserializer, and use that to
+// Capture "bad" packets for potential reassembly.
 
 use chrono::Local;
 use env_logger::Builder;
