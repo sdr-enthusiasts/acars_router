@@ -187,7 +187,7 @@ pub async fn watch_received_message_queue(
                         config.queue_type
                     );
                     rejected = true;
-                    continue;
+                    break;
                 }
             }
 
