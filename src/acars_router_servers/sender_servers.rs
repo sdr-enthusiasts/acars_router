@@ -12,7 +12,7 @@ use crate::generics::Shared;
 use crate::helper_functions::should_start_service;
 use crate::tcp_serve_server::TCPServeServer;
 use crate::udp_sender_server::UDPSenderServer;
-use log::{debug, error, trace};
+use log::{debug, error};
 use serde_json::Value;
 use tmq::{publish, Context};
 
@@ -194,58 +194,49 @@ pub async fn start_sender_servers(
 }
 
 async fn monitor_queues(
-    mut rx_processed_acars: mpsc::Receiver<Value>,
-    mut rx_processed_vdlm: mpsc::Receiver<Value>,
+    rx_processed_acars: mpsc::Receiver<Value>,
+    rx_processed_vdlm: mpsc::Receiver<Value>,
     acars_udp_server: Option<UDPSenderServer>,
     vdlm_udp_server: Option<UDPSenderServer>,
     acars_sender_servers: Arc<Mutex<Vec<Sender<Value>>>>,
     vdlm_sender_servers: Arc<Mutex<Vec<Sender<Value>>>>,
 ) {
     debug!("Starting the ACARS Output Queue");
-
+    let acars_queue_context = Arc::clone(&acars_sender_servers);
     tokio::spawn(async move {
-        while let Some(message) = rx_processed_acars.recv().await {
-            debug!("Message received in the output queue. Sending to ACARS clients");
-            match acars_udp_server {
-                Some(ref acars_udp_server) => {
-                    acars_udp_server.send_message(message.clone()).await;
-                }
-                None => (),
-            }
-
-            for sender_server in acars_sender_servers.lock().await.iter() {
-                match sender_server.send(message.clone()).await {
-                    Ok(_) => debug!("Successfully sent ACARS the message"),
-                    Err(e) => {
-                        error!("[CHANNEL SENDER ACARS]: Error sending message: {}", e);
-                    }
-                }
-            }
-        }
+        monitor_queue(acars_udp_server, acars_queue_context, rx_processed_acars).await;
     });
 
     debug!("Starting the VDLM Output Queue");
-
+    let vdlm_queue_context = Arc::clone(&vdlm_sender_servers);
     tokio::spawn(async move {
-        while let Some(message) = rx_processed_vdlm.recv().await {
-            debug!("Message received in the output queue. Sending to VDLM clients");
-            match vdlm_udp_server {
-                Some(ref vdlm_udp_server) => {
-                    vdlm_udp_server.send_message(message.clone()).await;
-                }
-                None => (),
-            }
+        monitor_queue(vdlm_udp_server, vdlm_queue_context, rx_processed_vdlm).await;
+    });
+}
 
-            for sender_server in vdlm_sender_servers.lock().await.iter() {
-                match sender_server.send(message.clone()).await {
-                    Ok(_) => debug!("Successfully sent the VDLM message"),
-                    Err(e) => {
-                        error!("[CHANNEL SENDER VDLM2]: Error sending message: {}", e);
-                    }
+async fn monitor_queue(
+    udp_server: Option<UDPSenderServer>,
+    servers: Arc<Mutex<Vec<Sender<Value>>>>,
+    mut rx_processed: mpsc::Receiver<Value>,
+) {
+    while let Some(message) = rx_processed.recv().await {
+        debug!("Message received in the output queue. Sending to VDLM clients");
+        match udp_server {
+            Some(ref vdlm_udp_server) => {
+                vdlm_udp_server.send_message(message.clone()).await;
+            }
+            None => (),
+        }
+
+        for sender_server in servers.lock().await.iter() {
+            match sender_server.send(message.clone()).await {
+                Ok(_) => debug!("Successfully sent the VDLM message"),
+                Err(e) => {
+                    error!("[CHANNEL SENDER VDLM2]: Error sending message: {}", e);
                 }
             }
         }
-    });
+    }
 }
 
 async fn start_udp_senders_servers(
