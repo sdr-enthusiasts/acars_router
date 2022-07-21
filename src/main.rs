@@ -179,6 +179,7 @@ async fn start_processes() {
             send_tcp: config.send_tcp_acars().clone(),
             serve_zmq: config.serve_zmq_acars().clone(),
             serve_tcp: config.serve_tcp_acars().clone(),
+            max_udp_packet_size: config.max_udp_packet_size().clone(),
         };
 
         tokio::spawn(async move {
@@ -200,6 +201,7 @@ async fn start_processes() {
             send_tcp: config.send_tcp_vdlm2().clone(),
             serve_zmq: config.serve_zmq_vdlm2().clone(),
             serve_tcp: config.serve_tcp_vdlm2().clone(),
+            max_udp_packet_size: config.max_udp_packet_size().clone(),
         };
 
         tokio::spawn(async move {

@@ -35,6 +35,7 @@ pub struct SenderServerConfig {
     pub send_tcp: Vec<String>,
     pub serve_tcp: Vec<String>,
     pub serve_zmq: Vec<String>,
+    pub max_udp_packet_size: usize,
 }
 
 #[derive(Getters, Clone)]

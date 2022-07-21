@@ -38,7 +38,12 @@ pub async fn start_sender_servers(
 
     if should_start_service(config.send_udp()) {
         // Start the UDP sender servers for {server_type}
-        udp_server = start_udp_senders_servers(server_type.clone(), config.send_udp()).await;
+        udp_server = start_udp_senders_servers(
+            server_type.clone(),
+            config.send_udp(),
+            config.max_udp_packet_size().clone(),
+        )
+        .await;
     }
 
     if should_start_service(config.send_tcp()) {
@@ -149,6 +154,7 @@ async fn monitor_queue(
 async fn start_udp_senders_servers(
     decoder_type: String,
     ports: &Vec<String>,
+    max_udp_packet_size: usize,
 ) -> Option<UDPSenderServer> {
     // Create an ephermeal socket for the UDP sender server
     let socket = UdpSocket::bind("0.0.0.0:0".to_string()).await;
@@ -160,6 +166,7 @@ async fn start_udp_senders_servers(
                 proto_name: decoder_type.to_string() + "_UDP_SEND",
                 host: ports.clone(),
                 socket: s,
+                max_udp_packet_size: max_udp_packet_size.clone(),
             });
         } // valid socket, move on
         Err(e) => {

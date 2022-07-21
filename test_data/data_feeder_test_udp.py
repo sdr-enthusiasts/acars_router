@@ -21,18 +21,43 @@ thread_stop_event = Event()
 
 def UDPSocketListener(port, queue):
     global thread_stop_event
+    invalid_packets = [b""]
     while not thread_stop_event.is_set():
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(5)
             sock.bind(("", port))
             data, _ = sock.recvfrom(25000)
+            # this is totally crap logic. I'm going to assume there is no way
+            # packets are going to be misordered or from another message
             if data:
-                try:
-                    data = json.loads(data.decode("utf-8"))
-                    queue.append(data)
-                except Exception as e:
-                    print(f"Invalid data received: {e}")
+                good_data = False
+
+                if data.endswith(b"\n"):
+                    # This is the end of a message sequence. Try deserializing it
+                    try:
+                        data = json.loads(data.decode("utf-8"))
+                        queue.append(data)
+                        good_data = True
+                        invalid_packets = [b""]
+                    except Exception:
+                        pass
+                    finally:
+                        # if good_data is false that means we didn't successfully reassemble from the packet
+                        # loop through old packets to see if we can build a good message
+                        if not good_data:
+                            all_packets = b""
+                            for packet in invalid_packets:
+                                try:
+                                    all_packets += packet
+                                    data_try = json.loads(all_packets + data)
+                                    queue.append(data_try)
+                                    break
+                                except Exception:
+                                    pass
+                            invalid_packets = [b""]
+                else:
+                    invalid_packets.append(data)
         except socket.timeout:
             pass
         except Exception as e:

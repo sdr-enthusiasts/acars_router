@@ -28,6 +28,10 @@ struct Args {
     #[clap(long, default_value = "1")]
     /// Reject messages with a timestamp greater than +/- this many seconds.
     skew_window: u64,
+    /// Set maximum UDP packet size, peer-to-peer.
+    #[clap(long, default_value = "60000")]
+    max_udp_packet_size: u64,
+
     // Message Modification
     #[clap(long)]
     /// Set to true to enable message modification
@@ -130,6 +134,7 @@ pub struct ACARSRouterSettings {
     pub send_tcp_vdlm2: Vec<String>,
     pub serve_tcp_vdlm2: Vec<String>,
     pub serve_zmq_vdlm2: Vec<String>,
+    pub max_udp_packet_size: usize,
 }
 
 impl ACARSRouterSettings {
@@ -190,6 +195,7 @@ impl ACARSRouterSettings {
         debug!("AR_SEND_TCP_VDLM2: {:?}", self.send_tcp_vdlm2);
         debug!("AR_SERVE_TCP_VDLM2: {:?}", self.serve_tcp_vdlm2);
         debug!("AR_SERVE_ZMQ_VDLM2: {:?}", self.serve_zmq_vdlm2);
+        debug!("AR_MAX_UDP_PACKET_SIZE: {:?}", self.max_udp_packet_size);
     }
 
     pub fn load_values() -> ACARSRouterSettings {
@@ -201,6 +207,14 @@ impl ACARSRouterSettings {
             dedupe_window: get_value_as_u64("AR_DEDUPE_WINDOW", &args.dedupe_window),
             skew_window: get_value_as_u64("AR_SKEW_WINDOW", &args.skew_window),
             stats_every: get_value_as_u64("AR_STATS_EVERY", &args.stats_every),
+            max_udp_packet_size: match usize::try_from(get_value_as_u64(
+                "AR_MAX_UDP_PACKET_SIZE",
+                &args.max_udp_packet_size,
+            )) {
+                Ok(v) => v,
+                Err(_) => 60000,
+            },
+
             override_station_name: get_value_as_string(
                 "AR_OVERRIDE_STATION_NAME",
                 &args.override_station_name,
