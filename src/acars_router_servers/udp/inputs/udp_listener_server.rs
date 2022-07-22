@@ -159,6 +159,11 @@ async fn attempt_message_reassembly(
                     "[UDP SERVER: {}] Reconstituted a message {}",
                     server_type, message_to_test
                 );
+                // FIXME: This feels so very wrong, but if we reassemble a message it's possible that the last part of the
+                // message came in outside of the skew window, which will cause it to get rejected by the message_handler.
+                // So.....for now, we'll leave it alone but maybe we should replace the time stamp?
+                // Or perhaps we flag the message as "reassembled" and then the message_handler can decide what to do with it?
+
                 output_message = Some(msg_deserialized);
                 break;
             }
