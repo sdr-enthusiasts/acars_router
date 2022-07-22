@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
                 # deserialise json
                 deserialised_json = json.loads(data)
-                
+
                 # print json
                 if args.pretty:
                     pprint(deserialised_json)

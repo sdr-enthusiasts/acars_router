@@ -1,0 +1,14 @@
+{"timestamp":1611612170.6690149,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":11117965,"toaddr":1057098,"is_response":1,"is_onground":0}
+{"timestamp":1611612173.3643351,"station_id":"CS-KABQ-ACARS","channel":0,"freq":130.025,"level":-18,"error":0,"mode":"2","label":"_d","block_id":"K","ack":"4","tail":"N1902U"}
+{"timestamp":1611612179.696661,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":11363733,"toaddr":1057098,"is_response":1,"is_onground":0}
+{"timestamp":1611612183.441473,"station_id":"CS-KABQ-ACARS","channel":0,"freq":130.025,"level":-18,"error":0,"mode":"2","label":"_d","block_id":"M","ack":"0","tail":"N465UA"}
+{"timestamp":1611612184.597754,"station_id":"CS-KABQ-ACARS","channel":3,"freq":131.550,"level":-12,"error":0,"mode":"2","label":"SQ","text":"02XAABQKABQ13502N10637WV136975/ARINC"}
+{"timestamp":1611612186.89314,"station_id":"CS-KABQ-ACARS","channel":3,"freq":131.550,"level":-13,"error":0,"mode":"2","label":"SQ","text":"02XAABQKABQ13502N10636WV136975/ARINC"}
+{"timestamp":1611612191.3944161,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":11363733,"toaddr":1057098,"is_response":0,"is_onground":0,"mode":"2","label":"_d","block_id":"5","ack":"W","tail":"N962WN","flight":"WN0184","msgno":"S06A"}
+{"timestamp":1611612193.279712,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":11363733,"toaddr":1057098,"is_response":0,"is_onground":0,"mode":"2","label":"_d","block_id":"6","ack":"A","tail":"N962WN","flight":"WN0184","msgno":"S07A"}
+{"timestamp":1611612195.507102,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":11363733,"toaddr":1057098,"is_response":0,"is_onground":0,"mode":"2","label":"_d","block_id":"7","ack":"B","tail":"N962WN","flight":"WN0184","msgno":"S08A"}
+{"timestamp":1611612197.3093519,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":11363733,"toaddr":1057098,"is_response":0,"is_onground":0,"mode":"2","label":"_d","block_id":"8","ack":"C","tail":"N962WN","flight":"WN0184","msgno":"S09A"}
+{"timestamp":1611612207.2800119,"station_id":"CS-KABQ-ACARS","channel":0,"freq":130.025,"level":-15,"error":0,"mode":"2","label":"_d","block_id":"5","ack":"L","tail":"N1902U","flight":"UA0338","msgno":"S63A"}
+{"timestamp":1611612211.0062449,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":10635095,"toaddr":1057098,"is_response":0,"is_onground":0}
+{"timestamp":1611612212.3990171,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":10934719,"toaddr":2513527,"is_response":0,"is_onground":0}
+{"timestamp":1611612212.75912,"station_id":"CS-KABQ-VDLM2","channel":2,"freq":136.975,"icao":11183684,"toaddr":1065514,"is_response":0,"is_onground":0,"mode":"2","label":"37","block_id":"9","ack":"!","tail":"N7856A","flight":"WN2621","msgno":"M64A","text":"04QE638\r\nS6OB2SBOW\r\n-O/SR//0)HOT6HBOT70O7)\r\n"}

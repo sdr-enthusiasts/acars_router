@@ -687,7 +687,7 @@ def json_validator(in_queue: ARQueue, out_queue: ARQueue, protoname: str):
 
 def within_acceptable_skew(timestamp: int, skew_window_secs: int):
     """
-    Helper fuction that determines whether timestamp (in nanoseconds) is within +/- skew_window_secs
+    Helper function that determines whether timestamp (in nanoseconds) is within +/- skew_window_secs
     """
     min_timestamp = time.time_ns() - (skew_window_secs * 1e9)
     max_timestamp = time.time_ns() + (skew_window_secs * 1e9)
@@ -1893,7 +1893,7 @@ if __name__ == "__main__":
         default=False,
     )
 
-    # Arguement to toggle the output of proxy information
+    # Argument to toggle the output of proxy information
     # We can't use default argprase bool operations (action=set_true/false) and using the presence
     # of a flag to toggle behavior from the default
     # because we need to be able to use an ENV variable to flag the value for running

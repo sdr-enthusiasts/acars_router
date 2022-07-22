@@ -8,12 +8,12 @@ timeout 30s python3 ./acars_router/acars_router.py -vv --add-proxy-id false --sk
 sleep 1
 
 # Start fake destination server for acars_router output
-socat -d -t10 TCP:127.0.0.1:"${PORT2}" OPEN:/tmp/"$1".tcpreceive.tcpsserve.out,creat,append &
+socat -d -t10 TCP:127.0.0.1:"${PORT2}" OPEN:/tmp/"$1".tcpreceive.tcpsserve.out,create,append &
 sleep 1
 
 # Start fake source server(s)
 while IFS="" read -r p || [ -n "$p" ]; do
-    printf '%s' "$p" | socat -d TCP-LISTEN:"${PORT1}",reuseaddr STDIN;
+  printf '%s' "$p" | socat -d TCP-LISTEN:"${PORT1}",reuseaddr STDIN
 done < ./test_data/"$1".patched
 sleep 10
 
