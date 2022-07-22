@@ -7,7 +7,6 @@
 
 // Server used to receive UDP data
 
-use crate::helper_functions::strip_line_endings;
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::io;
@@ -71,8 +70,8 @@ impl UDPListenerServer {
 
                 loop {
                     if let Some((size, peer)) = to_send {
-                        let s: String = match str::from_utf8(buf[..size].as_ref()) {
-                            Ok(s) => strip_line_endings(&s.to_string()).to_owned(),
+                        let msg_string = match str::from_utf8(buf[..size].as_ref()) {
+                            Ok(s) => s,
                             Err(_) => {
                                 warn!(
                                     "[UDP SERVER: {}] Invalid message received from {}",
@@ -81,38 +80,49 @@ impl UDPListenerServer {
                                 continue;
                             }
                         };
-                        let partial_messages_context = Arc::clone(&partial_messages);
-                        // First attempt to deserialise just the new message
-                        match attempt_message_reassembly(
-                            partial_messages_context,
-                            s,
-                            peer,
-                            proto_name.clone(),
-                        )
-                        .await
-                        {
-                            Some(msg) => {
-                                // We have valid JSON
-                                trace!("[UDP SERVER: {}] {}/{}: {}", proto_name, size, peer, msg);
 
-                                match channel.send(msg).await {
-                                    Ok(_) => trace!(
-                                        "[UDP SERVER: {}] Message sent to channel",
-                                        proto_name
-                                    ),
-                                    Err(e) => warn!(
-                                        "[UDP SERVER: {}] Error sending message to channel: {}",
-                                        proto_name, e
-                                    ),
-                                };
-                            }
-                            None => {
-                                // The message is invalid. It's been saved for (maybe) later
-                                trace!(
-                                    "[UDP SERVER: {}] Invalid message received from {}.",
-                                    proto_name,
-                                    peer
-                                );
+                        let split_messages: Vec<&str> = msg_string.split_terminator('\n').collect();
+
+                        for msg in split_messages {
+                            let partial_messages_context = Arc::clone(&partial_messages);
+                            // First attempt to deserialise just the new message
+                            match attempt_message_reassembly(
+                                partial_messages_context,
+                                msg.to_string(),
+                                peer,
+                                proto_name.clone(),
+                            )
+                            .await
+                            {
+                                Some(msg) => {
+                                    // We have valid JSON
+                                    trace!(
+                                        "[UDP SERVER: {}] {}/{}: {}",
+                                        proto_name,
+                                        size,
+                                        peer,
+                                        msg
+                                    );
+
+                                    match channel.send(msg).await {
+                                        Ok(_) => trace!(
+                                            "[UDP SERVER: {}] Message sent to channel",
+                                            proto_name
+                                        ),
+                                        Err(e) => warn!(
+                                            "[UDP SERVER: {}] Error sending message to channel: {}",
+                                            proto_name, e
+                                        ),
+                                    };
+                                }
+                                None => {
+                                    // The message is invalid. It's been saved for (maybe) later
+                                    trace!(
+                                        "[UDP SERVER: {}] Invalid message received from {}.",
+                                        proto_name,
+                                        peer
+                                    );
+                                }
                             }
                         }
                     }
