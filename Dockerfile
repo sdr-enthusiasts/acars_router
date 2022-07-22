@@ -24,8 +24,13 @@ COPY rootfs /
 COPY --from=builder /tmp/acars_router/target/release/acars_router /opt/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
+    KEPT_PACKAGES=() && \
+    KEPT_PACKAGES+=(libzmq5) && \
     apt-get update && \
-    apt-get install -y --no-install-recommends libzmq3-dev && \
+    apt-get install -y --no-install-recommends \
+    "${KEPT_PACKAGES[@]}" \
+    "${TEMP_PACKAGES[@]}"\
+    && \
     # Simple date/time versioning
     date +%Y%m%d.%H%M > /IMAGE_VERSION && \
     apt-get autoremove -y && \
