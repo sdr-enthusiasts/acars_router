@@ -43,6 +43,9 @@ struct Args {
     #[clap(long, default_value = "5")]
     /// Print statistics every N minutes
     stats_every: u64,
+    /// Attempt message reassembly on incomplete messages within the specified number of seconds
+    #[clap(long, default_value = "10")]
+    reassembly_window: u64,
 
     // Input Options
 
@@ -113,6 +116,7 @@ pub struct ACARSRouterSettings {
     pub dedupe: bool,
     pub dedupe_window: u64,
     pub skew_window: u64,
+    pub reassembly_window: u64,
     pub stats_every: u64,
     // The name that should be overridden in the message.
     pub override_station_name: String,
@@ -196,6 +200,7 @@ impl ACARSRouterSettings {
         debug!("AR_SERVE_TCP_VDLM2: {:?}", self.serve_tcp_vdlm2);
         debug!("AR_SERVE_ZMQ_VDLM2: {:?}", self.serve_zmq_vdlm2);
         debug!("AR_MAX_UDP_PACKET_SIZE: {:?}", self.max_udp_packet_size);
+        debug!("AR_REASSEMBLY_WINDOW: {:?}", self.reassembly_window);
     }
 
     pub fn load_values() -> ACARSRouterSettings {
@@ -207,6 +212,7 @@ impl ACARSRouterSettings {
             dedupe_window: get_value_as_u64("AR_DEDUPE_WINDOW", &args.dedupe_window),
             skew_window: get_value_as_u64("AR_SKEW_WINDOW", &args.skew_window),
             stats_every: get_value_as_u64("AR_STATS_EVERY", &args.stats_every),
+            reassembly_window: get_value_as_u64("AR_REASSEMBLY_WINDOW", &args.reassembly_window),
             max_udp_packet_size: match usize::try_from(get_value_as_u64(
                 "AR_MAX_UDP_PACKET_SIZE",
                 &args.max_udp_packet_size,

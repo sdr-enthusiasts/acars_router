@@ -27,7 +27,12 @@ pub fn start_listener_servers(
     if should_start_service(config.listen_udp()) {
         // Start the UDP listener servers for server_type
         info!("Starting UDP listener servers for {server_type}");
-        start_udp_listener_servers(&server_type, config.listen_udp(), tx_receivers.clone());
+        start_udp_listener_servers(
+            &server_type,
+            config.listen_udp(),
+            tx_receivers.clone(),
+            config.reassembly_window().clone(),
+        );
     }
 
     // Start the TCP listeners
@@ -100,6 +105,7 @@ fn start_udp_listener_servers(
     decoder_type: &String,
     ports: &Vec<String>,
     channel: Sender<serde_json::Value>,
+    reassembly_window: u64,
 ) {
     for udp_port in ports {
         let new_channel = channel.clone();
@@ -109,6 +115,7 @@ fn start_udp_listener_servers(
             buf: vec![0; 5000],
             to_send: None,
             proto_name: proto_name,
+            reassembly_window: reassembly_window,
         };
 
         // This starts the server task.

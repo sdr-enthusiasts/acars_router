@@ -75,6 +75,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--check-for-station-id", type=str, nargs="*", default="")
     parser.add_argument("--check-data-continuity", action="store_true")
+    parser.add_argument("--fragment-packets", action="store_true")
 
     args = parser.parse_args()
     TEST_PASSED = True
@@ -161,30 +162,63 @@ if __name__ == "__main__":
         if "vdl2" in message:
             # replace message["vdlm"]["t"]["sec"] with current unix epoch time
             message["vdl2"]["t"]["sec"] = int(time.time())
-            vdlm_sock.sendto(
-                json.dumps(message).encode() + b"\n", (remote_ip, udp_vdlm_remote_port)
-            )
+            message_as_bytes = json.dumps(message).encode("utf-8") + b"\n"
+
+            if not args.fragment_packets:
+                vdlm_sock.sendto(message_as_bytes, (remote_ip, udp_vdlm_remote_port))
+            else:
+                # fragment the message into packets of size 512 bytes
+                for i in range(0, len(message_as_bytes), 512):
+                    # time.sleep(0.2)
+                    vdlm_sock.sendto(
+                        message_as_bytes[i : i + 512],  # noqa
+                        (remote_ip, udp_vdlm_remote_port),
+                    )
             if send_twice:
                 time.sleep(0.2)
                 print("Sending VDLM duplicate")
-                vdlm_sock.sendto(
-                    json.dumps(message).encode() + b"\n",
-                    (remote_ip, udp_vdlm_remote_port),
-                )
+                if not args.fragment_packets:
+                    vdlm_sock.sendto(
+                        message_as_bytes, (remote_ip, udp_vdlm_remote_port)
+                    )
+                else:
+                    for i in range(0, len(message_as_bytes), 512):
+                        # time.sleep(0.2)
+                        vdlm_sock.sendto(
+                            message_as_bytes[i : i + 512],  # noqa
+                            (remote_ip, udp_vdlm_remote_port),
+                        )
         else:
             # We are rounding to avoid an issue where acars_router will truncate the time
             # and thus the continunity check will fail even though it's good (sort of)
             message["timestamp"] = round(float(time.time()), 3)
-            acars_sock.sendto(
-                json.dumps(message).encode() + b"\n", (remote_ip, udp_acars_remote_port)
-            )
+            message_as_bytes = json.dumps(message).encode("utf-8") + b"\n"
+
+            if not args.fragment_packets:
+                acars_sock.sendto(message_as_bytes, (remote_ip, udp_acars_remote_port))
+            else:
+                # fragment the message into packets of size 512 bytes
+                for i in range(0, len(message_as_bytes), 512):
+                    # time.sleep(0.2)
+                    acars_sock.sendto(
+                        message_as_bytes[i : i + 512],  # noqa
+                        (remote_ip, udp_acars_remote_port),
+                    )
             if send_twice:
                 time.sleep(0.2)
                 print("Sending ACARS duplicate")
-                acars_sock.sendto(
-                    json.dumps(message).encode() + b"\n",
-                    (remote_ip, udp_acars_remote_port),
-                )
+                if not args.fragment_packets:
+                    acars_sock.sendto(
+                        message_as_bytes,
+                        (remote_ip, udp_acars_remote_port),
+                    )
+                else:
+                    for i in range(0, len(message_as_bytes), 512):
+                        # time.sleep(0.2)
+                        acars_sock.sendto(
+                            message_as_bytes[i : i + 512],  # noqa
+                            (remote_ip, udp_acars_remote_port),
+                        )
 
         message_count += 1
         time.sleep(0.5)

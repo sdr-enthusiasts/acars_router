@@ -74,10 +74,11 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 
 You should not have to modify any of these for normal operation.
 
-| Argument                | Environment Variable     | Description                                                                                      | Default |
-| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------ | ------- |
-| `--skew-window`         | `AR_SKEW_WINDOW`         | Reject messages with a timestamp greater than +/- this many seconds.                             | 1       |
-| `--max-udp-packet-size` | `AR_MAX_UDP_PACKET_SIZE` | If message size exceeds this for any UDP clients, split the message and send in multiple chunks. | 60000   |
+| Argument                | Environment Variable     | Description                                                                                                                                                                                                           | Default |
+| ----------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--skew-window`         | `AR_SKEW_WINDOW`         | Reject messages with a timestamp greater than +/- this many seconds.                                                                                                                                                  | 1       |
+| `--max-udp-packet-size` | `AR_MAX_UDP_PACKET_SIZE` | If message size exceeds this for any UDP clients, split the message and send in multiple chunks.                                                                                                                      | 60000   |
+| `--reassembly-window`   | `AR_REASSEMBLY_WINDOW`   | For any message that comes in and cannot be deserialized into JSON, acars_router will retain that message for the specified number of seconds and attempt to use that chunk to reassemble future incomplete messages. | 10      |
 
 ## Internals
 

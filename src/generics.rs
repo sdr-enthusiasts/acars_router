@@ -47,6 +47,7 @@ pub struct OutputServerConfig {
     pub listen_tcp: Vec<String>,
     pub receive_tcp: Vec<String>,
     pub receive_zmq: Vec<String>,
+    pub reassembly_window: u64,
 }
 
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients

@@ -144,6 +144,7 @@ async fn start_processes() {
             listen_tcp: config.listen_tcp_acars().clone(),
             receive_zmq: config.receive_zmq_acars().clone(),
             receive_tcp: config.receive_tcp_acars().clone(),
+            reassembly_window: config.reassembly_window().clone(),
         };
 
         tokio::spawn(async move {
@@ -161,6 +162,7 @@ async fn start_processes() {
             listen_tcp: config.listen_tcp_vdlm2().clone(),
             receive_zmq: config.receive_zmq_vdlm2().clone(),
             receive_tcp: config.receive_tcp_vdlm2().clone(),
+            reassembly_window: config.reassembly_window().clone(),
         };
 
         tokio::spawn(async move {
