@@ -9,6 +9,7 @@
 
 use crate::helper_functions::strip_line_endings;
 use log::{debug, error, info, trace, warn};
+use std::collections::HashMap;
 use std::io;
 use std::net::SocketAddr;
 use std::str;
@@ -48,18 +49,23 @@ impl UDPListenerServer {
                     proto_name,
                     socket.local_addr()?
                 );
-                // Tuple is time, peer and message
-                let partial_messages: Arc<Mutex<Vec<(u64, SocketAddr, String)>>> =
-                    Arc::new(Mutex::new(vec![]));
+                // Hashmap key is peer, stores a tuple of time and message
+                let partial_messages: Arc<Mutex<HashMap<SocketAddr, (u64, String)>>> =
+                    Arc::new(Mutex::new(HashMap::new()));
 
                 let clean_queue = Arc::clone(&partial_messages);
                 let loop_assembly_window = reassembly_window; // time is in seconds
+                let loop_name = proto_name.clone();
 
                 tokio::spawn(async move {
                     loop {
                         sleep(Duration::from_millis(loop_assembly_window * 1000)).await;
-                        clean_invalid_message_queue(Arc::clone(&clean_queue), loop_assembly_window)
-                            .await;
+                        clean_invalid_message_queue(
+                            Arc::clone(&clean_queue),
+                            loop_assembly_window,
+                            loop_name.as_str(),
+                        )
+                        .await;
                     }
                 });
 
@@ -126,11 +132,13 @@ impl UDPListenerServer {
 }
 
 async fn attempt_message_reassembly(
-    messages: Arc<Mutex<Vec<(u64, SocketAddr, String)>>>,
+    messages: Arc<Mutex<HashMap<SocketAddr, (u64, String)>>>,
     new_message_string: String,
     peer: SocketAddr,
     server_type: String,
 ) -> Option<serde_json::Value> {
+    // FIXME: Ideally this entire function should not lock the mutex all the time
+
     match serde_json::from_str::<serde_json::Value>(new_message_string.as_str()) {
         Ok(msg) => {
             messages.lock().await.clear();
@@ -139,25 +147,26 @@ async fn attempt_message_reassembly(
         Err(_) => (),
     }
 
-    let test_message: Arc<Mutex<String>> = Arc::new(Mutex::new("".to_string()));
     let mut output_message: Option<serde_json::Value> = None;
+    let mut message_for_peer = "".to_string();
     // TODO: This probably would be so much better if we walked the entire set of potential messages
     // From the peer we're testing against
     // and ONLY remove the messages that are valid for message reconstitution.
     // TODO: This method does not consider messages being received out of order
-    for (_, peer_in_loop, msg) in messages.lock().await.iter() {
-        if *peer_in_loop != peer {
-            continue;
-        }
-
-        let message_built_up = test_message.lock().await.clone();
-        let message_to_test =
-            message_built_up.clone() + *&msg.as_str().clone() + &new_message_string;
-        match serde_json::from_str::<serde_json::Value>(message_to_test.as_str()) {
+    // Basically we are only considering a single case for a peer: messages being received IN ORDER
+    // And ONLY ONE FRAGMENTED MESSAGE AT A TIME
+    if messages.lock().await.contains_key(&peer) {
+        info!(
+            "[UDP SERVER: {}] Message received from {} is being reassembled",
+            server_type, peer
+        );
+        let (_, message_to_test) = messages.lock().await.get(&peer).unwrap().clone();
+        message_for_peer = message_to_test.clone() + &new_message_string;
+        match serde_json::from_str::<serde_json::Value>(message_for_peer.as_str()) {
             Ok(msg_deserialized) => {
-                debug!(
-                    "[UDP SERVER: {}] Reconstituted a message {}",
-                    server_type, message_to_test
+                info!(
+                    "[UDP SERVER: {}] Reassembled a message from peer {}",
+                    server_type, peer
                 );
                 // FIXME: This feels so very wrong, but if we reassemble a message it's possible that the last part of the
                 // message came in outside of the skew window, which will cause it to get rejected by the message_handler.
@@ -165,19 +174,20 @@ async fn attempt_message_reassembly(
                 // Or perhaps we flag the message as "reassembled" and then the message_handler can decide what to do with it?
 
                 output_message = Some(msg_deserialized);
-                break;
             }
-            Err(_) => (),
+            Err(e) => info!("{e}"),
         };
-
-        *test_message.lock().await = message_built_up.clone() + *&msg.as_str();
     }
 
     match output_message {
         Some(_) => {
-            messages.lock().await.retain(|(_, peer, _)| peer != peer);
+            messages.lock().await.remove(&peer);
         }
         None => {
+            if message_for_peer.len() == 0 {
+                message_for_peer = new_message_string;
+            }
+
             let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
                 Ok(n) => n.as_secs(),
                 Err(_) => 0,
@@ -186,7 +196,7 @@ async fn attempt_message_reassembly(
             messages
                 .lock()
                 .await
-                .push((current_time, peer, new_message_string));
+                .insert(peer, (current_time, message_for_peer));
         }
     }
 
@@ -194,8 +204,9 @@ async fn attempt_message_reassembly(
 }
 
 async fn clean_invalid_message_queue(
-    queue: Arc<Mutex<Vec<(u64, SocketAddr, String)>>>,
+    queue: Arc<Mutex<HashMap<SocketAddr, (u64, String)>>>,
     reassembly_window: u64,
+    queue_type: &str,
 ) {
     let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
         Ok(n) => n.as_secs(),
@@ -206,11 +217,14 @@ async fn clean_invalid_message_queue(
         return;
     }
 
-    queue.lock().await.retain(|old_messages| {
-        let (time, _, _) = old_messages;
-        if current_time - time > reassembly_window {
+    queue.lock().await.retain(|peer, old_messages| {
+        let (time, _) = old_messages;
+        let time_diff = current_time - *time;
+        if time_diff > reassembly_window {
+            debug!("[UDP SERVER {queue_type}] Peer {peer} has been idle for {time_diff} seconds, removing from queue");
             false
         } else {
+            debug!("[UDP SERVER {queue_type}] Peer {peer} has been idle for {time_diff} seconds, keeping in queue");
             true
         }
     });
