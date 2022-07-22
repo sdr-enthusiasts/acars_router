@@ -53,7 +53,12 @@ pub fn start_listener_servers(
 
     if should_start_service(config.receive_tcp()) {
         info!("Starting TCP Receiver servers for {server_type}");
-        start_tcp_receiver_servers(&server_type, config.receive_tcp(), tx_receivers.clone());
+        start_tcp_receiver_servers(
+            &server_type,
+            config.receive_tcp(),
+            tx_receivers.clone(),
+            config.reassembly_window().clone(),
+        );
     }
 }
 
@@ -131,6 +136,7 @@ fn start_tcp_receiver_servers(
     decoder_type: &str,
     hosts: &Vec<String>,
     channel: Sender<serde_json::Value>,
+    reassembly_window: u64,
 ) {
     for host in hosts {
         let new_channel = channel.clone();
@@ -141,6 +147,7 @@ fn start_tcp_receiver_servers(
             let tcp_receiver_server = TCPReceiverServer {
                 host: server_host.to_string(),
                 proto_name: proto_name.to_string(),
+                reassembly_window: reassembly_window,
             };
             match tcp_receiver_server.run(new_channel).await {
                 Ok(_) => debug!("{} connection closed", proto_name),

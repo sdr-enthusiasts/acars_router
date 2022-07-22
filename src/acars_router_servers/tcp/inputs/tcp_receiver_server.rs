@@ -8,8 +8,9 @@
 // Server used to connect out to a client over TCP to receive data
 
 use crate::generics::reconnect_options;
-use crate::helper_functions::strip_line_endings;
+use crate::packet_handler::PacketHandler;
 use log::{error, trace};
+use std::net::SocketAddr;
 use stubborn_io::StubbornTcpStream;
 use tokio::sync::mpsc::Sender;
 use tokio_stream::StreamExt;
@@ -18,6 +19,7 @@ use tokio_util::codec::{Framed, LinesCodec};
 pub struct TCPReceiverServer {
     pub host: String,
     pub proto_name: String,
+    pub reassembly_window: u64,
 }
 
 impl TCPReceiverServer {
@@ -25,11 +27,26 @@ impl TCPReceiverServer {
         self,
         channel: Sender<serde_json::Value>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let TCPReceiverServer { host, proto_name } = self;
+        let TCPReceiverServer {
+            host,
+            proto_name,
+            reassembly_window,
+        } = self;
         trace!("[TCP Receiver Server {}] Starting", proto_name);
+        // create a SocketAddr from host
+        let addr = match host.parse::<SocketAddr>() {
+            Ok(addr) => addr,
+            Err(e) => {
+                error!(
+                    "[TCP Receiver Server {}] Error parsing host: {}",
+                    proto_name, e
+                );
+                return Ok(());
+            }
+        };
 
         let stream = match StubbornTcpStream::connect_with_options(
-            host.clone(),
+            addr.clone(),
             reconnect_options(),
         )
         .await
@@ -48,23 +65,29 @@ impl TCPReceiverServer {
 
         let reader = tokio::io::BufReader::new(stream);
         let mut lines = Framed::new(reader, LinesCodec::new());
+        let packet_handler = PacketHandler::new(&proto_name, reassembly_window);
 
         while let Some(Ok(line)) = lines.next().await {
             // Clean up the line endings. This is probably unnecessary but it's here for safety.
-            let stripped = strip_line_endings(&line).to_owned();
+            let split_messages: Vec<&str> = line.split_terminator('\n').collect();
 
-            match serde_json::from_str::<serde_json::Value>(stripped.as_str()) {
-                Ok(msg) => {
-                    trace!("[TCP SERVER: {}] Received message: {}", proto_name, msg);
-                    match channel.send(msg).await {
-                        Ok(_) => trace!("[TCP SERVER {proto_name}] Message sent to channel"),
-                        Err(e) => error!(
-                            "[TCP SERVER {}] Error sending message to channel: {}",
-                            proto_name, e
-                        ),
-                    };
+            for message in split_messages {
+                match packet_handler
+                    .attempt_message_reassembly(message.to_string(), addr)
+                    .await
+                {
+                    Some(msg) => {
+                        trace!("[TCP SERVER: {}] Received message: {}", proto_name, msg);
+                        match channel.send(msg).await {
+                            Ok(_) => trace!("[TCP SERVER {proto_name}] Message sent to channel"),
+                            Err(e) => error!(
+                                "[TCP SERVER {}] Error sending message to channel: {}",
+                                proto_name, e
+                            ),
+                        };
+                    }
+                    None => trace!("[TCP SERVER {}] Invalid Message", proto_name),
                 }
-                Err(e) => error!("[TCP SERVER {}] Invalid Message: {}", proto_name, e),
             }
         }
 
