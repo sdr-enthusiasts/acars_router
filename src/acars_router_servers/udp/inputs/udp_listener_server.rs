@@ -138,7 +138,7 @@ async fn attempt_message_reassembly(
         }
         Err(_) => (),
     }
-    info!("Checking message");
+
     let test_message: Arc<Mutex<String>> = Arc::new(Mutex::new("".to_string()));
     let mut output_message: Option<serde_json::Value> = None;
     // TODO: This probably would be so much better if we walked the entire set of potential messages
@@ -203,7 +203,7 @@ async fn clean_invalid_message_queue(
 
     queue.lock().await.retain(|old_messages| {
         let (time, _, _) = old_messages;
-        if time + reassembly_window < current_time {
+        if current_time - time > reassembly_window {
             false
         } else {
             true
