@@ -40,7 +40,12 @@ pub fn start_listener_servers(
     if should_start_service(config.listen_tcp()) {
         // Start the TCP listener servers for server_type
         info!("Starting TCP listener servers for {server_type}");
-        start_tcp_listener_servers(&server_type, config.listen_tcp(), tx_receivers.clone());
+        start_tcp_listener_servers(
+            &server_type,
+            config.listen_tcp(),
+            tx_receivers.clone(),
+            config.reassembly_window().clone(),
+        );
     }
 
     // Start the ZMQ listeners
@@ -89,6 +94,7 @@ fn start_tcp_listener_servers(
     decoder_type: &String,
     ports: &Vec<String>,
     channel: Sender<serde_json::Value>,
+    reassembly_window: u64,
 ) {
     for port in ports {
         let new_channel = channel.clone();
@@ -96,6 +102,7 @@ fn start_tcp_listener_servers(
         let proto_name = decoder_type.to_string() + "_TCP_LISTEN_" + &server_tcp_port;
         let server = TCPListenerServer {
             proto_name: proto_name,
+            reassembly_window: reassembly_window,
         };
 
         debug!(
