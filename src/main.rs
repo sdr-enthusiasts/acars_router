@@ -53,6 +53,9 @@ mod tcp_serve_server;
 #[path = "./generics.rs"]
 mod generics;
 
+#[path = "./data_processing/packet_handler.rs"]
+mod packet_handler;
+
 use chrono::Local;
 use config_options::ACARSRouterSettings;
 use env_logger::Builder;
