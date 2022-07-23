@@ -44,7 +44,7 @@ struct Args {
     /// Print statistics every N minutes
     stats_every: u64,
     /// Attempt message reassembly on incomplete messages within the specified number of seconds
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "1")]
     reassembly_window: u64,
 
     // Input Options
