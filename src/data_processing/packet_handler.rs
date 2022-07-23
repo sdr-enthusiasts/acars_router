@@ -49,12 +49,11 @@ impl PacketHandler {
 
         let mut output_message: Option<serde_json::Value> = None;
         let mut message_for_peer = "".to_string();
-        // TODO: This probably would be so much better if we walked the entire set of potential messages
-        // From the peer we're testing against
-        // and ONLY remove the messages that are valid for message reconstitution.
-        // TODO: This method does not consider messages being received out of order
-        // Basically we are only considering a single case for a peer: messages being received IN ORDER
-        // And ONLY ONE FRAGMENTED MESSAGE AT A TIME
+        // TODO: Handle message reassembly for out of sequence messages
+        // TODO: Handle message reassembly for a peer where the peer is sending multiple fragmented messages
+        // Maybe on those two? This could get really tricky to know if the message we've reassembled is all the same message
+        // Because we could end up in a position where the packet splits in the same spot and things look right but the packets belong to different messages
+
         if self.queue.lock().await.contains_key(&peer) {
             info!(
                 "[UDP SERVER: {}] Message received from {} is being reassembled",
