@@ -146,6 +146,7 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Allows troubleshooting via SSH
       # - name: Setup upterm session
       #   uses: lhotari/action-upterm@v1
       #   with:
