@@ -156,21 +156,21 @@ jobs:
         uses: ryankurte/action-apt@v0.3.0
         with:
           arch: armhf
-          packages: "libzmq3:armhf"
+          packages: "libzmq3-dev:armhf"
 
       - name: "Install OS dependencies: arm64"
         uses: ryankurte/action-apt@v0.3.0
         with:
           arch: arm64
-          packages: "libzmq3:arm64"
+          packages: "libzmq3-dev:arm64"
 
       - name: "Install OS dependencies: i386"
         uses: ryankurte/action-apt@v0.3.0
         with:
           arch: i386
-          packages: "libzmq3:i386"
+          packages: "libzmq3-dev:i386"
 
-      - name: Install acars_router OS dependencies
+      - name: "Install OS dependencies: arm64"
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
