@@ -150,23 +150,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libzmq3-dev
 
-      - name: "Install target: armv7-unknown-linux-gnueabihf"
+      - name: "Prepare for multi-arch build"
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++-arm-linux-gnueabihf \
+            libc6-dev-armhf-cross \
+            g++-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            g++-i686-linux-gnu \
+            libc6-dev-i386-cross
+
           rustup target add armv7-unknown-linux-gnueabihf
           rustup toolchain install stable-armv7-unknown-linux-gnueabihf
-
-      - name: "Install target: aarch64-unknown-linux-gnu"
-        run: |
           rustup target add aarch64-unknown-linux-gnu
           rustup toolchain install stable-aarch64-unknown-linux-gnu
-
-      - name: "Install target: x86_64-unknown-linux-gnu"
-        run: |
           rustup target add x86_64-unknown-linux-gnu
           rustup toolchain install stable-x86_64-unknown-linux-gnu
-
-      - name: "Install target: i686-unknown-linux-gnu"
-        run: |
           rustup target add i686-unknown-linux-gnu
           rustup toolchain install stable-i686-unknown-linux-gnu
 
