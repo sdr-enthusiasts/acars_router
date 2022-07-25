@@ -74,7 +74,7 @@ fn start_zmq_listener_servers(
 ) {
     for host in hosts {
         let new_channel = channel.clone();
-        let proto_name = decoder_type.to_string() + "_ZMQ_RECEIVER_" + host;
+        let proto_name = format!("{}_ZMQ_RECEIVER_{}", decoder_type, host);
         let server_host = host.clone();
 
         tokio::spawn(async move {
@@ -99,7 +99,7 @@ fn start_tcp_listener_servers(
     for port in ports {
         let new_channel = channel.clone();
         let server_tcp_port = port.clone();
-        let proto_name = decoder_type.to_string() + "_TCP_LISTEN_" + &server_tcp_port;
+        let proto_name = format!("{}_TCP_LISTEN_{}", decoder_type, port);
         let server = TCPListenerServer {
             proto_name: proto_name,
             reassembly_window: reassembly_window,
@@ -121,8 +121,8 @@ fn start_udp_listener_servers(
 ) {
     for udp_port in ports {
         let new_channel = channel.clone();
-        let server_udp_port = "0.0.0.0:".to_string() + udp_port.as_str();
-        let proto_name = decoder_type.to_string() + "_UDP_LISTEN_" + server_udp_port.as_str();
+        let server_udp_port = format!("0.0.0.0:{}", udp_port);
+        let proto_name = format!("{}_UDP_LISTEN_{}", decoder_type, server_udp_port);
         let server = UDPListenerServer {
             buf: vec![0; 5000],
             to_send: None,
@@ -147,7 +147,7 @@ fn start_tcp_receiver_servers(
 ) {
     for host in hosts {
         let new_channel = channel.clone();
-        let proto_name = decoder_type.to_string() + "_TCP_RECEIVER_" + host;
+        let proto_name = format!("{}_TCP_RECEIVER_{}", decoder_type, host);
         let server_host = host.clone();
 
         tokio::spawn(async move {

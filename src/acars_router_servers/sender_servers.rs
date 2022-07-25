@@ -68,8 +68,8 @@ pub async fn start_sender_servers(
     if should_start_service(config.serve_tcp()) {
         // Start the TCP servers for {server_type}
 
-        for host in config.serve_tcp() {
-            let hostname = "0.0.0.0:".to_string() + host.as_str();
+        for port in config.serve_tcp() {
+            let hostname = format!("0.0.0.0:{}", port);
             let socket = TcpListener::bind(hostname.clone()).await;
 
             match socket {
@@ -77,7 +77,7 @@ pub async fn start_sender_servers(
                     let (tx_processed, rx_processed) = mpsc::channel(32);
                     let tcp_sender_server = TCPServeServer {
                         socket: socket,
-                        proto_name: server_type.clone() + " " + hostname.as_str(),
+                        proto_name: format!("{} {}", server_type, hostname),
                     };
                     let new_state = Arc::clone(&sender_servers);
                     new_state.lock().await.push(tx_processed.clone());
@@ -91,7 +91,7 @@ pub async fn start_sender_servers(
                 Err(e) => {
                     error!(
                         "[TCP SERVE {server_type}]: Error connecting to {}: {}",
-                        host, e
+                        port, e
                     );
                 }
             }
@@ -101,8 +101,8 @@ pub async fn start_sender_servers(
     if should_start_service(config.serve_zmq()) {
         // Start the ZMQ sender servers for {server_type}
         for port in config.serve_zmq() {
-            let server_address = "tcp://127.0.0.1:".to_string() + &port;
-            let name = "ZMQ_SENDER_SERVER_{server_type}_".to_string() + &port;
+            let server_address = format!("tcp://127.0.0.1:{}", port);
+            let name = format!("ZMQ_SENDER_SERVER_{}_{}", server_type, port);
             let socket = publish(&Context::new()).bind(&server_address);
             let new_state = Arc::clone(&sender_servers);
             let (tx_processed, rx_processed) = mpsc::channel(32);

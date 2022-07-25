@@ -34,7 +34,7 @@ impl TCPListenerServer {
             reassembly_window,
         } = self;
 
-        let listener = TcpListener::bind("0.0.0.0:".to_string() + &listen_acars_udp_port).await?;
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
         info!(
             "[TCP SERVER: {}]: Listening on: {}",
             proto_name,
@@ -46,7 +46,7 @@ impl TCPListenerServer {
             // Asynchronously wait for an inbound TcpStream.
             let (stream, addr) = listener.accept().await?;
             let new_channel = channel.clone();
-            let new_proto_name = proto_name.clone() + ":" + &addr.to_string();
+            let new_proto_name = format!("{}:{}", proto_name, addr);
             info!(
                 "[TCP SERVER: {}]:accepted connection from {}",
                 proto_name, addr

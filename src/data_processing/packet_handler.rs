@@ -63,7 +63,7 @@ impl PacketHandler {
             );
             let (time, message_to_test) = self.queue.lock().await.get(&peer).unwrap().clone();
             old_time = Some(time); // We have a good peer, save the time
-            message_for_peer = message_to_test.clone() + &new_message_string;
+            message_for_peer = format!("{}{}", message_to_test, new_message_string);
             match serde_json::from_str::<serde_json::Value>(message_for_peer.as_str()) {
                 Ok(msg_deserialized) => {
                     info!(
