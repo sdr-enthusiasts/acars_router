@@ -147,8 +147,8 @@ jobs:
           fetch-depth: 0
       - name: Install deps
         run: |
-          apt-get update
-          apt-get install -y --no-install-recommends libzmq3-dev
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libzmq3-dev
 
       - name: "Install target: armv7-unknown-linux-gnueabihf"
         run: |
