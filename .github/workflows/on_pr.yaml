@@ -136,8 +136,46 @@ jobs:
       # - name: Clean up between tests
       #   run: ./test_data/clean_up_after_test.sh vdlm2
 
-  test_build:
-    name: Test Build
+  test_binary_build:
+    name: Test Binary Build
+    needs: [flake8-lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install deps
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends libzmq3-dev
+
+      - name: "Install target: armv7-unknown-linux-gnueabihf"
+        run: |
+          rustup target add armv7-unknown-linux-gnueabihf
+          rustup toolchain install stable-armv7-unknown-linux-gnueabihf
+
+      - name: "Install target: aarch64-unknown-linux-gnu"
+        run: |
+          rustup target add aarch64-unknown-linux-gnu
+          rustup toolchain install stable-aarch64-unknown-linux-gnu
+
+      - name: "Install target: x86_64-unknown-linux-gnu"
+        run: |
+          rustup target add x86_64-unknown-linux-gnu
+          rustup toolchain install stable-x86_64-unknown-linux-gnu
+
+      - name: "Install target: i686-unknown-linux-gnu"
+        run: |
+          rustup target add i686-unknown-linux-gnu
+          rustup toolchain install stable-i686-unknown-linux-gnu
+
+      - name: Build armv7
+        run: |
+          cargo build --target armv7-unknown-linux-gnueabihf
+
+  test_docker_image_build:
+    name: Test Docker Image Build
     needs: [hadolint, flake8-lint]
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
     with:
