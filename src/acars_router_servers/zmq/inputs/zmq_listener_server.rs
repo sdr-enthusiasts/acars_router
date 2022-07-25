@@ -20,7 +20,7 @@ pub struct ZMQListnerServer {
 impl ZMQListnerServer {
     pub async fn run(self, channel: Sender<serde_json::Value>) -> Result<()> {
         debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
-        let address = "tcp://".to_string() + &self.host;
+        let address = format!("tcp://{}", self.host);
         let mut socket = subscribe(&Context::new())
             .connect(&address)?
             .subscribe(b"")?;

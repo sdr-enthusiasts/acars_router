@@ -30,7 +30,7 @@ impl UDPSenderServer {
 
         while let Some(message) = self.channel.recv().await {
             let message_out = message["out_json"].clone();
-            let message_as_string = message_out.to_string() + "\n";
+            let message_as_string = format!("{}\n", message_out);
             let message_as_bytes = message_as_string.as_bytes();
             let message_size = message_as_bytes.len();
 

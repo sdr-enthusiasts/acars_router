@@ -126,7 +126,7 @@ async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<serde_j
 
         if let Some(message) = message {
             let message_out = message["out_json"].clone();
-            let message_as_string = message_out.to_string() + "\n";
+            let message_as_string = format!("{}\n", message_out);
             state.lock().await.broadcast(&message_as_string).await;
         }
     }

@@ -65,42 +65,79 @@ impl UDPListenerServer {
                             }
                         };
 
-                        let split_messages: Vec<&str> = msg_string.split_terminator('\n').collect();
+                        let split_messages_by_newline: Vec<&str> =
+                            msg_string.split_terminator('\n').collect();
 
-                        for msg in split_messages {
+                        for msg_by_lineline in split_messages_by_newline {
+                            let split_messages_by_brackets: Vec<&str> =
+                                msg_by_lineline.split_terminator("}{").collect();
                             // First attempt to deserialise just the new message
-                            match packet_handler
-                                .attempt_message_reassembly(msg.to_string(), peer)
-                                .await
+                            for (count, msg_by_brackets) in
+                                split_messages_by_brackets.iter().enumerate()
                             {
-                                Some(msg) => {
-                                    // We have valid JSON
-                                    trace!(
-                                        "[UDP SERVER: {}] {}/{}: {}",
-                                        proto_name,
-                                        size,
-                                        peer,
-                                        msg
-                                    );
+                                let final_message: String;
+                                // FIXME: This feels very non-rust idomatic and is ugly
 
-                                    match channel.send(msg).await {
-                                        Ok(_) => trace!(
-                                            "[UDP SERVER: {}] Message sent to channel",
-                                            proto_name
-                                        ),
-                                        Err(e) => warn!(
+                                // Our message had no brackets, so we can just send it
+                                if split_messages_by_brackets.len() == 1 {
+                                    final_message = msg_by_brackets.to_string();
+                                }
+                                // We have a message that was split by brackets if the length is greater than one
+                                // First case is the first element, which should only ever need a single closing bracket
+                                else if count == 0 {
+                                    trace!(
+                                        "[UDP SERVER: {}] Multiple messages received in a packet.",
+                                        proto_name
+                                    );
+                                    final_message = format!("{}{}", "}", msg_by_brackets);
+                                } else if count == split_messages_by_brackets.len() - 1 {
+                                    // This case is for the last element, which should only ever need a single opening bracket
+                                    trace!(
+                                        "[UDP SERVER: {}] End of a multiple message packet",
+                                        proto_name
+                                    );
+                                    final_message = format!("{}{}", "{", msg_by_brackets);
+                                } else {
+                                    // This case is for any middle elements, which need both an opening and closing bracket
+                                    trace!(
+                                        "[UDP SERVER: {}] Middle of a multiple message packet",
+                                        proto_name
+                                    );
+                                    final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
+                                }
+                                match packet_handler
+                                    .attempt_message_reassembly(final_message, peer)
+                                    .await
+                                {
+                                    Some(msg) => {
+                                        // We have valid JSON
+                                        trace!(
+                                            "[UDP SERVER: {}] {}/{}: {}",
+                                            proto_name,
+                                            size,
+                                            peer,
+                                            msg
+                                        );
+
+                                        match channel.send(msg).await {
+                                            Ok(_) => trace!(
+                                                "[UDP SERVER: {}] Message sent to channel",
+                                                proto_name
+                                            ),
+                                            Err(e) => warn!(
                                             "[UDP SERVER: {}] Error sending message to channel: {}",
                                             proto_name, e
                                         ),
-                                    };
-                                }
-                                None => {
-                                    // The message is invalid. It's been saved for (maybe) later
-                                    trace!(
-                                        "[UDP SERVER: {}] Invalid message received from {}.",
-                                        proto_name,
-                                        peer
-                                    );
+                                        };
+                                    }
+                                    None => {
+                                        // The message is invalid. It's been saved for (maybe) later
+                                        trace!(
+                                            "[UDP SERVER: {}] Invalid message received from {}.",
+                                            proto_name,
+                                            peer
+                                        );
+                                    }
                                 }
                             }
                         }

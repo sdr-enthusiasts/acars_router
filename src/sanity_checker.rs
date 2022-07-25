@@ -96,6 +96,13 @@ pub fn check_config_option_sanity(config_options: &ACARSRouterSettings) -> Resul
         is_input_sane = false;
     }
 
+    if !check_ports_are_valid_with_host(
+        config_options.receive_zmq_acars(),
+        "AR_RECEIVE_ZMQ_ACARS/--receive-zmq-acars",
+    ) {
+        is_input_sane = false;
+    }
+
     if !check_ports_are_valid(
         config_options.serve_tcp_acars(),
         "AR_SERVE_TCP_ACARS/--serve-tcp-acars",
