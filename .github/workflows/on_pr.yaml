@@ -142,6 +142,7 @@ jobs:
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
     with:
       get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
+      build_nohealthcheck: false
 
     # strategy:
     #   matrix:

@@ -48,5 +48,6 @@ jobs:
       ghcr_repo: ${{ github.repository }}
       build_with_tmpfs: true
       get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
+      build_nohealthcheck: false
     secrets:
       ghcr_token: ${{ secrets.GITHUB_TOKEN }}
