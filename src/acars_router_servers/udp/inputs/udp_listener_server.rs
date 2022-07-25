@@ -68,9 +68,9 @@ impl UDPListenerServer {
                         let split_messages_by_newline: Vec<&str> =
                             msg_string.split_terminator('\n').collect();
 
-                        for msg_by_lineline in split_messages_by_newline {
+                        for msg_by_newline in split_messages_by_newline {
                             let split_messages_by_brackets: Vec<&str> =
-                                msg_by_lineline.split_terminator("}{").collect();
+                                msg_by_newline.split_terminator("}{").collect();
                             // First attempt to deserialise just the new message
                             for (count, msg_by_brackets) in
                                 split_messages_by_brackets.iter().enumerate()
