@@ -149,7 +149,7 @@ jobs:
       - name: "Prepare for multi-arch build"
         run: |
           sudo rm -rf /var/lib/apt/lists/
-          sudo apt-get update --fix-missing
+          sudo apt-get update --ignore-missing
           sudo apt-get install -y --no-install-recommends \
             g++-arm-linux-gnueabihf \
             libc6-dev-armhf-cross \
@@ -172,7 +172,7 @@ jobs:
           sudo dpkg --add-architecture arm64
           sudo dpkg --add-architecture armhf
           sudo dpkg --add-architecture i386
-          sudo apt-get update
+          sudo apt-get update --ignore-missing
           sudo apt-get install -y --no-install-recommends \
             libzmq3-dev \
             libzmq3 \
