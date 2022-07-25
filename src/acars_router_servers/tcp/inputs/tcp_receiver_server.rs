@@ -69,24 +69,65 @@ impl TCPReceiverServer {
 
         while let Some(Ok(line)) = lines.next().await {
             // Clean up the line endings. This is probably unnecessary but it's here for safety.
-            let split_messages: Vec<&str> = line.split_terminator('\n').collect();
+            let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
 
-            for message in split_messages {
-                match packet_handler
-                    .attempt_message_reassembly(message.to_string(), addr)
-                    .await
-                {
-                    Some(msg) => {
-                        trace!("[TCP SERVER: {}] Received message: {}", proto_name, msg);
-                        match channel.send(msg).await {
-                            Ok(_) => trace!("[TCP SERVER {proto_name}] Message sent to channel"),
-                            Err(e) => error!(
-                                "[TCP SERVER {}] Error sending message to channel: {}",
-                                proto_name, e
-                            ),
-                        };
+            for msg_by_newline in split_messages_by_newline {
+                let split_messages_by_brackets: Vec<&str> =
+                    msg_by_newline.split_terminator("}{").collect();
+
+                for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
+                    let final_message: String;
+                    // FIXME: This feels very non-rust idomatic and is ugly
+
+                    // Our message had no brackets, so we can just send it
+                    if split_messages_by_brackets.len() == 1 {
+                        final_message = msg_by_brackets.to_string();
                     }
-                    None => trace!("[TCP SERVER {}] Invalid Message", proto_name),
+                    // We have a message that was split by brackets if the length is greater than one
+                    // First case is the first element, which should only ever need a single closing bracket
+                    else if count == 0 {
+                        trace!(
+                            "[TCP Receiver Server {}]Multiple messages received in a packet.",
+                            proto_name
+                        );
+                        final_message = format!("{}{}", "}", msg_by_brackets);
+                    } else if count == split_messages_by_brackets.len() - 1 {
+                        // This case is for the last element, which should only ever need a single opening bracket
+                        trace!(
+                            "[TCP Receiver Server {}] End of a multiple message packet",
+                            proto_name
+                        );
+                        final_message = format!("{}{}", "{", msg_by_brackets);
+                    } else {
+                        // This case is for any middle elements, which need both an opening and closing bracket
+                        trace!(
+                            "[TCP Receiver Server {}] Middle of a multiple message packet",
+                            proto_name
+                        );
+                        final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
+                    }
+                    match packet_handler
+                        .attempt_message_reassembly(final_message, addr)
+                        .await
+                    {
+                        Some(msg) => {
+                            trace!(
+                                "[TCP Receiver Server {}] Received message: {}",
+                                proto_name,
+                                msg
+                            );
+                            match channel.send(msg).await {
+                                Ok(_) => {
+                                    trace!("[TCP SERVER {proto_name}] Message sent to channel")
+                                }
+                                Err(e) => error!(
+                                    "[TCP Receiver Server {}]Error sending message to channel: {}",
+                                    proto_name, e
+                                ),
+                            };
+                        }
+                        None => trace!("[TCP Receiver Server {}] Invalid Message", proto_name),
+                    }
                 }
             }
         }
