@@ -32,22 +32,54 @@ pub struct Shared {
     pub peers: HashMap<SocketAddr, Tx>,
 }
 
-#[derive(Getters, Clone)]
+#[derive(Debug, Clone, Getters)]
 pub struct SenderServerConfig {
-    pub send_udp: Vec<String>,
-    pub send_tcp: Vec<String>,
-    pub serve_tcp: Vec<String>,
-    pub serve_zmq: Vec<String>,
+    pub send_udp: Option<Vec<String>>,
+    pub send_tcp: Option<Vec<String>>,
+    pub serve_tcp: Option<Vec<String>>,
+    pub serve_zmq: Option<Vec<String>>,
     pub max_udp_packet_size: usize,
 }
 
-#[derive(Getters, Clone)]
+impl SenderServerConfig {
+    pub fn new(send_udp: &Option<Vec<String>>,
+               send_tcp: &Option<Vec<String>>,
+               serve_tcp: &Option<Vec<String>>,
+               serve_zmq: &Option<Vec<String>>,
+               max_udp_packet_size: &u64) -> Self {
+        Self {
+            send_udp: send_udp.clone(),
+            send_tcp: send_tcp.clone(),
+            serve_tcp: serve_tcp.clone(),
+            serve_zmq: serve_zmq.clone(),
+            max_udp_packet_size: *max_udp_packet_size as usize
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Getters)]
 pub struct OutputServerConfig {
-    pub listen_udp: Vec<String>,
-    pub listen_tcp: Vec<String>,
-    pub receive_tcp: Vec<String>,
-    pub receive_zmq: Vec<String>,
+    pub listen_udp: Option<Vec<String>>,
+    pub listen_tcp: Option<Vec<String>>,
+    pub receive_tcp: Option<Vec<String>>,
+    pub receive_zmq: Option<Vec<String>>,
     pub reassembly_window: u64,
+}
+
+impl OutputServerConfig {
+    pub fn new(listen_udp: &Option<Vec<String>>,
+               listen_tcp: &Option<Vec<String>>,
+               receive_tcp: &Option<Vec<String>>,
+               receive_zmq: &Option<Vec<String>>,
+               reassembly_window: &u64) -> Self {
+        Self {
+            listen_udp: listen_udp.clone(),
+            listen_tcp: listen_tcp.clone(),
+            receive_tcp: receive_tcp.clone(),
+            receive_zmq: receive_zmq.clone(),
+            reassembly_window: *reassembly_window
+        }
+    }
 }
 
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients

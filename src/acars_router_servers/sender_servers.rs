@@ -6,7 +6,6 @@
 //
 
 use crate::generics::{reconnect_options, SenderServer, SenderServerConfig, Shared};
-use crate::helper_functions::should_start_service;
 use crate::tcp_serve_server::TCPServeServer;
 use crate::udp_sender_server::UDPSenderServer;
 use log::{debug, error};
@@ -19,9 +18,9 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{mpsc, Mutex};
 
 pub async fn start_sender_servers(
-    config: &SenderServerConfig,
+    config: SenderServerConfig,
     rx_processed: Receiver<Value>,
-    server_type: String,
+    server_type: &str,
 ) {
     // Flow is check and see if there are any configured outputs for the queue
     // If so, start it up and save the transmit channel to the list of sender servers.
@@ -29,16 +28,16 @@ pub async fn start_sender_servers(
 
     let sender_servers: Arc<Mutex<Vec<Sender<Value>>>> = Arc::new(Mutex::new(Vec::new()));
 
-    if should_start_service(config.send_udp()) {
+    if let Some(send_udp) = config.send_udp {
         // Start the UDP sender servers for {server_type}
 
         match UdpSocket::bind("0.0.0.0:0".to_string()).await {
             Ok(socket) => {
                 let (tx_processed, rx_processed) = mpsc::channel(32);
                 let udp_sender_server = UDPSenderServer {
-                    host: config.send_udp().clone(),
-                    proto_name: server_type.clone(),
-                    socket: socket,
+                    host: send_udp,
+                    proto_name: server_type.to_string(),
+                    socket,
                     max_udp_packet_size: config.max_udp_packet_size,
                     channel: rx_processed,
                 };
@@ -56,28 +55,26 @@ pub async fn start_sender_servers(
         };
     }
 
-    if should_start_service(config.send_tcp()) {
-        for host in config.send_tcp() {
+    if let Some(send_tcp) = config.send_tcp {
+        for host in send_tcp {
             let new_state = Arc::clone(&sender_servers);
-            let hostname = host.clone();
-            let s_type = server_type.clone();
-            tokio::spawn(async move { start_tcp(hostname, s_type, new_state).await });
+            let s_type = server_type.to_string();
+            tokio::spawn(async move { start_tcp(host.clone(), s_type, new_state).await });
         }
     }
 
-    if should_start_service(config.serve_tcp()) {
+    if let Some(serve_tcp) = config.serve_tcp {
         // Start the TCP servers for {server_type}
-
-        for host in config.serve_tcp() {
-            let hostname = "0.0.0.0:".to_string() + host.as_str();
-            let socket = TcpListener::bind(hostname.clone()).await;
-
+        for host in serve_tcp {
+            let hostname = format!("0.0.0.0:{}", host);
+            let socket = TcpListener::bind(&hostname).await;
             match socket {
+                Err(e) => error!("[TCP SERVE {server_type}]: Error connecting to {host}: {e}"),
                 Ok(socket) => {
                     let (tx_processed, rx_processed) = mpsc::channel(32);
                     let tcp_sender_server = TCPServeServer {
-                        socket: socket,
-                        proto_name: server_type.clone() + " " + hostname.as_str(),
+                        socket,
+                        proto_name: format!("{} {}", server_type, hostname),
                     };
                     let new_state = Arc::clone(&sender_servers);
                     new_state.lock().await.push(tx_processed.clone());
@@ -88,42 +85,31 @@ pub async fn start_sender_servers(
                             .await;
                     });
                 }
-                Err(e) => {
-                    error!(
-                        "[TCP SERVE {server_type}]: Error connecting to {}: {}",
-                        host, e
-                    );
-                }
             }
         }
     }
 
-    if should_start_service(config.serve_zmq()) {
+    if let Some(serve_zmq) = config.serve_zmq {
         // Start the ZMQ sender servers for {server_type}
-        for port in config.serve_zmq() {
-            let server_address = "tcp://127.0.0.1:".to_string() + &port;
-            let name = "ZMQ_SENDER_SERVER_{server_type}_".to_string() + &port;
+        for port in serve_zmq {
+            let server_address = format!("tcp://127.0.0.1:{}", &port);
+            let name = format!("ZMQ_SENDER_SERVER_{}_{}", server_type, &port);
             let socket = publish(&Context::new()).bind(&server_address);
             let new_state = Arc::clone(&sender_servers);
             let (tx_processed, rx_processed) = mpsc::channel(32);
             match socket {
+                Err(e) => error!("Error starting ZMQ {server_type} server on port {port}: {:?}", e),
                 Ok(socket) => {
                     let zmq_sender_server = SenderServer {
-                        host: server_address.clone(),
-                        proto_name: name.clone(),
-                        socket: socket,
+                        host: server_address,
+                        proto_name: name,
+                        socket,
                         channel: rx_processed,
                     };
                     new_state.lock().await.push(tx_processed);
                     tokio::spawn(async move {
                         zmq_sender_server.send_message().await;
                     });
-                }
-                Err(e) => {
-                    error!(
-                        "Error starting ZMQ {server_type} server on port {}: {}",
-                        port, e
-                    );
                 }
             }
         }
@@ -137,7 +123,7 @@ pub async fn start_sender_servers(
 async fn monitor_queue(
     mut rx_processed: mpsc::Receiver<Value>,
     sender_servers: Arc<Mutex<Vec<Sender<Value>>>>,
-    name: String,
+    name: &str,
 ) {
     debug!("Starting the {name} Output Queue");
     while let Some(message) = rx_processed.recv().await {
@@ -161,24 +147,19 @@ async fn start_tcp(
     // Start a TCP sender server for {server_type}
     let socket = StubbornTcpStream::connect_with_options(host.clone(), reconnect_options()).await;
     match socket {
+        Err(e) => error!("[TCP SENDER {socket_type}]: Error connecting to {host}: {e}"),
         Ok(socket) => {
             let (tx_processed, rx_processed) = mpsc::channel(32);
             let tcp_sender_server = SenderServer {
                 host: host.clone(),
                 proto_name: socket_type.clone(),
-                socket: socket,
+                socket,
                 channel: rx_processed,
             };
             sender_server.lock().await.push(tx_processed);
             tokio::spawn(async move {
                 tcp_sender_server.send_message().await;
             });
-        }
-        Err(e) => {
-            error!(
-                "[TCP SENDER {socket_type}]: Error connecting to {}: {}",
-                host, e
-            );
         }
     }
 }

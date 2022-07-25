@@ -5,6 +5,22 @@
 // Full license information available in the project LICENSE file.
 //
 
+#[macro_use] extern crate log;
+extern crate tokio;
+extern crate tokio_stream;
+extern crate tokio_util;
+extern crate futures;
+extern crate clap;
+extern crate chrono;
+extern crate serde;
+extern crate serde_json;
+extern crate zmq;
+extern crate tmq;
+extern crate failure;
+extern crate stubborn_io;
+extern crate env_logger;
+extern crate derive_getters;
+
 #[path = "./config_options.rs"]
 mod config_options;
 #[path = "./data_processing/hasher.rs"]
@@ -50,28 +66,19 @@ mod generics;
 mod packet_handler;
 
 use chrono::Local;
-use config_options::ACARSRouterSettings;
 use env_logger::Builder;
-use generics::{OutputServerConfig, SenderServerConfig};
-use helper_functions::exit_process;
-use listener_servers::start_listener_servers;
-use log::{debug, error, info, trace};
-use message_handler::{watch_received_message_queue, MessageHandlerConfig};
-use sanity_checker::check_config_option_sanity;
-use sender_servers::start_sender_servers;
 use std::error::Error;
 use std::io::Write;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
+use clap::Parser;
+use crate::config_options::{Input, SetupLogging};
+use crate::generics::{OutputServerConfig, SenderServerConfig};
+use crate::listener_servers::start_listener_servers;
+use crate::message_handler::{watch_received_message_queue, MessageHandlerConfig};
+use crate::sender_servers::start_sender_servers;
 
-async fn start_processes() {
-    let config: ACARSRouterSettings = ACARSRouterSettings::load_values();
-    let log_level = config.log_level();
-    let should_start_acars_watcher =
-        config.should_start_acars_inputs() && config.should_start_acars_outputs();
-    let should_start_vdlm_watcher =
-        config.should_start_vdlm2_inputs() && config.should_start_vdlm2_outputs();
-
+async fn start_processes(args: Input) {
     Builder::new()
         .format(|buf, record| {
             writeln!(
@@ -82,37 +89,16 @@ async fn start_processes() {
                 record.args()
             )
         })
-        .filter(None, log_level.clone())
+        .filter(None, args.verbose.set_logging_level())
         .init();
 
-    config.print_values();
+    args.print_values();
 
-    match check_config_option_sanity(&config) {
-        Ok(_) => {
-            info!("Configuration is valid. Starting ACARS Router");
-        }
-        Err(e) => {
-            error!("Configuration is invalid. Exiting ACARS Router");
-            error!("{}", e);
-            exit_process(12);
-        }
-    }
-    let message_handler_config_acars = MessageHandlerConfig {
-        add_proxy_id: config.add_proxy_id,
-        dedupe: config.dedupe,
-        dedupe_window: config.dedupe_window,
-        skew_window: config.skew_window,
-        queue_type: "ACARS".to_string(),
-        should_override_station_name: config.should_override_station_name,
-        station_name: config.override_station_name.clone(),
-        stats_every: config.stats_every,
-    };
-
-    let mut message_handler_config_vdlm = message_handler_config_acars.clone();
-    message_handler_config_vdlm.queue_type = "VDLM".to_string();
+    let message_handler_config_acars = MessageHandlerConfig::new(&args, "ACARS");
+    let message_handler_config_vdlm = MessageHandlerConfig::new(&args, "VDLM");
 
     // Print the log level out to the user
-    info!("Log level: {:?}", config.log_level());
+    // info!("Log level: {:?}", config.log_level());
 
     // ACARS Servers
     // Create the input channel all receivers will send their data to.
@@ -131,108 +117,77 @@ async fn start_processes() {
     // start the input servers
     debug!("Starting input servers");
     // start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
+    info!("Starting ACARS input servers");
+    let acars_input_config = OutputServerConfig::new(&args.listen_udp_acars,
+                                                     &args.listen_tcp_acars,
+                                                     &args.receive_tcp_acars,
+                                                     &args.receive_zmq_acars,
+                                                     &args.reassembly_window);
+    tokio::spawn(async move {
+        start_listener_servers(acars_input_config, tx_receivers_acars, "ACARS");
+    });
 
-    if config.should_start_acars_inputs() {
-        // start the acars input servers
-        info!("Starting ACARS input servers");
-        let acars_input_config = OutputServerConfig {
-            listen_udp: config.listen_udp_acars().clone(),
-            listen_tcp: config.listen_tcp_acars().clone(),
-            receive_zmq: config.receive_zmq_acars().clone(),
-            receive_tcp: config.receive_tcp_acars().clone(),
-            reassembly_window: config.reassembly_window().clone(),
-        };
-
-        tokio::spawn(async move {
-            start_listener_servers(acars_input_config, tx_receivers_acars, "ACARS".to_string());
-        });
-    } else {
-        info!("No valid ACARS input servers configured. Not starting ACARS Input Servers");
-    }
-
-    if config.should_start_vdlm2_inputs() {
-        // start the vdlm input servers
-        info!("Starting VDLM2 input servers");
-        let vdlm_input_config = OutputServerConfig {
-            listen_udp: config.listen_udp_vdlm2().clone(),
-            listen_tcp: config.listen_tcp_vdlm2().clone(),
-            receive_zmq: config.receive_zmq_vdlm2().clone(),
-            receive_tcp: config.receive_tcp_vdlm2().clone(),
-            reassembly_window: config.reassembly_window().clone(),
-        };
-
-        tokio::spawn(async move {
-            start_listener_servers(vdlm_input_config, tx_receivers_vdlm, "VDLM".to_string());
-        });
-    } else {
-        info!("No valid VDLM2 input servers configured. Not starting VDLM2 Input Servers");
-    }
+    let vdlm_input_config = OutputServerConfig::new(&args.listen_udp_vdlm2,
+                                                    &args.listen_tcp_vdlm2,
+                                                    &args.receive_zmq_vdlm2,
+                                                    &args.receive_tcp_vdlm2,
+                                                    &args.reassembly_window);
+    tokio::spawn(async move {
+        start_listener_servers(vdlm_input_config, tx_receivers_vdlm, "VDLM");
+    });
 
     // start the output servers
     debug!("Starting output servers");
-    if config.should_start_acars_outputs() {
-        info!("Starting ACARS Output Servers");
-        let acars_output_config = SenderServerConfig {
-            send_udp: config.send_udp_acars().clone(),
-            send_tcp: config.send_tcp_acars().clone(),
-            serve_zmq: config.serve_zmq_acars().clone(),
-            serve_tcp: config.serve_tcp_acars().clone(),
-            max_udp_packet_size: config.max_udp_packet_size().clone(),
-        };
 
-        tokio::spawn(async move {
-            start_sender_servers(
-                &acars_output_config,
-                rx_processed_acars,
-                "ACARS".to_string(),
-            )
-            .await;
-        });
-    } else {
-        info!("No valid ACARS outputs configured. Not starting ACARS Output Servers");
-    }
+    info!("Starting ACARS Output Servers");
+    let acars_output_config: SenderServerConfig = SenderServerConfig::new(&args.send_udp_acars,
+                                                      &args.send_tcp_acars,
+                                                      &args.serve_zmq_acars,
+                                                      &args.serve_tcp_acars,
+                                                      &args.max_udp_packet_size);
 
-    if config.should_start_vdlm2_outputs() {
-        info!("Starting VDLM Output Servers");
-        let vdlm_output_config = SenderServerConfig {
-            send_udp: config.send_udp_vdlm2().clone(),
-            send_tcp: config.send_tcp_vdlm2().clone(),
-            serve_zmq: config.serve_zmq_vdlm2().clone(),
-            serve_tcp: config.serve_tcp_vdlm2().clone(),
-            max_udp_packet_size: config.max_udp_packet_size().clone(),
-        };
+    tokio::spawn(async move {
+        start_sender_servers(
+            acars_output_config,
+            rx_processed_acars,
+            "ACARS",
+        ).await;
+    });
 
-        tokio::spawn(async move {
-            start_sender_servers(&vdlm_output_config, rx_processed_vdlm, "VDLM".to_string()).await;
-        });
-    } else {
-        info!("No valid VDLM outputs configured. Not starting VDLM Output Servers");
-    }
+    info!("Starting VDLM Output Servers");
+    let vdlm_output_config = SenderServerConfig::new(&args.send_udp_vdlm2,
+                                                     &args.send_tcp_vdlm2,
+                                                     &args.serve_zmq_vdlm2,
+                                                     &args.serve_tcp_vdlm2,
+                                                     &args.max_udp_packet_size);
+
+    tokio::spawn(async move {
+        start_sender_servers(vdlm_output_config, rx_processed_vdlm, "VDLM").await;
+    });
 
     // Start the message handler tasks.
     // Don't start the queue watcher UNLESS there is a valid input source AND output source for the message type
 
     debug!("Starting the message handler tasks");
 
-    if should_start_acars_watcher {
+    if args.acars_configured() {
         tokio::spawn(async move {
             watch_received_message_queue(
                 rx_receivers_acars,
                 tx_processed_acars,
-                &message_handler_config_acars,
-            )
-            .await
+                message_handler_config_acars,
+            ).await
         });
     } else {
         info!("Not starting the ACARS message handler task. No input and/or output sources specified.");
     }
 
-    if should_start_vdlm_watcher {
+    if args.vdlm_configured() {
         tokio::spawn(async move {
             watch_received_message_queue(
                 rx_receivers_vdlm,
                 tx_processed_vdlm,
-                &message_handler_config_vdlm,
+                message_handler_config_vdlm,
             )
             .await;
         });
@@ -255,6 +210,7 @@ async fn start_processes() {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    start_processes().await;
+    let args: Input = Input::parse();
+    start_processes(args).await;
     Ok(())
 }

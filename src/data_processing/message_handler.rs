@@ -14,8 +14,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
+use crate::Input;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct MessageHandlerConfig {
     pub add_proxy_id: bool,
     pub dedupe: bool,
@@ -25,6 +26,34 @@ pub struct MessageHandlerConfig {
     pub should_override_station_name: bool,
     pub station_name: String,
     pub stats_every: u64,
+}
+
+impl MessageHandlerConfig {
+    pub fn new(args: &Input, queue_type: &str) -> Self {
+        if let Some(station_name) = &args.override_station_name {
+            Self {
+                add_proxy_id: args.add_proxy_id,
+                dedupe: args.enable_dedupe,
+                dedupe_window: args.dedupe_window,
+                skew_window: args.skew_window,
+                queue_type: queue_type.to_string(),
+                should_override_station_name: args.override_station_name.is_some(),
+                station_name: station_name.to_string(),
+                stats_every: args.stats_every
+            }
+        } else {
+            Self {
+                add_proxy_id: args.add_proxy_id,
+                dedupe: args.enable_dedupe,
+                dedupe_window: args.dedupe_window,
+                skew_window: args.skew_window,
+                queue_type: queue_type.to_string(),
+                should_override_station_name: false,
+                station_name: Default::default(),
+                stats_every: args.stats_every
+            }
+        }
+    }
 }
 
 pub async fn print_stats(
@@ -90,7 +119,7 @@ pub async fn clean_up_dedupe_queue(
 pub async fn watch_received_message_queue(
     mut input_queue: Receiver<serde_json::Value>,
     output_queue: Sender<serde_json::Value>,
-    config: &MessageHandlerConfig,
+    config: MessageHandlerConfig,
 ) {
     let dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>> =
         Arc::new(Mutex::new(VecDeque::with_capacity(100)));

@@ -5,110 +5,105 @@
 // Full license information available in the project LICENSE file.
 //
 
-use crate::helper_functions::{should_start_service, strip_line_endings};
 use clap::Parser;
 use derive_getters::Getters;
-use log::debug;
-use std::{env, str};
+use log::LevelFilter;
 
-#[derive(Parser, Debug)]
-#[clap(name = "ACARS Router", author = "Mike Nye / Fred Clausen", version = "1.0", about = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers.", long_about = None)]
-struct Args {
+#[derive(Parser, Debug, Clone)]
+#[clap(name = "ACARS Router", author, version, about, long_about = None)]
+pub struct Input {
     // Output Options
-    #[clap(short = 'v', long = "verbose", default_value = "info")]
     /// Set the log level. debug, trace, info are valid options.
-    verbose: String,
-    #[clap(long)]
+    #[clap(short, long, action = clap::ArgAction::Count)]
+    pub(crate) verbose: u8,
     /// Enable message deduplication
-    enable_dedupe: bool,
-    #[clap(long, default_value = "2")]
+    #[clap(long, env = "AR_ENABLE_DEDUPE")]
+    pub(crate) enable_dedupe: bool,
     /// Set the number of seconds that a message will be considered as a duplicate
     /// if it is received again.
-    dedupe_window: u64,
-    #[clap(long, default_value = "1")]
+    #[clap(long, env = "AR_DEDUPE_WINDOW", default_value = "2")]
+    pub(crate) dedupe_window: u64,
     /// Reject messages with a timestamp greater than +/- this many seconds.
-    skew_window: u64,
+    #[clap(long, env = "AR_SKEW_WINDOW", default_value = "1")]
+    pub(crate) skew_window: u64,
     /// Set maximum UDP packet size, peer-to-peer.
-    #[clap(long, default_value = "60000")]
-    max_udp_packet_size: u64,
-
+    #[clap(long, env = "AR_MAX_UDP_PACKET_SIZE", default_value = "60000")]
+    pub(crate) max_udp_packet_size: u64,
     // Message Modification
-    #[clap(long)]
     /// Set to true to enable message modification
     /// This will add a "proxied" field to the message
-    dont_add_proxy_id: bool,
-    #[clap(long, default_value = "")]
+    #[clap(long, env = "AR_ADD_PROXY_ID")]
+    pub(crate) add_proxy_id: bool,
     /// Override the station name in the message.
-    override_station_name: String,
-    #[clap(long, default_value = "5")]
+    #[clap(long, env = "AR_OVERRIDE_STATION_NAME")]
+    pub(crate) override_station_name: Option<String>,
     /// Print statistics every N minutes
-    stats_every: u64,
+    #[clap(long, env = "AR_STATS_EVERY", default_value = "5")]
+    pub(crate) stats_every: u64,
     /// Attempt message reassembly on incomplete messages within the specified number of seconds
-    #[clap(long, default_value = "1")]
-    reassembly_window: u64,
-
+    #[clap(long, env = "AR_REASSEMBLY_WINDOW", default_value = "1")]
+    pub(crate) reassembly_window: u64,
     // Input Options
 
     // ACARS
-    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "")]
-    listen_udp_acars: String,
-    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "")]
-    listen_tcp_acars: String,
-    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "")]
-    receive_tcp_acars: String,
-    /// Semi-Colon separated list of arguments. io host:5550;host:5551;host:5552
-    #[clap(long, default_value = "")]
-    receive_zmq_acars: String,
+    /// Comma separated list of arguments. ie 5550,5551,5552
+    #[clap(long, env = "AR_LISTEN_UDP_ACARS")]
+    pub(crate) listen_udp_acars: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie 5550,5551,5552
+    #[clap(long, env = "AR_LISTEN_TCP_ACARS")]
+    pub(crate) listen_tcp_acars: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie 5550,5551,5552
+    #[clap(long, env = "AR_RECV_TCP_ACARS")]
+    pub(crate) receive_tcp_acars: Option<Vec<String>>,
+    /// Comma separated list of arguments. io host:5550,host:5551,host:5552
+    #[clap(long, env = "AR_RECV_ZMQ_ACARS")]
+    pub(crate) receive_zmq_acars: Option<Vec<String>>,
 
     // VDLM2
-    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
-    #[clap(long, default_value = "")]
-    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
-    listen_udp_vdlm2: String,
-    #[clap(long, default_value = "")]
-    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
-    listen_tcp_vdlm2: String,
-    #[clap(long, default_value = "")]
-    /// Semi-Colon separated list of arguments. ie 5555;5556;1557
-    receive_tcp_vdlm2: String,
-    /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
-    #[clap(long, default_value = "")]
-    receive_zmq_vdlm2: String,
+    /// Comma separated list of arguments. ie 5555;5556;5557
+    #[clap(long, env = "AR_LISTEN_UDP_VDLM2")]
+    pub(crate) listen_udp_vdlm2: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie 5555;5556;5557
+    #[clap(long, env = "AR_LISTEN_TCP_VDLM2")]
+    pub(crate) listen_tcp_vdlm2: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie 5555;5556;1557
+    #[clap(long, env = "AR_RECV_TCP_VDLM2")]
+    pub(crate) receive_tcp_vdlm2: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie  host:5550,host:5551,host:5552
+    #[clap(long, env = "AR_RECV_ZMQ_VDLM2")]
+    pub(crate) receive_zmq_vdlm2: Option<Vec<String>>,
     // JSON Output options
     // ACARS
-    /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
-    #[clap(long, default_value = "")]
-    send_udp_acars: String,
-    /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
-    #[clap(long, default_value = "")]
-    send_tcp_acars: String,
-    // Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "")]
-    serve_tcp_acars: String,
-    // Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "")]
-    serve_zmq_acars: String,
+    /// Comma separated list of arguments. ie host:5550,host:5551,host:5552
+    #[clap(long, env = "AR_SEND_UDP_ACARS")]
+    pub(crate) send_udp_acars: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie host:5550,host:5551,host:5552
+    #[clap(long, env = "AR_SEND_TCP_ACARS")]
+    pub(crate) send_tcp_acars: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie 5550,5551,5552
+    #[clap(long, env = "AR_SERVE_TCP_ACARS")]
+    pub(crate) serve_tcp_acars: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie 5550,5551,5552
+    #[clap(long, env = "AR_SERVE_ZMQ_ACARS")]
+    pub(crate) serve_zmq_acars: Option<Vec<String>>,
     // VDLM
-    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
-    #[clap(long, default_value = "")]
-    send_udp_vdlm2: String,
-    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
-    #[clap(long, default_value = "")]
-    send_tcp_vdlm2: String,
-    // Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "")]
-    serve_tcp_vdlm2: String,
-    // Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, default_value = "")]
-    serve_zmq_vdlm2: String,
+    /// Comma separated list of arguments. ie host:5555,host:5556,host:5557
+    #[clap(long, env = "AR_SEND_UDP_VDLM2")]
+    pub(crate) send_udp_vdlm2: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie host:5555,host:5556,host:5557
+    #[clap(long, env = "AR_SEND_TCP_VDLM2")]
+    pub(crate) send_tcp_vdlm2: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie 5550,5551,5552
+    #[clap(long, env = "AR_SERVE_TCP_VDLM2")]
+    pub(crate) serve_tcp_vdlm2: Option<Vec<String>>,
+    /// Comma separated list of arguments. ie 5550,5551,5552
+    #[clap(long, env = "AR_SERVE_ZMQ_VDLM2")]
+    pub(crate) serve_zmq_vdlm2: Option<Vec<String>>,
 }
 
-#[derive(Getters, Clone)]
+#[derive(Debug, Clone, Getters)]
 pub struct ACARSRouterSettings {
-    pub log_level: log::LevelFilter,
+    pub log_level: LevelFilter,
     // This field is named opposite to the command line flag.
     // The presence of the flag indicates we should NOT add the proxy id
     // The field is inverted and saved
@@ -119,7 +114,7 @@ pub struct ACARSRouterSettings {
     pub reassembly_window: u64,
     pub stats_every: u64,
     // The name that should be overridden in the message.
-    pub override_station_name: String,
+    pub override_station_name: Option<String>,
     // A bool for ease of app logic to flag if we should override the station name.
     pub should_override_station_name: bool,
     pub listen_udp_acars: Vec<String>,
@@ -141,35 +136,7 @@ pub struct ACARSRouterSettings {
     pub max_udp_packet_size: usize,
 }
 
-impl ACARSRouterSettings {
-    pub fn should_start_acars_inputs(&self) -> bool {
-        return should_start_service(self.receive_tcp_acars())
-            || should_start_service(self.listen_udp_acars())
-            || should_start_service(self.listen_tcp_acars())
-            || should_start_service(self.receive_zmq_acars());
-    }
-
-    pub fn should_start_acars_outputs(&self) -> bool {
-        return should_start_service(self.send_udp_acars())
-            || should_start_service(self.send_tcp_acars())
-            || should_start_service(self.serve_tcp_acars())
-            || should_start_service(self.serve_zmq_acars());
-    }
-
-    pub fn should_start_vdlm2_inputs(&self) -> bool {
-        return should_start_service(self.receive_tcp_vdlm2())
-            || should_start_service(self.listen_udp_vdlm2())
-            || should_start_service(self.listen_tcp_vdlm2())
-            || should_start_service(self.receive_zmq_vdlm2());
-    }
-
-    pub fn should_start_vdlm2_outputs(&self) -> bool {
-        return should_start_service(self.send_udp_vdlm2())
-            || should_start_service(self.send_tcp_vdlm2())
-            || should_start_service(self.serve_tcp_vdlm2())
-            || should_start_service(self.serve_zmq_vdlm2());
-    }
-
+impl Input {
     pub fn print_values(&self) {
         debug!("The Following configuration values were loaded:");
         debug!("AR_LISTEN_UDP_ACARS: {:?}", self.listen_udp_acars);
@@ -184,17 +151,13 @@ impl ACARSRouterSettings {
         debug!("AR_SEND_TCP_ACARS: {:?}", self.send_tcp_acars);
         debug!("AR_SERVE_TCP_ACARS: {:?}", self.serve_tcp_acars);
         debug!("AR_SERVE_ZMQ_ACARS: {:?}", self.serve_zmq_acars);
-        debug!("AR_VERBOSE: {:?}", self.log_level);
+        debug!("AR_VERBOSE: {:?}", self.verbose.set_logging_level());
         debug!("AR_ADD_PROXY_ID: {:?}", self.add_proxy_id);
-        debug!("AR_ENABLE_DEDUPE: {:?}", self.dedupe);
+        debug!("AR_ENABLE_DEDUPE: {:?}", self.enable_dedupe);
         debug!("AR_DEDUPE_WINDOW: {:?}", self.dedupe_window);
         debug!("AR_SKEW_WINDOW: {:?}", self.skew_window);
         debug!("AR_STATS_EVERY: {:?}", self.stats_every);
         debug!("AR_OVERRIDE_STATION_NAME: {:?}", self.override_station_name);
-        debug!(
-            "AR_OVERRIDE_STATION_NAME: {:?}",
-            self.should_override_station_name
-        );
         debug!("AR_SEND_UDP_VDLM2: {:?}", self.send_udp_vdlm2);
         debug!("AR_SEND_TCP_VDLM2: {:?}", self.send_tcp_vdlm2);
         debug!("AR_SERVE_TCP_VDLM2: {:?}", self.serve_tcp_vdlm2);
@@ -203,219 +166,41 @@ impl ACARSRouterSettings {
         debug!("AR_REASSEMBLY_WINDOW: {:?}", self.reassembly_window);
     }
 
-    pub fn load_values() -> ACARSRouterSettings {
-        let args = Args::parse();
+    pub fn acars_configured(&self) -> bool {
+        self.receive_tcp_acars.is_some()
+            || self.listen_udp_acars.is_some()
+            || self.listen_tcp_acars.is_some()
+            || self.receive_zmq_acars.is_some()
+            || self.send_udp_acars.is_some()
+            || self.send_tcp_acars.is_some()
+            || self.serve_tcp_acars.is_some()
+            || self.serve_zmq_acars.is_some()
+    }
 
-        return ACARSRouterSettings {
-            log_level: get_log_level(&args.verbose),
-            dedupe: get_value_as_bool("AR_ENABLE_DEDUPE", &args.enable_dedupe),
-            dedupe_window: get_value_as_u64("AR_DEDUPE_WINDOW", &args.dedupe_window),
-            skew_window: get_value_as_u64("AR_SKEW_WINDOW", &args.skew_window),
-            stats_every: get_value_as_u64("AR_STATS_EVERY", &args.stats_every),
-            reassembly_window: get_value_as_u64("AR_REASSEMBLY_WINDOW", &args.reassembly_window),
-            max_udp_packet_size: match usize::try_from(get_value_as_u64(
-                "AR_MAX_UDP_PACKET_SIZE",
-                &args.max_udp_packet_size,
-            )) {
-                Ok(v) => v,
-                Err(_) => 60000,
-            },
-
-            override_station_name: get_value_as_string(
-                "AR_OVERRIDE_STATION_NAME",
-                &args.override_station_name,
-                "",
-            ),
-            should_override_station_name: get_value_as_bool_from_string(
-                "AR_OVERRIDE_STATION_NAME",
-                &args.override_station_name,
-            ),
-            add_proxy_id: get_value_as_bool_invert_bool(
-                "AR_DONT_ADD_PROXY_ID",
-                &args.dont_add_proxy_id,
-            ),
-            listen_udp_acars: get_value_as_vector(
-                "AR_LISTEN_UDP_ACARS",
-                &args.listen_udp_acars,
-                "5550",
-            ),
-            listen_tcp_acars: get_value_as_vector(
-                "AR_LISTEN_TCP_ACARS",
-                &args.listen_tcp_acars,
-                "5550",
-            ),
-            receive_tcp_acars: get_value_as_vector(
-                "AR_RECV_TCP_ACARS",
-                &args.receive_tcp_acars,
-                "",
-            ),
-            receive_zmq_acars: get_value_as_vector(
-                "AR_RECV_ZMQ_ACARS",
-                &args.receive_zmq_acars,
-                "",
-            ),
-            listen_udp_vdlm2: get_value_as_vector(
-                "AR_LISTEN_UDP_VDLM2",
-                &args.listen_udp_vdlm2,
-                "5555",
-            ),
-            listen_tcp_vdlm2: get_value_as_vector(
-                "AR_LISTEN_TCP_VDLM2",
-                &args.listen_tcp_vdlm2,
-                "5555",
-            ),
-            receive_tcp_vdlm2: get_value_as_vector(
-                "AR_RECV_TCP_VDLM2",
-                &args.receive_tcp_vdlm2,
-                "",
-            ),
-            receive_zmq_vdlm2: get_value_as_vector(
-                "AR_RECV_ZMQ_VDLM2",
-                &args.receive_zmq_vdlm2,
-                "",
-            ),
-            send_udp_acars: get_value_as_vector("AR_SEND_UDP_ACARS", &args.send_udp_acars, ""),
-            send_tcp_acars: get_value_as_vector("AR_SEND_TCP_ACARS", &args.send_tcp_acars, ""),
-            serve_tcp_acars: get_value_as_vector("AR_SERVE_TCP_ACARS", &args.serve_tcp_acars, ""),
-            serve_zmq_acars: get_value_as_vector("AR_SERVE_ZMQ_ACARS", &args.serve_zmq_acars, ""),
-            send_udp_vdlm2: get_value_as_vector("AR_SEND_UDP_VDLM2", &args.send_udp_vdlm2, ""),
-            send_tcp_vdlm2: get_value_as_vector("AR_SEND_TCP_VDLM2", &args.send_tcp_vdlm2, ""),
-            serve_tcp_vdlm2: get_value_as_vector("AR_SERVE_TCP_VDLM2", &args.serve_tcp_vdlm2, ""),
-            serve_zmq_vdlm2: get_value_as_vector("AR_SERVE_ZMQ_VDLM2", &args.serve_zmq_vdlm2, ""),
-        };
+    pub fn vdlm_configured(&self) -> bool {
+        self.receive_tcp_vdlm2.is_some()
+            || self.listen_udp_vdlm2.is_some()
+            || self.listen_tcp_vdlm2.is_some()
+            || self.receive_zmq_vdlm2.is_some()
+            || self.send_udp_vdlm2.is_some()
+            || self.send_tcp_vdlm2.is_some()
+            || self.serve_tcp_vdlm2.is_some()
+            || self.serve_zmq_vdlm2.is_some()
     }
 }
 
-fn get_env_variable(name: &str) -> Option<String> {
-    match env::var(name) {
-        Ok(val) => Some(val),
-        Err(_) => None,
-    }
+pub trait SetupLogging {
+    fn set_logging_level(self) -> LevelFilter;
 }
 
-fn split_env_safely(name: &str) -> Option<Vec<String>> {
-    // get the env variable from name
-
-    let env_var = get_env_variable(name);
-
-    // Split the env variable on ";" and return
-
-    match env_var {
-        Some(val) => split_string_on_semi_colon(&val),
-        None => None,
-    }
-}
-
-fn split_string_on_semi_colon(name: &String) -> Option<Vec<String>> {
-    // Split the string on ";" and return
-    Some(name.split(";").map(|s| s.to_string()).collect())
-}
-
-// Functions to get the value for configuring acars_router
-// If the env_name of the variable is present, that value is used over the command line flag
-// If the env_name of the variable is not present, the command line flag is used if present
-// If the env_name of the variable is not present and the command line flag is not present, the default value is used
-
-fn get_value_as_vector(env_name: &str, args: &str, default: &str) -> Vec<String> {
-    let env = split_env_safely(env_name);
-
-    if env.is_some() {
-        match env {
-            Some(val) => return val,
-            None => return vec![],
+impl SetupLogging for u8 {
+    fn set_logging_level(self) -> LevelFilter {
+        match self {
+            0 => LevelFilter::Error,
+            1 => LevelFilter::Warn,
+            2 => LevelFilter::Info,
+            3 => LevelFilter::Debug,
+            4..=u8::MAX => LevelFilter::Trace
         }
-    };
-
-    let args = split_string_on_semi_colon(&args.to_string());
-
-    if args.is_some() {
-        match args {
-            Some(val) => return val,
-            None => return vec![],
-        }
-    };
-
-    return vec![default.to_string()];
-}
-
-fn get_value_as_u64(env_name: &str, args: &u64) -> u64 {
-    let env = get_env_variable(env_name);
-
-    if env.is_some() {
-        match env {
-            Some(val) => return val.parse::<u64>().unwrap_or(0),
-            None => return 0,
-        }
-    };
-
-    return *args;
-}
-
-// If the env/flag is set the config option is turned on
-fn get_value_as_bool(env_name: &str, args: &bool) -> bool {
-    let env = get_env_variable(env_name);
-
-    if env.is_some() {
-        return true;
-    };
-
-    match args {
-        true => return true,
-        false => return false,
-    };
-}
-
-fn get_value_as_bool_from_string(env_name: &str, args: &String) -> bool {
-    let env = get_env_variable(env_name);
-
-    if env.is_some() {
-        return true;
-    };
-
-    match strip_line_endings(&args.to_lowercase()).len() {
-        x if x == 0 => return false,
-        x if x > 0 => return true,
-        _ => return false,
-    };
-}
-
-// If the env/flag is set the config option is turned off
-fn get_value_as_bool_invert_bool(env_name: &str, args: &bool) -> bool {
-    let env = get_env_variable(env_name);
-
-    if env.is_some() {
-        return false;
-    };
-
-    match args {
-        true => return false,
-        false => return true,
-    };
-}
-
-fn get_value_as_string(env_name: &str, args: &str, default: &str) -> String {
-    let env = get_env_variable(env_name);
-
-    if env.is_some() {
-        return env.unwrap_or(default.to_string());
-    };
-
-    if args != "" {
-        return args.to_string();
-    };
-
-    return default.to_string();
-}
-
-// Log Level ("verbose"/"AR_VERBOSITY") supports the legacy numeric 0/1/2 options
-// Documentation has been updated to indicate the new method of "info"/"debug"/"trace"
-
-fn get_log_level(args: &str) -> log::LevelFilter {
-    let log_level = get_value_as_string("AR_VERBOSITY", args, "info");
-
-    match log_level.to_lowercase().as_str() {
-        "1" | "debug" => log::LevelFilter::Debug,
-        "2" | "trace" => log::LevelFilter::Trace,
-        "0" | "info" | _ => log::LevelFilter::Info,
     }
 }
