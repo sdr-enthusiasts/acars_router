@@ -164,11 +164,12 @@ jobs:
           arch: arm64
           packages: "libzmq3-dev:arm64"
 
-      - name: "Install OS dependencies: i386"
-        uses: ryankurte/action-apt@v0.3.0
-        with:
-          arch: i386
-          packages: "libzmq3-dev:i386"
+      # i386 currently does not work...
+      # - name: "Install OS dependencies: i386"
+      #   uses: ryankurte/action-apt@v0.3.0
+      #   with:
+      #     arch: i386
+      #     packages: "libzmq3-dev:i386"
 
       - name: "Install OS dependencies: arm64"
         run: |
@@ -183,9 +184,7 @@ jobs:
             g++-arm-linux-gnueabihf \
             libc6-dev-armhf-cross \
             g++-aarch64-linux-gnu \
-            libc6-dev-arm64-cross \
-            g++-i686-linux-gnu \
-            libc6-dev-i386-cross
+            libc6-dev-arm64-cross
 
           rustup target add armv7-unknown-linux-gnueabihf
           rustup toolchain install stable-armv7-unknown-linux-gnueabihf
@@ -193,8 +192,11 @@ jobs:
           rustup toolchain install stable-aarch64-unknown-linux-gnu
           rustup target add x86_64-unknown-linux-gnu
           rustup toolchain install stable-x86_64-unknown-linux-gnu
-          rustup target add i686-unknown-linux-gnu
-          rustup toolchain install stable-i686-unknown-linux-gnu
+
+      # g++-i686-linux-gnu \
+      # libc6-dev-i386-cross
+      # rustup target add i686-unknown-linux-gnu
+      # rustup toolchain install stable-i686-unknown-linux-gnu
 
       - name: Build armv7
         run: |
