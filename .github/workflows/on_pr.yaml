@@ -216,6 +216,9 @@ jobs:
           name: amd64 binary
           path: target/release/acars_router
 
+  test_artifacts:
+    runs-on: ubuntu-latest
+    steps:
       # Allows troubleshooting via SSH
       - name: Setup upterm session
         uses: lhotari/action-upterm@v1
