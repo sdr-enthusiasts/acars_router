@@ -225,12 +225,13 @@ jobs:
   test_docker_image_build:
     name: Test Docker Image Build
     needs: [hadolint, flake8-lint]
+    uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
+    with:
+      get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
+      build_with_tmpfs: true
+      build_nohealthcheck: false
     steps:
-      - uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
-        with:
-          get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
-          build_with_tmpfs: true
-          build_nohealthcheck: false
+      - run: echo "when is this run"
 
     # strategy:
     #   matrix:
