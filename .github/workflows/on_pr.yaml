@@ -192,11 +192,11 @@ jobs:
       # rustup target add i686-unknown-linux-gnu
       # rustup toolchain install stable-i686-unknown-linux-gnu
 
-      # # Allows troubleshooting via SSH
-      # - name: Setup upterm session
-      #   uses: lhotari/action-upterm@v1
-      #   with:
-      #     limit-access-to-users: mikenye
+      # Allows troubleshooting via SSH
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
+        with:
+          limit-access-to-users: mikenye
 
       - name: Build armv7
         run: |
