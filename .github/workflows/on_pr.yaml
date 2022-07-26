@@ -136,9 +136,8 @@ jobs:
       # - name: Clean up between tests
       #   run: ./test_data/clean_up_after_test.sh vdlm2
 
-  test_binary_build:
-    name: Test Binary Build
-    needs: [flake8-lint]
+  binary_build:
+    name: Build Binary
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -186,11 +185,6 @@ jobs:
           rustup toolchain install stable-aarch64-unknown-linux-gnu
           rustup target add x86_64-unknown-linux-gnu
           rustup toolchain install stable-x86_64-unknown-linux-gnu
-
-      # g++-i686-linux-gnu \
-      # libc6-dev-i386-cross
-      # rustup target add i686-unknown-linux-gnu
-      # rustup toolchain install stable-i686-unknown-linux-gnu
 
       # # Allows troubleshooting via SSH
       # - name: Setup upterm session
