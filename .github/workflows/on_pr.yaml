@@ -218,6 +218,7 @@ jobs:
 
   release_binaries:
     name: Release Binaries
+    needs: [binary_build]
     runs-on: ubuntu-latest
     steps:
 
