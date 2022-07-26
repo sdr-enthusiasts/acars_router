@@ -219,6 +219,8 @@ jobs:
       # Allows troubleshooting via SSH
       - name: Setup upterm session
         uses: lhotari/action-upterm@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           limit-access-to-users: mikenye
 
