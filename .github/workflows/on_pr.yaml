@@ -200,11 +200,11 @@ jobs:
 
       - name: Build armv7
         run: |
-          PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf cargo build --release --target armv7-unknown-linux-gnueabihf
+          PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf cargo build -C linker=arm-linux-gnueabihf-gcc --release --target armv7-unknown-linux-gnueabihf
 
       - name: Build arm64
         run: |
-          PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu cargo build --release --target aarch64-unknown-linux-gnu
+          PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu cargo build -C linker=aarch64-linux-gnu-gcc --release --target aarch64-unknown-linux-gnu
       
       - name: Build amd64
         run: |
