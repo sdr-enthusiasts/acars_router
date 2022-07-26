@@ -217,30 +217,34 @@ jobs:
       #     limit-access-to-users: mikenye
 
       # TEST RELEASES - WILL MOVE TO DEPLOY.YAML WHEN READY
-      - name: Prepare release
-        id: prepare_release
+      - name: Prepare binary release tarballs
         run: |
+          ORIGDIR=$(pwd)
           # Make release tarballs
           mkdir -vp ./release
           pushd ./target/release
-          tar cJvf ./release/acars_router.amd64.tar.xz ./acars_router
+          tar cJvf "$ORIGDIR/release/acars_router.amd64.tar.xz" ./acars_router
           popd
           pushd ./target/armv7-unknown-linux-gnueabihf/release
-          tar cJvf ./release/acars_router.armv7.tar.xz ./acars_router
+          tar cJvf "$ORIGDIR/release/acars_router.armv7.tar.xz" ./acars_router
           popd
           pushd ./target/aarch64-unknown-linux-gnu/release
-          tar cJvf ./release/acars_router.arm64.tar.xz ./acars_router
+          tar cJvf "$ORIGDIR/release/acars_router.arm64.tar.xz" ./acars_router
           popd
+
+      - name: Get binary version from Cargo.toml
+        id: release_version
+        run: |
           # Get version from Cargo.toml
           RELEASE_VERSION=$(cat Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
           echo "::set-output name=RELEASE_VERSION::$RELEASE_VERSION"
           
-      - name: Create release
+      - name: Create binary release
         uses: ncipollo/release-action@v1
         with:
           artifacts: ./release/*.tar.xz
           token: ${{ secrets.YOUR_GITHUB_TOKEN }}
-          name: ${{ steps.prepare_release.outputs.RELEASE_VERSION }}
+          name: ${{ steps.release_version.outputs.RELEASE_VERSION }}
 
   test_docker_image_build:
     name: Test Docker Image Build
