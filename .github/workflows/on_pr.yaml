@@ -222,13 +222,13 @@ jobs:
           path: target/
           key: ${{ github.run_id }}
 
-      # Allows troubleshooting via SSH
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          limit-access-to-users: mikenye
+      # # Allows troubleshooting via SSH
+      # - name: Setup upterm session
+      #   uses: lhotari/action-upterm@v1
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     limit-access-to-users: mikenye
 
   test_docker_image_build:
     name: Test Docker Image Build
