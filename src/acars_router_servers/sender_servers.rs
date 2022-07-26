@@ -8,7 +8,6 @@
 use crate::generics::{reconnect_options, SenderServer, SenderServerConfig, Shared};
 use crate::tcp_serve_server::TCPServeServer;
 use crate::udp_sender_server::UDPSenderServer;
-use log::{debug, error};
 use serde_json::Value;
 use std::sync::Arc;
 use stubborn_io::StubbornTcpStream;
@@ -81,7 +80,7 @@ pub async fn start_sender_servers(
                     let state = Arc::new(Mutex::new(Shared::new()));
                     tokio::spawn(async move {
                         tcp_sender_server
-                            .watch_for_connections(rx_processed, state)
+                            .watch_for_connections(rx_processed, &state)
                             .await;
                     });
                 }

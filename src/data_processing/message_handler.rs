@@ -100,11 +100,7 @@ pub async fn clean_up_dedupe_queue(
             dedupe_queue.lock().await.retain(|message| {
                 let (timestamp, _) = message;
                 let diff = current_time - timestamp;
-                if diff > dedupe_window {
-                    false
-                } else {
-                    true
-                }
+                diff <= dedupe_window
             });
 
             debug!(
@@ -127,7 +123,7 @@ pub async fn watch_received_message_queue(
     let total_messages_since_last = Arc::new(Mutex::new(0));
     let queue_type_stats = config.queue_type.clone();
     let queue_type_dedupe = config.queue_type.clone();
-    let stats_every = config.stats_every.clone() * 60; // Value has to be in seconds. Input is in minutes.
+    let stats_every = config.stats_every * 60; // Value has to be in seconds. Input is in minutes.
     let version = env!("CARGO_PKG_VERSION");
 
     // Generate an async loop that sleeps for the requested stats print duration and then logs
@@ -152,7 +148,7 @@ pub async fn watch_received_message_queue(
     // The dedupe queue to be cleaned.
     if config.dedupe {
         let dedupe_queue_context = Arc::clone(&dedupe_queue);
-        let dedupe_window = config.dedupe_window.clone();
+        let dedupe_window = config.dedupe_window;
 
         tokio::spawn(async move {
             clean_up_dedupe_queue(
@@ -270,7 +266,7 @@ pub async fn watch_received_message_queue(
                 dedupe_queue_loop
                     .lock()
                     .await
-                    .push_back((message_time, hashed_value.clone()));
+                    .push_back((message_time, hashed_value));
             }
         }
 

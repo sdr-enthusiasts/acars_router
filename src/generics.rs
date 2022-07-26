@@ -4,7 +4,6 @@
 // Permission is granted to use, copy, modify, and redistribute the work.
 // Full license information available in the project LICENSE file.
 //
-use derive_getters::Getters;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -32,7 +31,7 @@ pub struct Shared {
     pub peers: HashMap<SocketAddr, Tx>,
 }
 
-#[derive(Debug, Clone, Getters)]
+#[derive(Debug, Clone)]
 pub struct SenderServerConfig {
     pub send_udp: Option<Vec<String>>,
     pub send_tcp: Option<Vec<String>>,
@@ -57,7 +56,7 @@ impl SenderServerConfig {
     }
 }
 
-#[derive(Debug, Clone, Default, Getters)]
+#[derive(Debug, Clone, Default)]
 pub struct OutputServerConfig {
     pub listen_udp: Option<Vec<String>>,
     pub listen_tcp: Option<Vec<String>>,

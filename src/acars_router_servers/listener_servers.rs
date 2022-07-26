@@ -12,12 +12,12 @@ use crate::tcp_listener_server::TCPListenerServer;
 use crate::tcp_receiver_server::TCPReceiverServer;
 use crate::udp_listener_server::UDPListenerServer;
 use crate::zmq_listener_server::ZMQListnerServer;
-use log::{debug, error, info};
+use serde_json::Value;
 use tokio::sync::mpsc::Sender;
 
 pub fn start_listener_servers(
     config: OutputServerConfig,
-    tx_receivers: Sender<serde_json::Value>,
+    tx_receivers: Sender<Value>,
     server_type: &str,
 ) {
     // Start the UDP listener servers
@@ -40,7 +40,7 @@ pub fn start_listener_servers(
         // Start the TCP listener servers for server_type
         info!("Starting TCP listener servers for {server_type}");
         start_tcp_listener_servers(
-            &server_type,
+            server_type,
             &listen_tcp,
             tx_receivers.clone(),
             &config.reassembly_window,
@@ -52,15 +52,15 @@ pub fn start_listener_servers(
     if let Some(receive_zmq) = config.receive_zmq {
         // Start the ZMQ listener servers for {server_type}
         info!("Starting ZMQ Receiver servers for {server_type}");
-        start_zmq_listener_servers(&server_type, &receive_zmq, tx_receivers.clone());
+        start_zmq_listener_servers(server_type, &receive_zmq, tx_receivers.clone());
     }
 
     if let Some(receive_tcp) = config.receive_tcp {
         info!("Starting TCP Receiver servers for {server_type}");
         start_tcp_receiver_servers(
-            &server_type,
+            server_type,
             &receive_tcp,
-            tx_receivers.clone(),
+            tx_receivers,
             &config.reassembly_window,
         );
     }
@@ -69,13 +69,12 @@ pub fn start_listener_servers(
 fn start_zmq_listener_servers(
     decoder_type: &str,
     hosts: &[String],
-    channel: Sender<serde_json::Value>,
+    channel: Sender<Value>,
 ) {
-    let hosts = hosts.to_vec();
+    let hosts: Vec<String> = hosts.to_vec();
     for host in hosts {
-        let new_channel = channel.clone();
-        let proto_name = format!("{}_ZMQ_RECEIVER_{}", decoder_type, host);
-        // let server_host = host.clone();
+        let new_channel: Sender<Value> = channel.clone();
+        let proto_name: String = format!("{}_ZMQ_RECEIVER_{}", decoder_type, host);
 
         tokio::spawn(async move {
             let zmq_listener_server = ZMQListnerServer {
@@ -93,22 +92,19 @@ fn start_zmq_listener_servers(
 fn start_tcp_listener_servers(
     decoder_type: &str,
     ports: &[String],
-    channel: Sender<serde_json::Value>,
+    channel: Sender<Value>,
     reassembly_window: &u64,
 ) {
     for port in ports {
-        let new_channel = channel.clone();
-        let server_tcp_port = port.clone();
-        let proto_name = decoder_type.to_string() + "_TCP_LISTEN_" + &server_tcp_port;
+        let new_channel: Sender<Value> = channel.clone();
+        let server_tcp_port: String = port.to_string();
+        let proto_name: String = format!("{}_TCP_LISTEN_{}", decoder_type, &server_tcp_port);
         let server = TCPListenerServer {
             proto_name,
             reassembly_window: *reassembly_window,
         };
 
-        debug!(
-            "Starting {} TCP server on {}",
-            decoder_type, server_tcp_port
-        );
+        debug!("Starting {decoder_type} TCP server on {server_tcp_port}");
         tokio::spawn(async move { server.run(server_tcp_port, new_channel).await });
     }
 }
@@ -116,13 +112,13 @@ fn start_tcp_listener_servers(
 fn start_udp_listener_servers(
     decoder_type: &str,
     ports: &[String],
-    channel: Sender<serde_json::Value>,
+    channel: Sender<Value>,
     reassembly_window: &u64,
 ) {
     for udp_port in ports {
-        let new_channel = channel.clone();
-        let server_udp_port = "0.0.0.0:".to_string() + udp_port.as_str();
-        let proto_name = decoder_type.to_string() + "_UDP_LISTEN_" + server_udp_port.as_str();
+        let new_channel: Sender<Value> = channel.clone();
+        let server_udp_port: String = format!("0.0.0.0:{}", udp_port);
+        let proto_name: String = format!("{}_UDP_LISTEN_{}", decoder_type, &server_udp_port);
         let server = UDPListenerServer {
             buf: vec![0; 5000],
             to_send: None,
@@ -131,25 +127,22 @@ fn start_udp_listener_servers(
         };
 
         // This starts the server task.
-        debug!(
-            "Starting {} UDP server on {}",
-            decoder_type, server_udp_port
-        );
-        tokio::spawn(async move { server.run(server_udp_port, new_channel).await });
+        debug!("Starting {decoder_type} UDP server on {server_udp_port}");
+        tokio::spawn(async move { server.run(&server_udp_port, new_channel).await });
     }
 }
 
 fn start_tcp_receiver_servers(
     decoder_type: &str,
     hosts: &Vec<String>,
-    channel: Sender<serde_json::Value>,
+    channel: Sender<Value>,
     reassembly_window: &u64,
 ) {
     for host in hosts {
-        let new_channel = channel.clone();
-        let proto_name = decoder_type.to_string() + "_TCP_RECEIVER_" + host;
-        let server_host = host.clone();
-        let reassembly_window = *reassembly_window;
+        let new_channel: Sender<Value> = channel.clone();
+        let proto_name: String = format!("{}_TCP_RECEIVER_{}", decoder_type, host);
+        let server_host: String = host.to_string();
+        let reassembly_window: u64 = *reassembly_window;
         tokio::spawn(async move {
             let tcp_receiver_server = TCPReceiverServer {
                 host: server_host.to_string(),
@@ -158,7 +151,7 @@ fn start_tcp_receiver_servers(
             };
             match tcp_receiver_server.run(new_channel).await {
                 Ok(_) => debug!("{} connection closed", proto_name),
-                Err(e) => error!("{} connection error: {}", proto_name.clone(), e),
+                Err(e) => error!("{} connection error: {}", proto_name.clone(), e)
             }
         });
     }

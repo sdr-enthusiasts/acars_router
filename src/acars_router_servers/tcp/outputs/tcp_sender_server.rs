@@ -8,7 +8,6 @@
 // Used to go connection to consumers of data, and then send data to them as it comes in
 
 use crate::generics::SenderServer;
-use log::{error, trace};
 use stubborn_io::tokio::StubbornIo;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
@@ -22,17 +21,19 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 // send message to all client
-                let message_out = message["out_json"].clone();
-                let message_as_string = format!("{}\n", message_out);
-                let message_as_bytes = message_as_string.as_bytes();
-
-                match self.socket.write_all(message_as_bytes).await {
-                    Ok(_) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
-                    Err(e) => error!(
+                let message_as_string: Result<String, serde_json::Error> = serde_json::to_string(&message["out_json"]);
+                match message_as_string {
+                    Err(parse_error) => error!("Unable to parse Value to String: {}", parse_error),
+                    Ok(value) => {
+                        match self.socket.write_all(value.as_bytes()).await {
+                            Ok(_) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
+                            Err(e) => error!(
                         "[TCP SENDER {}]: Error sending message: {}",
                         self.proto_name, e
                     ),
-                };
+                        };
+                    }
+                }
             }
         });
     }

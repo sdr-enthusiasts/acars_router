@@ -20,112 +20,112 @@ pub fn check_config_option_sanity(config_options: &ACARSRouterSettings) -> Resul
     // Will always be a valid number because the Clap parser will die if the input is bad
 
     if !check_ports_are_valid(
-        config_options.listen_udp_acars(),
+        &config_options.listen_udp_acars,
         "AR_LISTEN_UDP_ACARS/--listen-udp-acars",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid(
-        config_options.listen_tcp_acars(),
+        &config_options.listen_tcp_acars,
         "AR_LISTEN_TCP_ACARS/--listen-tcp-acars",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid_with_host(
-        config_options.receive_tcp_acars(),
+        &config_options.receive_tcp_acars,
         "AR_RECEIVE_TCP_ACARS/--receive-tcp-acars",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid(
-        config_options.listen_udp_vdlm2(),
+        &config_options.listen_udp_vdlm2,
         "AR_LISTEN_UDP_VDLM2/--listen-udp-vdlm2",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid(
-        config_options.listen_tcp_vdlm2(),
+        &config_options.listen_tcp_vdlm2,
         "AR_LISTEN_TCP_VDLM2/--listen-tcp-vdlm2",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid_with_host(
-        config_options.receive_tcp_vdlm2(),
+        &config_options.receive_tcp_vdlm2,
         "AR_RECEIVE_TCP_VDLM2/--receive-tcp-vdlm2",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid_with_host(
-        config_options.send_udp_acars(),
+        &config_options.send_udp_acars,
         "AR_SEND_UDP_ACARS/--send-udp-acars",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid_with_host(
-        config_options.send_udp_vdlm2(),
+        &config_options.send_udp_vdlm2,
         "AR_SEND_UDP_VDLM2/--send-udp-vdlm2",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid_with_host(
-        config_options.send_tcp_acars(),
+        &config_options.send_tcp_acars,
         "AR_SEND_TCP_ACARS/--send-tcp-acars",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid_with_host(
-        config_options.send_tcp_vdlm2(),
+        &config_options.send_tcp_vdlm2,
         "AR_SEND_TCP_VDLM2/--send-tcp-vdlm2",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid_with_host(
-        config_options.receive_zmq_vdlm2(),
+        &config_options.receive_zmq_vdlm2,
         "AR_RECEIVE_ZMQ_VDLM2/--receive-zmq-vdlm2",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid_with_host(
-        config_options.receive_zmq_acars(),
+        &config_options.receive_zmq_acars,
         "AR_RECEIVE_ZMQ_ACARS/--receive-zmq-acars",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid(
-        config_options.serve_tcp_acars(),
+        &config_options.serve_tcp_acars,
         "AR_SERVE_TCP_ACARS/--serve-tcp-acars",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid(
-        config_options.serve_tcp_vdlm2(),
+        &config_options.serve_tcp_vdlm2,
         "AR_SERVE_TCP_VDLM2/--serve-tcp-vdlm2",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid(
-        config_options.serve_zmq_acars(),
+        &config_options.serve_zmq_acars,
         "AR_SERVE_ZMQ_ACARS/--serve-zmq-acars",
     ) {
         is_input_sane = false;
     }
 
     if !check_ports_are_valid(
-        config_options.serve_zmq_vdlm2(),
+        &config_options.serve_zmq_vdlm2,
         "AR_SERVE_ZMQ_VDLM2/--serve-zmq-vdlm2",
     ) {
         is_input_sane = false;
@@ -139,13 +139,13 @@ pub fn check_config_option_sanity(config_options: &ACARSRouterSettings) -> Resul
 
 fn check_ports_are_valid(ports: &Vec<String>, name: &str) -> bool {
     // if we have a zero length vector the input is always bad
-    if ports.len() == 0 {
+    if ports.is_empty() {
         return false;
     }
 
     // if the vector value of the first element is zero length the user
     // didn't specify the option and the input is valid
-    if ports[0].len() == 0 {
+    if ports[0].is_empty() {
         return true;
     }
 
@@ -167,15 +167,15 @@ fn check_ports_are_valid(ports: &Vec<String>, name: &str) -> bool {
         }
     }
 
-    return is_input_sane;
+    is_input_sane
 }
 
 fn check_ports_are_valid_with_host(ports: &Vec<String>, name: &str) -> bool {
-    if ports.len() == 0 {
+    if ports.is_empty() {
         return false;
     }
 
-    if ports[0].len() == 0 {
+    if ports[0].is_empty() {
         return true;
     }
 
@@ -184,7 +184,7 @@ fn check_ports_are_valid_with_host(ports: &Vec<String>, name: &str) -> bool {
     for port in ports {
         // split the host and port
 
-        let split_port: Vec<&str> = port.split(":").collect();
+        let split_port: Vec<&str> = port.split(':').collect();
 
         if split_port.len() != 2 {
             error!(
@@ -209,5 +209,5 @@ fn check_ports_are_valid_with_host(ports: &Vec<String>, name: &str) -> bool {
         }
     }
 
-    return is_input_sane;
+    is_input_sane
 }

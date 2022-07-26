@@ -9,7 +9,6 @@
 
 use crate::generics::SenderServer;
 use futures::SinkExt;
-use log::error;
 use tmq::publish::Publish;
 
 impl SenderServer<Publish> {
@@ -17,13 +16,16 @@ impl SenderServer<Publish> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 // send message to all client
-                // TODO: message is type "serde_json::Value"....does format! do the .to_string() for us?
-                let message_out = format!("{}\n", message["out_json"].to_string());
-
-                match self.socket.send(vec!["", &message_out]).await {
-                    Ok(_) => (),
-                    Err(e) => error!("[TCP SENDER]: Error sending message: {}", e),
-                };
+                let message_out: Result<String, serde_json::Error> = serde_json::to_string(&message["out_json"]);
+                match message_out {
+                    Err(parse_error) => error!("Failed to parse Value to String: {}", parse_error),
+                    Ok(string) => {
+                        match self.socket.send(vec!["", &string]).await {
+                            Ok(_) => (),
+                            Err(e) => error!("[TCP SENDER]: Error sending message: {:?}", e),
+                        };
+                    }
+                }
             }
         });
         // let mut message = message.to_string();
