@@ -13,5 +13,5 @@ elif /opt/acars_router.armv7 --version > /dev/null 2>&1; then
 else
     >&2 echo "ERROR: Unsupported architecture"
     sleep 60
-
+    exit 1
 fi
