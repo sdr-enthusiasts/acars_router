@@ -232,7 +232,7 @@ jobs:
 
   test_docker_image_build:
     name: Test Docker Image Build
-    needs: [hadolint, flake8-lint]
+    needs: [hadolint, flake8-lint, binary_build]
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
     with:
       get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
