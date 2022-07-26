@@ -1,4 +1,17 @@
 #!/usr/bin/with-contenv bash
 # shellcheck shell=bash
 
-/opt/acars_router
+if /opt/acars_router.x86_64 --version > /dev/null 2>&1; then
+    /opt/acars_router.x86_64
+
+elif /opt/acars_router.aarch64 --version > /dev/null 2>&1; then
+    /opt/acars_router.aarch64
+
+elif /opt/acars_router.armv7 --version > /dev/null 2>&1; then
+    /opt/acars_router.armv7
+
+else
+    >&2 echo "ERROR: Unsupported architecture"
+    sleep 60
+
+fi
