@@ -277,7 +277,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ steps.release_version.outputs.RELEASE_VERSION }}
           tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
-          commit: ${{ github.run_id }}
 
   test_docker_image_build:
     name: Test Docker Image Build
