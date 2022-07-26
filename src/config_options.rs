@@ -195,11 +195,9 @@ pub trait SetupLogging {
 impl SetupLogging for u8 {
     fn set_logging_level(self) -> LevelFilter {
         match self {
-            0 => LevelFilter::Error,
-            1 => LevelFilter::Warn,
-            2 => LevelFilter::Info,
-            3 => LevelFilter::Debug,
-            4..=u8::MAX => LevelFilter::Trace
+            0 => LevelFilter::Info,
+            1 => LevelFilter::Debug,
+            2..=u8::MAX => LevelFilter::Trace
         }
     }
 }
