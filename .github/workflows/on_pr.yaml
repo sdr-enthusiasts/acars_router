@@ -258,6 +258,11 @@ jobs:
           # Get version from Cargo.toml
           RELEASE_VERSION=$(cat Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
           echo "::set-output name=RELEASE_VERSION::$RELEASE_VERSION"
+
+      - name: Create tag
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
           
       - name: Create binary release
         if: steps.get_cache.outputs.cache-hit == 'true'
