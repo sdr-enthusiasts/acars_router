@@ -146,12 +146,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Allows troubleshooting via SSH
-      # - name: Setup upterm session
-      #   uses: lhotari/action-upterm@v1
-      #   with:
-      #     limit-access-to-users: mikenye
-
       - name: "Install OS dependencies: armhf"
         uses: ryankurte/action-apt@v0.3.0
         with:
@@ -197,6 +191,12 @@ jobs:
       # libc6-dev-i386-cross
       # rustup target add i686-unknown-linux-gnu
       # rustup toolchain install stable-i686-unknown-linux-gnu
+
+      # Allows troubleshooting via SSH
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
+        with:
+          limit-access-to-users: mikenye
 
       - name: Build armv7
         run: |
