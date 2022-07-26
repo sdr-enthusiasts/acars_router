@@ -222,9 +222,6 @@ jobs:
           path: target/
           key: ${{ github.run_id }}
 
-  test_artifacts:
-    runs-on: ubuntu-latest
-    steps:
       # Allows troubleshooting via SSH
       - name: Setup upterm session
         uses: lhotari/action-upterm@v1
@@ -241,6 +238,9 @@ jobs:
       get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
       build_with_tmpfs: true
       build_nohealthcheck: false
+      cache_enabled: true
+      cache_path: target/
+      cache_key: ${{ github.run_id }}
 
     # strategy:
     #   matrix:
