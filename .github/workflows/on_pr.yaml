@@ -190,21 +190,9 @@ jobs:
         run: |
           PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf RUSTFLAGS="-C linker=/usr/bin/arm-linux-gnueabihf-gcc" cargo build --release --target armv7-unknown-linux-gnueabihf
 
-      - name: Upload artifact armv7 binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: armv7 binary
-          path: target/armv7-unknown-linux-gnueabihf/release/acars_router
-
       - name: Build arm64
         run: |
           PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu RUSTFLAGS="-C linker=/usr/bin/aarch64-linux-gnu-gcc" cargo build --release --target aarch64-unknown-linux-gnu
-
-      - name: Upload artifact arm64 binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: arm64 binary
-          path: target/aarch64-unknown-linux-gnu/release/acars_router
       
       - name: Build amd64
         run: |
@@ -213,8 +201,26 @@ jobs:
       - name: Upload artifact amd64 binary
         uses: actions/upload-artifact@v3
         with:
-          name: amd64 binary
+          name: acars_router_amd64
           path: target/release/acars_router
+
+      - name: Upload artifact armv7 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router_armv7
+          path: target/armv7-unknown-linux-gnueabihf/release/acars_router
+
+      - name: Upload artifact arm64 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router_arm64
+          path: target/aarch64-unknown-linux-gnu/release/acars_router
+
+      - name: Cache Cargo Build Output
+        uses: actions/cache@v3
+        with:
+          path: target/
+          key: ${{ github.run_id }}
 
   test_artifacts:
     runs-on: ubuntu-latest
