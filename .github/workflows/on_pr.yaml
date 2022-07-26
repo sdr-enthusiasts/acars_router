@@ -186,12 +186,6 @@ jobs:
           rustup target add x86_64-unknown-linux-gnu
           rustup toolchain install stable-x86_64-unknown-linux-gnu
 
-      # # Allows troubleshooting via SSH
-      # - name: Setup upterm session
-      #   uses: lhotari/action-upterm@v1
-      #   with:
-      #     limit-access-to-users: mikenye
-
       - name: Build armv7
         run: |
           PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf RUSTFLAGS="-C linker=/usr/bin/arm-linux-gnueabihf-gcc" cargo build --release --target armv7-unknown-linux-gnueabihf
@@ -222,6 +216,12 @@ jobs:
           name: amd64 binary
           path: target/release/acars_router
 
+      # Allows troubleshooting via SSH
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
+        with:
+          limit-access-to-users: mikenye
+
   test_docker_image_build:
     name: Test Docker Image Build
     needs: [hadolint, flake8-lint]
@@ -230,8 +230,6 @@ jobs:
       get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
       build_with_tmpfs: true
       build_nohealthcheck: false
-    steps:
-      - run: echo "when is this run"
 
     # strategy:
     #   matrix:
