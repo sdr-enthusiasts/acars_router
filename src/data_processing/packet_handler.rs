@@ -38,12 +38,9 @@ impl PacketHandler {
         self.clean_queue().await;
         // FIXME: Ideally this entire function should not lock the mutex all the time
 
-        match serde_json::from_str(&new_message_string) {
-            Ok(msg) => {
-                self.queue.lock().await.remove(&peer);
-                return Some(msg);
-            }
-            Err(_) => (),
+        if let Ok(msg) = serde_json::from_str(&new_message_string) {
+            self.queue.lock().await.remove(&peer);
+            return Some(msg);
         }
 
         let mut output_message: Option<serde_json::Value> = None;
