@@ -1,11 +1,11 @@
 #!/usr/bin/with-contenv bash
 # shellcheck shell=bash
 
-if [[ ${AR_VERBOSITY,,} =~ info || -z "${AR_VERBOSITY}" ]]; then
+if [[ ${AR_VERBOSITY,,} =~ info || -z "${AR_VERBOSITY}" || $AR_VERBOSITY -le 0 ]]; then
     DEBUG_LEVEL=""
-elif [[ ${AR_VERBOSITY,,} =~ debug ]]; then
+elif [[ ${AR_VERBOSITY,,} =~ debug || $AR_VERBOSITY -eq 1 ]]; then
     DEBUG_LEVEL="-v"
-elif [[ ${AR_VERBOSITY,,} =~ trace ]]; then
+elif [[ ${AR_VERBOSITY,,} =~ trace  || $AR_VERBOSITY -ge 2 ]]; then
     DEBUG_LEVEL="-vv"
 fi
 
