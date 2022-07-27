@@ -33,7 +33,8 @@ impl UDPSenderServer {
             match message_as_string {
                 Err(parse_error) => error!("Failed to parse Value to String: {}", parse_error),
                 Ok(string) => {
-                    let message_as_bytes = string.as_bytes();
+                    let final_message: String = format!("{}\n", string);
+                    let message_as_bytes = final_message.as_bytes();
                     let message_size: usize = message_as_bytes.len();
 
                     for addr in &self.host {

@@ -21,7 +21,8 @@ impl SenderServer<Publish> {
                 match message_out {
                     Err(parse_error) => error!("Failed to parse Value to String: {}", parse_error),
                     Ok(string) => {
-                        match self.socket.send(vec!["", &string]).await {
+                        let final_message: String = format!("{}\n", string);
+                        match self.socket.send(vec!["", &final_message]).await {
                             Ok(_) => (),
                             Err(e) => error!("[TCP SENDER]: Error sending message: {:?}", e),
                         };

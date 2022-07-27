@@ -128,7 +128,8 @@ async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<Value>)
             match message_as_string {
                 Err(parse_error) => error!("Failed to parse Value to String: {}", parse_error),
                 Ok(string) => {
-                    state.lock().await.broadcast(&string).await;
+                    let final_message: String = format!("{}\n", string);
+                    state.lock().await.broadcast(&final_message).await;
                 }
             }
         }
