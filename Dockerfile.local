@@ -1,3 +1,13 @@
+FROM rust:1.62-bullseye as builder
+WORKDIR /tmp/acars_router
+# hadolint ignore=DL3008,DL3003,SC1091
+RUN set -x && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libzmq3-dev
+COPY . .
+
+RUN cargo build --release
+
 FROM ghcr.io/sdr-enthusiasts/docker-baseimage:base
 
 ENV AR_LISTEN_UDP_ACARS=5550 \
@@ -10,11 +20,8 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
     AR_SERVE_ZMQ_VDLM2=45555
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-COPY ./rootfs /
-COPY ./bin/acars_router.armv7 /opt/acars_router.armv7
-COPY ./bin/acars_router.arm64 /opt/acars_router.arm64
-COPY ./bin/acars_router.amd64 /opt/acars_router.amd64
-
+COPY rootfs /
+COPY --from=builder /tmp/acars_router/target/release/acars_router /opt/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
     KEPT_PACKAGES=() && \
@@ -27,9 +34,7 @@ RUN set -x && \
         && \
     # ensure binaries are executable
     chmod -v a+x \
-        /opt/acars_router.armv7 \
-        /opt/acars_router.arm64 \
-        /opt/acars_router.amd64 \
+        /opt/acars_router \
         && \
     # clean up
     apt-get remove -y "${TEMP_PACKAGES[@]}" && \

@@ -18,20 +18,7 @@ on:
       - "**.sh"
 
 jobs:
-  flake8-lint:
-    runs-on: ubuntu-latest
-    name: "Linting: flake8"
-    steps:
-      - name: Check out source repository
-        uses: actions/checkout@v3
-      - name: Set up Python environment
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-      - name: flake8 Lint
-        uses: py-actions/flake8@v2
-        with:
-          ignore: "E501"
+  
   hadolint:
     name: "Linting: hadolint"
     runs-on: ubuntu-latest
@@ -73,7 +60,6 @@ jobs:
   test_functionality:
     name: "Test Functionality"
     runs-on: ubuntu-latest
-    needs: flake8-lint
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -136,82 +122,115 @@ jobs:
       # - name: Clean up between tests
       #   run: ./test_data/clean_up_after_test.sh vdlm2
 
-  test_build:
-    name: Test Build
+  binary_build:
+    name: Build Binaries
     runs-on: ubuntu-latest
-    needs: [hadolint, flake8-lint]
-    strategy:
-      matrix:
-        docker-platform:
-          - linux/amd64
-          - linux/arm64
-          # - linux/arm/v6
-          - linux/arm/v7
-          - linux/i386
     steps:
-      # Check out our code
       - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # List of files to check to trigger a rebuild on this job
-      - name: Get specific changed files
-        id: changed-files-specific
-        uses: tj-actions/changed-files@v23.2
+      - name: "Install OS dependencies: armhf"
+        uses: ryankurte/action-apt@v0.3.0
         with:
-          files: |
-            Dockerfile
-            acars_router
-            !*.md
-            !*.MD
+          arch: armhf
+          packages: "libzmq3-dev:armhf"
 
-      # https://github.com/marketplace/actions/docker-on-tmpfs
-      # https://github.com/rust-lang/cargo/issues/8719
-      # https://github.com/rust-lang/cargo/issues/9545
-
-      - name: Run Docker on tmpfs
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: JonasAlfredsson/docker-on-tmpfs@v1
+      - name: "Install OS dependencies: arm64"
+        uses: ryankurte/action-apt@v0.3.0
         with:
-          tmpfs_size: 5
-          swap_size: 4
-          swap_location: "/mnt/swapfile"
+          arch: arm64
+          packages: "libzmq3-dev:arm64"
 
-      # Set up QEMU for multi-arch builds
-      - name: Set up QEMU
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: docker/setup-qemu-action@v2
-
-      # Set up buildx for multi platform builds
-      - name: Set up Docker Buildx
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        id: buildx
-        uses: docker/setup-buildx-action@v2
-
-      # Build
-      - name: Test Build
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          file: ./Dockerfile
-          no-cache: true
-          platforms: ${{ matrix.docker-platform }}
-          push: false
-
-      # # Patch dockerfile to remove healthcheck
-      # - name: Patch Dockerfile to remove healthcheck
-      #   if: steps.changed-files-specific.outputs.any_changed == 'true'
-      #   run: sed '/^HEALTHCHECK /d' < Dockerfile > Dockerfile.nohealthcheck
-
-      # # Build nohealthcheck
-      # - name: Test Build nohealthcheck
-      #   if: steps.changed-files-specific.outputs.any_changed == 'true'
-      #   uses: docker/build-push-action@v3
+      # i386 currently does not work...
+      # - name: "Install OS dependencies: i386"
+      #   uses: ryankurte/action-apt@v0.3.0
       #   with:
-      #     context: .
-      #     file: ./Dockerfile.nohealthcheck
-      #     no-cache: true
-      #     platforms: ${{ matrix.docker-platform }}
-      #     push: false
+      #     arch: i386
+      #     packages: "libzmq3-dev:i386"
+
+      - name: "Install OS dependencies: arm64"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libzmq3-dev
+
+      - name: "Install rust targets/toolchains for cross build"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++-arm-linux-gnueabihf \
+            libc6-dev-armhf-cross \
+            g++-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+
+          rustup target add armv7-unknown-linux-gnueabihf
+          rustup toolchain install stable-armv7-unknown-linux-gnueabihf
+          rustup target add aarch64-unknown-linux-gnu
+          rustup toolchain install stable-aarch64-unknown-linux-gnu
+          rustup target add x86_64-unknown-linux-gnu
+          rustup toolchain install stable-x86_64-unknown-linux-gnu
+
+      - name: Build armv7
+        run: |
+          PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf RUSTFLAGS="-C linker=/usr/bin/arm-linux-gnueabihf-gcc" cargo build --release --target armv7-unknown-linux-gnueabihf
+
+      - name: Build arm64
+        run: |
+          PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu RUSTFLAGS="-C linker=/usr/bin/aarch64-linux-gnu-gcc" cargo build --release --target aarch64-unknown-linux-gnu
+      
+      - name: Build amd64
+        run: |
+          cargo build --release
+
+      - name: Consolidate binaries
+        run: |
+          mkdir -p ./bin
+          cp -v ./target/release/acars_router ./bin/acars_router.amd64
+          cp -v ./target/armv7-unknown-linux-gnueabihf/release/acars_router ./bin/acars_router.armv7
+          cp -v ./target/aarch64-unknown-linux-gnu/release/acars_router ./bin/acars_router.arm64
+
+      - name: Upload artifact amd64 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router.amd64
+          path: ./bin/acars_router.amd64
+
+      - name: Upload artifact armv7 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router.armv7
+          path: ./bin/acars_router.armv7
+
+      - name: Upload artifact arm64 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router.arm64
+          path: ./bin/acars_router.arm64
+
+      - name: Cache Cargo Build Output
+        uses: actions/cache@v3
+        with:
+          path: bin/
+          key: ${{ github.run_id }}
+
+      # # Allows troubleshooting via SSH
+      # - name: Setup upterm session
+      #   uses: lhotari/action-upterm@v1
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     limit-access-to-users: mikenye
+
+  test_docker_image_build:
+    name: Test Docker Image Build
+    needs: [hadolint, binary_build, test_functionality]
+    uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
+    with:
+      get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
+      build_with_tmpfs: true
+      build_nohealthcheck: false
+      cache_enabled: true
+      cache_path: bin/
+      cache_key: ${{ github.run_id }}
