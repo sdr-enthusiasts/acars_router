@@ -133,8 +133,8 @@ async fn start_processes(args: Input) {
     let vdlm_input_config = OutputServerConfig::new(
         &args.listen_udp_vdlm2,
         &args.listen_tcp_vdlm2,
-        &args.receive_zmq_vdlm2,
         &args.receive_tcp_vdlm2,
+        &args.receive_zmq_vdlm2,
         &args.reassembly_window,
     );
     tokio::spawn(async move {
@@ -148,8 +148,8 @@ async fn start_processes(args: Input) {
     let acars_output_config: SenderServerConfig = SenderServerConfig::new(
         &args.send_udp_acars,
         &args.send_tcp_acars,
-        &args.serve_zmq_acars,
         &args.serve_tcp_acars,
+        &args.serve_zmq_acars,
         &args.max_udp_packet_size,
     );
 
@@ -161,8 +161,8 @@ async fn start_processes(args: Input) {
     let vdlm_output_config = SenderServerConfig::new(
         &args.send_udp_vdlm2,
         &args.send_tcp_vdlm2,
-        &args.serve_zmq_vdlm2,
         &args.serve_tcp_vdlm2,
+        &args.serve_zmq_vdlm2,
         &args.max_udp_packet_size,
     );
 
