@@ -1,25 +1,27 @@
 #!/usr/bin/with-contenv bash
 # shellcheck shell=bash
 
-if [[ ${AR_VERBOSITY,,} =~ info || -z "${AR_VERBOSITY}" || $AR_VERBOSITY -le 0 ]]; then
-    DEBUG_LEVEL=""
-elif [[ ${AR_VERBOSITY,,} =~ debug || $AR_VERBOSITY -eq 1 ]]; then
-    DEBUG_LEVEL="-v"
+DEBUG_LEVEL=()
+
+if [[ ${AR_VERBOSITY,,} =~ debug || $AR_VERBOSITY -eq 1 ]]; then
+    DEBUG_LEVEL+=("-v")
 elif [[ ${AR_VERBOSITY,,} =~ trace  || $AR_VERBOSITY -ge 2 ]]; then
-    DEBUG_LEVEL="-vv"
+    DEBUG_LEVEL+=("-vv")
 fi
 
+echo "${DEBUG_LEVEL[@]}"
+
 if /opt/acars_router.amd64 --version > /dev/null 2>&1; then
-    /opt/acars_router.amd64 "$DEBUG_LEVEL"
+    /opt/acars_router.amd64 "${DEBUG_LEVEL[@]}"
 
 elif /opt/acars_router.arm64 --version > /dev/null 2>&1; then
-    /opt/acars_router.arm64 "$DEBUG_LEVEL"
+    /opt/acars_router.arm64 "${DEBUG_LEVEL[@]}"
 
 elif /opt/acars_router.armv7 --version > /dev/null 2>&1; then
-    /opt/acars_router.armv7 "$DEBUG_LEVEL"
+    /opt/acars_router.armv7 "${DEBUG_LEVEL[@]}"
 
 elif /opt/acars_router --version > /dev/null 2>&1; then
-    /opt/acars_router "$DEBUG_LEVEL"
+    /opt/acars_router "${DEBUG_LEVEL[@]}"
 
 else
     >&2 echo "ERROR: Unsupported architecture"
