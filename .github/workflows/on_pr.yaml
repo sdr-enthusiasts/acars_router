@@ -123,7 +123,7 @@ jobs:
       #   run: ./test_data/clean_up_after_test.sh vdlm2
 
   binary_build:
-    name: Build Binary
+    name: Build Binaries
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

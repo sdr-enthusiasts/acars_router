@@ -40,7 +40,7 @@ jobs:
           echo "::notice title=${{ github.job }}: Workflow Dispatch Reason::${INPUTS_REASON}"
 
   binary_build:
-    name: Build Binary
+    name: Build Binaries
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
