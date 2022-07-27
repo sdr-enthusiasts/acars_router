@@ -16,6 +16,7 @@ on:
       - "**.md"
       - "**.MD"
       - "**.yml"
+      - "**.yaml"
       - "LICENSE"
       - ".gitattributes"
       - ".gitignore"
@@ -38,8 +39,165 @@ jobs:
           echo "Workflow dispatch reason: $INPUTS_REASON"
           echo "::notice title=${{ github.job }}: Workflow Dispatch Reason::${INPUTS_REASON}"
 
+  binary_build:
+    name: Build Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: "Install OS dependencies: armhf"
+        uses: ryankurte/action-apt@v0.3.0
+        with:
+          arch: armhf
+          packages: "libzmq3-dev:armhf"
+
+      - name: "Install OS dependencies: arm64"
+        uses: ryankurte/action-apt@v0.3.0
+        with:
+          arch: arm64
+          packages: "libzmq3-dev:arm64"
+
+      # i386 currently does not work...
+      # - name: "Install OS dependencies: i386"
+      #   uses: ryankurte/action-apt@v0.3.0
+      #   with:
+      #     arch: i386
+      #     packages: "libzmq3-dev:i386"
+
+      - name: "Install OS dependencies: arm64"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libzmq3-dev
+
+      - name: "Install rust targets/toolchains for cross build"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++-arm-linux-gnueabihf \
+            libc6-dev-armhf-cross \
+            g++-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+
+          rustup target add armv7-unknown-linux-gnueabihf
+          rustup toolchain install stable-armv7-unknown-linux-gnueabihf
+          rustup target add aarch64-unknown-linux-gnu
+          rustup toolchain install stable-aarch64-unknown-linux-gnu
+          rustup target add x86_64-unknown-linux-gnu
+          rustup toolchain install stable-x86_64-unknown-linux-gnu
+
+      - name: Build armv7
+        run: |
+          PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf RUSTFLAGS="-C linker=/usr/bin/arm-linux-gnueabihf-gcc" cargo build --release --target armv7-unknown-linux-gnueabihf
+
+      - name: Build arm64
+        run: |
+          PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu RUSTFLAGS="-C linker=/usr/bin/aarch64-linux-gnu-gcc" cargo build --release --target aarch64-unknown-linux-gnu
+      
+      - name: Build amd64
+        run: |
+          cargo build --release
+
+      - name: Upload artifact amd64 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router_amd64
+          path: target/release/acars_router
+
+      - name: Upload artifact armv7 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router_armv7
+          path: target/armv7-unknown-linux-gnueabihf/release/acars_router
+
+      - name: Upload artifact arm64 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router_arm64
+          path: target/aarch64-unknown-linux-gnu/release/acars_router
+
+      - name: Cache Cargo Build Output
+        uses: actions/cache@v3
+        with:
+          path: target/
+          key: ${{ github.run_id }}
+
+      # # Allows troubleshooting via SSH
+      # - name: Setup upterm session
+      #   uses: lhotari/action-upterm@v1
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     limit-access-to-users: mikenye
+  
+  release_binaries:
+    name: Release Binaries
+    needs: [binary_build]
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Cache cargo build output
+        id: get_cache
+        uses: actions/cache@v3
+        with:
+          path: target/
+          key: ${{ github.run_id }}
+
+      - name: Check cache
+        if: steps.get_cache.outputs.cache-hit != 'true'
+        run: |
+          echo "::error title=${{ github.job }}: Could not get binaries from action cache"
+          exit 1
+
+      - name: Prepare binary release tarballs
+        if: steps.get_cache.outputs.cache-hit == 'true'
+        run: |
+          ORIGDIR=$(pwd)
+          # Make release tarballs
+          mkdir -vp ./release
+          pushd ./target/release
+          tar cJvf "$ORIGDIR/release/acars_router.amd64.tar.xz" ./acars_router
+          popd
+          pushd ./target/armv7-unknown-linux-gnueabihf/release
+          tar cJvf "$ORIGDIR/release/acars_router.armv7.tar.xz" ./acars_router
+          popd
+          pushd ./target/aarch64-unknown-linux-gnu/release
+          tar cJvf "$ORIGDIR/release/acars_router.arm64.tar.xz" ./acars_router
+          popd
+
+      - name: Get binary version from Cargo.toml
+        if: steps.get_cache.outputs.cache-hit == 'true'
+        id: release_version
+        run: |
+          # Get version from Cargo.toml
+          RELEASE_VERSION=$(cat Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
+          echo "::set-output name=RELEASE_VERSION::$RELEASE_VERSION"
+
+      - name: Create tag
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
+          
+      - name: Create binary release
+        if: steps.get_cache.outputs.cache-hit == 'true'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: ./release/*.tar.xz
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ steps.release_version.outputs.RELEASE_VERSION }}
+          tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
+
   deploy:
     name: Deploy
+    needs: [binary_build]
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
     with:
       push_enabled: true
@@ -49,5 +207,8 @@ jobs:
       build_with_tmpfs: true
       get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
       build_nohealthcheck: false
+      cache_enabled: true
+      cache_path: target/
+      cache_key: ${{ github.run_id }}
     secrets:
       ghcr_token: ${{ secrets.GITHUB_TOKEN }}

@@ -216,68 +216,6 @@ jobs:
       #   with:
       #     limit-access-to-users: mikenye
 
-  release_binaries:
-    name: Release Binaries
-    needs: [binary_build]
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Cache cargo build output
-        id: get_cache
-        uses: actions/cache@v3
-        with:
-          path: target/
-          key: ${{ github.run_id }}
-
-      - name: Check cache
-        if: steps.get_cache.outputs.cache-hit != 'true'
-        run: |
-          echo "::error title=${{ github.job }}: Could not get binaries from action cache"
-          exit 1
-
-      - name: Prepare binary release tarballs
-        if: steps.get_cache.outputs.cache-hit == 'true'
-        run: |
-          ORIGDIR=$(pwd)
-          # Make release tarballs
-          mkdir -vp ./release
-          pushd ./target/release
-          tar cJvf "$ORIGDIR/release/acars_router.amd64.tar.xz" ./acars_router
-          popd
-          pushd ./target/armv7-unknown-linux-gnueabihf/release
-          tar cJvf "$ORIGDIR/release/acars_router.armv7.tar.xz" ./acars_router
-          popd
-          pushd ./target/aarch64-unknown-linux-gnu/release
-          tar cJvf "$ORIGDIR/release/acars_router.arm64.tar.xz" ./acars_router
-          popd
-
-      - name: Get binary version from Cargo.toml
-        if: steps.get_cache.outputs.cache-hit == 'true'
-        id: release_version
-        run: |
-          # Get version from Cargo.toml
-          RELEASE_VERSION=$(cat Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
-          echo "::set-output name=RELEASE_VERSION::$RELEASE_VERSION"
-
-      - name: Create tag
-        uses: rickstaa/action-create-tag@v1
-        with:
-          tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
-          
-      - name: Create binary release
-        if: steps.get_cache.outputs.cache-hit == 'true'
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: ./release/*.tar.xz
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: ${{ steps.release_version.outputs.RELEASE_VERSION }}
-          tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
-
   test_docker_image_build:
     name: Test Docker Image Build
     needs: [hadolint, binary_build, test_functionality]
