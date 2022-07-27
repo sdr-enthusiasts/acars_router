@@ -105,41 +105,6 @@ pub struct Input {
     pub(crate) serve_zmq_vdlm2: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct ACARSRouterSettings {
-    pub log_level: LevelFilter,
-    // This field is named opposite to the command line flag.
-    // The presence of the flag indicates we should NOT add the proxy id
-    // The field is inverted and saved
-    pub add_proxy_id: bool,
-    pub dedupe: bool,
-    pub dedupe_window: u64,
-    pub skew_window: u64,
-    pub reassembly_window: u64,
-    pub stats_every: u64,
-    // The name that should be overridden in the message.
-    pub override_station_name: Option<String>,
-    // A bool for ease of app logic to flag if we should override the station name.
-    pub should_override_station_name: bool,
-    pub listen_udp_acars: Vec<String>,
-    pub listen_tcp_acars: Vec<String>,
-    pub receive_tcp_acars: Vec<String>,
-    pub receive_zmq_acars: Vec<String>,
-    pub listen_udp_vdlm2: Vec<String>,
-    pub listen_tcp_vdlm2: Vec<String>,
-    pub receive_tcp_vdlm2: Vec<String>,
-    pub receive_zmq_vdlm2: Vec<String>,
-    pub send_udp_acars: Vec<String>,
-    pub send_tcp_acars: Vec<String>,
-    pub serve_tcp_acars: Vec<String>,
-    pub serve_zmq_acars: Vec<String>,
-    pub send_udp_vdlm2: Vec<String>,
-    pub send_tcp_vdlm2: Vec<String>,
-    pub serve_tcp_vdlm2: Vec<String>,
-    pub serve_zmq_vdlm2: Vec<String>,
-    pub max_udp_packet_size: usize,
-}
-
 impl Input {
     pub fn print_values(&self) {
         debug!("The Following configuration values were loaded:");

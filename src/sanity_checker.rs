@@ -7,10 +7,10 @@
 
 // File to verify the sanity of config options
 
-use crate::config_options::ACARSRouterSettings;
+use crate::config_options::Input;
 use log::{error, trace};
 
-pub fn check_config_option_sanity(config_options: &ACARSRouterSettings) -> Result<(), String> {
+pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> {
     let mut is_input_sane = true;
 
     // We don't have to verify the log level because the config_options module
@@ -137,77 +137,85 @@ pub fn check_config_option_sanity(config_options: &ACARSRouterSettings) -> Resul
     }
 }
 
-fn check_ports_are_valid(ports: &Vec<String>, name: &str) -> bool {
+fn check_ports_are_valid(option_ports: &Option<Vec<String>>, name: &str) -> bool {
     // if we have a zero length vector the input is always bad
-    if ports.is_empty() {
-        return false;
-    }
-
-    // if the vector value of the first element is zero length the user
-    // didn't specify the option and the input is valid
-    if ports[0].is_empty() {
-        return true;
-    }
-
-    let mut is_input_sane = true;
-
-    for port in ports {
-        match port.chars().all(char::is_numeric)
-            && port.parse().unwrap_or(0) > 0
-            && port.parse().unwrap_or(65536) < 65535
-        {
-            true => trace!("{} UDP Port is numeric. Found: {}", name, port),
-            false => {
-                error!(
-                    "{} UDP Listen Port is not numeric or out of the range of 1-65353. Found: {}",
-                    name, port
-                );
-                is_input_sane = false;
+    match option_ports {
+        Some(ports) => {
+            if ports.is_empty() {
+                return false;
             }
-        }
-    }
 
-    is_input_sane
+            // if the vector value of the first element is zero length the user
+            // didn't specify the option and the input is valid
+            if ports[0].is_empty() {
+                return true;
+            }
+
+            let mut is_input_sane = true;
+
+            for port in ports {
+                match port.chars().all(char::is_numeric)
+                    && port.parse().unwrap_or(0) > 0
+                    && port.parse().unwrap_or(65536) < 65535
+                {
+                    true => trace!("{} UDP Port is numeric. Found: {}", name, port),
+                    false => {
+                        error!(
+                            "{} UDP Listen Port is not numeric or out of the range of 1-65353. Found: {}",
+                            name, port
+                        );
+                        is_input_sane = false;
+                    }
+                }
+            }
+            return is_input_sane;
+        }
+        None => return true,
+    }
 }
 
-fn check_ports_are_valid_with_host(ports: &Vec<String>, name: &str) -> bool {
-    if ports.is_empty() {
-        return false;
-    }
-
-    if ports[0].is_empty() {
-        return true;
-    }
-
-    let mut is_input_sane = true;
-
-    for port in ports {
-        // split the host and port
-
-        let split_port: Vec<&str> = port.split(':').collect();
-
-        if split_port.len() != 2 {
-            error!(
-                "{} Port is not in the format host:port. Found: {}",
-                name, port
-            );
-            return false;
-        }
-
-        match split_port[1].chars().all(char::is_numeric)
-            && split_port[1].parse().unwrap_or(0) > 0
-            && split_port[1].parse().unwrap_or(65536) < 65535
-        {
-            true => trace!("{} UDP Port is numeric. Found: {}", name, port),
-            false => {
-                error!(
-                    "{} UDP Listen Port is not numeric or out of the range of 1-65353. Found: {}",
-                    name, port
-                );
-                is_input_sane = false;
+fn check_ports_are_valid_with_host(option_ports: &Option<Vec<String>>, name: &str) -> bool {
+    match option_ports {
+        Some(ports) => {
+            if ports.is_empty() {
+                return false;
             }
-        }
-    }
 
-    is_input_sane
+            if ports[0].is_empty() {
+                return true;
+            }
+
+            let mut is_input_sane = true;
+
+            for port in ports {
+                // split the host and port
+
+                let split_port: Vec<&str> = port.split(':').collect();
+
+                if split_port.len() != 2 {
+                    error!(
+                        "{} Port is not in the format host:port. Found: {}",
+                        name, port
+                    );
+                    return false;
+                }
+
+                match split_port[1].chars().all(char::is_numeric)
+                    && split_port[1].parse().unwrap_or(0) > 0
+                    && split_port[1].parse().unwrap_or(65536) < 65535
+                {
+                    true => trace!("{} UDP Port is numeric. Found: {}", name, port),
+                    false => {
+                        error!(
+                            "{} UDP Listen Port is not numeric or out of the range of 1-65353. Found: {}",
+                            name, port
+                        );
+                        is_input_sane = false;
+                    }
+                }
+            }
+            return is_input_sane;
+        }
+        None => return true,
+    }
 }

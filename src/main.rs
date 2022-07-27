@@ -28,8 +28,8 @@ mod config_options;
 mod hasher;
 #[path = "./data_processing/message_handler.rs"]
 mod message_handler;
-// #[path = "./sanity_checker.rs"]
-// mod sanity_checker;
+#[path = "./sanity_checker.rs"]
+mod sanity_checker;
 #[path = "./acars_router_servers/tcp/inputs/tcp_listener_server.rs"]
 mod tcp_listener_server;
 #[path = "./acars_router_servers/udp/inputs/udp_listener_server.rs"]
@@ -44,9 +44,6 @@ mod listener_servers;
 
 #[path = "./acars_router_servers/sender_servers.rs"]
 mod sender_servers;
-
-// #[path = "./helper_functions.rs"]
-// mod helper_functions;
 
 #[path = "./acars_router_servers/zmq/outputs/zmq_sender_server.rs"]
 mod zmq_sender_server;
@@ -74,8 +71,10 @@ use crate::sender_servers::start_sender_servers;
 use chrono::Local;
 use clap::Parser;
 use env_logger::Builder;
+use sanity_checker::check_config_option_sanity;
 use std::error::Error;
 use std::io::Write;
+use std::process;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 
@@ -94,6 +93,16 @@ async fn start_processes(args: Input) {
         .init();
 
     args.print_values();
+
+    match check_config_option_sanity(&args) {
+        Ok(_) => {
+            trace!("Config options are sane");
+        }
+        Err(e) => {
+            error!("{}", e);
+            process::exit(1);
+        }
+    }
 
     let message_handler_config_acars = MessageHandlerConfig::new(&args, "ACARS");
     let message_handler_config_vdlm = MessageHandlerConfig::new(&args, "VDLM");
