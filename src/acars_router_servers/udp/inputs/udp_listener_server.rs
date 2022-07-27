@@ -8,7 +8,6 @@
 // Server used to receive UDP data
 
 use crate::packet_handler::PacketHandler;
-use log::{error, info, trace, warn};
 use std::io;
 use std::net::SocketAddr;
 use std::str;
@@ -25,7 +24,7 @@ pub struct UDPListenerServer {
 impl UDPListenerServer {
     pub async fn run(
         self,
-        listen_udp_port: String,
+        listen_udp_port: &str,
         channel: Sender<serde_json::Value>,
     ) -> Result<(), io::Error> {
         let UDPListenerServer {
@@ -35,7 +34,7 @@ impl UDPListenerServer {
             reassembly_window,
         } = self;
 
-        let s = UdpSocket::bind(&listen_udp_port).await;
+        let s = UdpSocket::bind(listen_udp_port).await;
 
         match s {
             Ok(socket) => {

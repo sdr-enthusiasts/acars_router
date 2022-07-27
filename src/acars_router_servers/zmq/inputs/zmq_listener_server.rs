@@ -8,7 +8,6 @@
 // NOTE: This is a listener. WE **SUB** to a *PUB* socket.
 
 use futures::StreamExt;
-use log::{debug, error, trace};
 use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::Sender;
 
@@ -29,7 +28,7 @@ impl ZMQListnerServer {
             let message = match msg {
                 Ok(message) => message,
                 Err(e) => {
-                    error!("[ZMQ LISTENER SERVER {}] Error: {}", self.proto_name, e);
+                    error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e);
                     continue;
                 }
             };
@@ -37,20 +36,18 @@ impl ZMQListnerServer {
             let composed_message = message
                 .iter()
                 .map(|item| item.as_str().unwrap_or("invalid text"))
-                .collect::<Vec<&str>>();
-
-            let message_string = composed_message.join(" ");
+                .collect::<Vec<&str>>().join(" ");
             trace!(
                 "[ZMQ LISTENER SERVER {}] Received: {}",
                 self.proto_name,
-                message_string
+                composed_message
             );
-            let stripped = &message_string
+            let stripped = composed_message
                 .strip_suffix("\r\n")
-                .or(message_string.strip_suffix("\n"))
-                .unwrap_or(&message_string);
+                .or(composed_message.strip_suffix('\n'))
+                .unwrap_or(&composed_message);
 
-            match serde_json::from_str::<serde_json::Value>(stripped) {
+            match serde_json::from_str(stripped) {
                 Ok(json) => match channel.send(json).await {
                     Ok(_) => trace!(
                         "[ZMQ LISTENER SERVER {}] Message sent to channel",

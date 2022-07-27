@@ -9,7 +9,6 @@
 
 use crate::generics::reconnect_options;
 use crate::packet_handler::PacketHandler;
-use log::{error, trace};
 use std::net::SocketAddr;
 use stubborn_io::StubbornTcpStream;
 use tokio::sync::mpsc::Sender;
@@ -27,26 +26,26 @@ impl TCPReceiverServer {
         self,
         channel: Sender<serde_json::Value>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let TCPReceiverServer {
-            host,
-            proto_name,
-            reassembly_window,
-        } = self;
-        trace!("[TCP Receiver Server {}] Starting", proto_name);
+        // let TCPReceiverServer {
+        //     host,
+        //     proto_name,
+        //     reassembly_window,
+        // } = self;
+        trace!("[TCP Receiver Server {}] Starting", self.proto_name);
         // create a SocketAddr from host
-        let addr = match host.parse::<SocketAddr>() {
+        let addr = match self.host.parse::<SocketAddr>() {
             Ok(addr) => addr,
             Err(e) => {
                 error!(
                     "[TCP Receiver Server {}] Error parsing host: {}",
-                    proto_name, e
+                    self.proto_name, e
                 );
                 return Ok(());
             }
         };
 
         let stream = match StubbornTcpStream::connect_with_options(
-            addr.clone(),
+            addr,
             reconnect_options(),
         )
         .await
@@ -55,7 +54,7 @@ impl TCPReceiverServer {
             Err(e) => {
                 error!(
                     "[TCP Receiver Server {}] Error connecting to {}: {}",
-                    proto_name, host, e
+                    self.proto_name, self.host, e
                 );
                 Err(e)?
             }
@@ -65,7 +64,7 @@ impl TCPReceiverServer {
 
         let reader = tokio::io::BufReader::new(stream);
         let mut lines = Framed::new(reader, LinesCodec::new());
-        let packet_handler = PacketHandler::new(&proto_name, reassembly_window);
+        let packet_handler = PacketHandler::new(&self.proto_name, self.reassembly_window);
 
         while let Some(Ok(line)) = lines.next().await {
             // Clean up the line endings. This is probably unnecessary but it's here for safety.
@@ -76,7 +75,7 @@ impl TCPReceiverServer {
                     msg_by_newline.split_terminator("}{").collect();
 
                 for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                    let final_message: String;
+                    let mut final_message: String = String::new();
                     // FIXME: This feels very non-rust idomatic and is ugly
 
                     // Our message had no brackets, so we can just send it
@@ -88,21 +87,21 @@ impl TCPReceiverServer {
                     else if count == 0 {
                         trace!(
                             "[TCP Receiver Server {}]Multiple messages received in a packet.",
-                            proto_name
+                            self.proto_name
                         );
                         final_message = format!("{}{}", "}", msg_by_brackets);
                     } else if count == split_messages_by_brackets.len() - 1 {
                         // This case is for the last element, which should only ever need a single opening bracket
                         trace!(
                             "[TCP Receiver Server {}] End of a multiple message packet",
-                            proto_name
+                            self.proto_name
                         );
                         final_message = format!("{}{}", "{", msg_by_brackets);
                     } else {
                         // This case is for any middle elements, which need both an opening and closing bracket
                         trace!(
                             "[TCP Receiver Server {}] Middle of a multiple message packet",
-                            proto_name
+                            self.proto_name
                         );
                         final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
                     }
@@ -113,20 +112,20 @@ impl TCPReceiverServer {
                         Some(msg) => {
                             trace!(
                                 "[TCP Receiver Server {}] Received message: {}",
-                                proto_name,
+                                self.proto_name,
                                 msg
                             );
                             match channel.send(msg).await {
                                 Ok(_) => {
-                                    trace!("[TCP SERVER {proto_name}] Message sent to channel")
+                                    trace!("[TCP SERVER {}] Message sent to channel", self.proto_name)
                                 }
                                 Err(e) => error!(
                                     "[TCP Receiver Server {}]Error sending message to channel: {}",
-                                    proto_name, e
+                                    self.proto_name, e
                                 ),
                             };
                         }
-                        None => trace!("[TCP Receiver Server {}] Invalid Message", proto_name),
+                        None => trace!("[TCP Receiver Server {}] Invalid Message", self.proto_name),
                     }
                 }
             }

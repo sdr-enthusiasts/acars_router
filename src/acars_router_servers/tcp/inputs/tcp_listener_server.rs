@@ -9,7 +9,6 @@
 // aka does not connect and then sends the data in to be processed internally
 
 use crate::packet_handler::PacketHandler;
-use log::{debug, error, info, trace};
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
@@ -29,30 +28,26 @@ impl TCPListenerServer {
         listen_acars_udp_port: String,
         channel: Sender<serde_json::Value>,
     ) -> Result<(), io::Error> {
-        let TCPListenerServer {
-            proto_name,
-            reassembly_window,
-        } = self;
 
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
+        let listener: TcpListener = TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
         info!(
             "[TCP Listener SERVER: {}]: Listening on: {}",
-            proto_name,
+            self.proto_name,
             listener.local_addr()?
         );
 
         loop {
             trace!(
                 "[TCP Listener SERVER: {}]: Waiting for connection",
-                proto_name
+                self.proto_name
             );
             // Asynchronously wait for an inbound TcpStream.
             let (stream, addr) = listener.accept().await?;
             let new_channel = channel.clone();
-            let new_proto_name = format!("{}:{}", proto_name, addr);
+            let new_proto_name = format!("{}:{}", self.proto_name, addr);
             info!(
                 "[TCP Listener SERVER: {}]:accepted connection from {}",
-                proto_name, addr
+                self.proto_name, addr
             );
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
@@ -61,7 +56,7 @@ impl TCPListenerServer {
                     &new_proto_name,
                     new_channel,
                     addr,
-                    reassembly_window,
+                    self.reassembly_window,
                 )
                 .await
                 {
@@ -73,7 +68,7 @@ impl TCPListenerServer {
                         "[TCP Listener SERVER: {}] connection error: {}",
                         new_proto_name.clone(),
                         e
-                    ),
+                    )
                 };
             });
         }
@@ -82,14 +77,14 @@ impl TCPListenerServer {
 
 async fn process_tcp_sockets(
     stream: TcpStream,
-    proto_name: &String,
+    proto_name: &str,
     channel: Sender<serde_json::Value>,
     peer: SocketAddr,
     reassembly_window: u64,
 ) -> Result<(), Box<dyn Error>> {
     let mut lines = Framed::new(stream, LinesCodec::new_with_max_length(8000));
 
-    let packet_handler = PacketHandler::new(&proto_name, reassembly_window);
+    let packet_handler = PacketHandler::new(proto_name, reassembly_window);
 
     while let Some(Ok(line)) = lines.next().await {
         let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
@@ -99,8 +94,7 @@ async fn process_tcp_sockets(
                 msg_by_newline.split_terminator("}{").collect();
 
             for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                let final_message: String;
-                // FIXME: This feels very non-rust idomatic and is ugly
+                let mut final_message: String = String::new();
 
                 // Our message had no brackets, so we can just send it
                 if split_messages_by_brackets.len() == 1 {
@@ -113,21 +107,21 @@ async fn process_tcp_sockets(
                         "[TCP Listener SERVER: {}] Multiple messages received in a packet.",
                         proto_name
                     );
-                    final_message = format!("{}{}", "}", msg_by_brackets);
+                    final_message = format!("}}{}", msg_by_brackets);
                 } else if count == split_messages_by_brackets.len() - 1 {
                     // This case is for the last element, which should only ever need a single opening bracket
                     trace!(
                         "[TCP Listener SERVER: {}] End of a multiple message packet",
                         proto_name
                     );
-                    final_message = format!("{}{}", "{", msg_by_brackets);
+                    final_message = format!("{{{}", msg_by_brackets);
                 } else {
                     // This case is for any middle elements, which need both an opening and closing bracket
                     trace!(
                         "[TCP Listener SERVER: {}] Middle of a multiple message packet",
                         proto_name
                     );
-                    final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
+                    final_message = format!("{{{}}}", msg_by_brackets);
                 }
                 match packet_handler
                     .attempt_message_reassembly(final_message, peer)

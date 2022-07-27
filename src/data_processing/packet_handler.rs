@@ -5,7 +5,6 @@
 // Full license information available in the project LICENSE file.
 //
 
-use log::{debug, error, info};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -25,7 +24,7 @@ impl PacketHandler {
         PacketHandler {
             name: name.to_string(),
             queue: Arc::new(Mutex::new(HashMap::new())),
-            reassembly_window: reassembly_window,
+            reassembly_window,
         }
     }
 
@@ -39,16 +38,13 @@ impl PacketHandler {
         self.clean_queue().await;
         // FIXME: Ideally this entire function should not lock the mutex all the time
 
-        match serde_json::from_str::<serde_json::Value>(new_message_string.as_str()) {
-            Ok(msg) => {
-                self.queue.lock().await.remove(&peer);
-                return Some(msg);
-            }
-            Err(_) => (),
+        if let Ok(msg) = serde_json::from_str(&new_message_string) {
+            self.queue.lock().await.remove(&peer);
+            return Some(msg);
         }
 
         let mut output_message: Option<serde_json::Value> = None;
-        let mut message_for_peer = "".to_string();
+        let mut message_for_peer = String::new();
         let mut old_time: Option<u64> = None; // Save the time of the first message for this peer
 
         // TODO: Handle message reassembly for out of sequence messages
@@ -89,7 +85,7 @@ impl PacketHandler {
             None => {
                 // If the len is 0 then it's the first non-reassembled message, so we'll save the new message in to the queue
                 // Otherwise message_for_peer should already have the old messages + the new one already in it.
-                if message_for_peer.len() == 0 {
+                if message_for_peer.is_empty() {
                     message_for_peer = new_message_string;
                 }
 

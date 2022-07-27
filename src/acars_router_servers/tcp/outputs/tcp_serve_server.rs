@@ -11,12 +11,12 @@
 // listens for new connections. It does not actively connect to new clients.
 
 use futures::SinkExt;
-use log::{debug, error, info};
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use serde_json::Value;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::{mpsc, Mutex};
@@ -84,23 +84,23 @@ impl Peer {
 
 impl TCPServeServer {
     pub async fn watch_for_connections(
-        &self,
+        self,
         channel: Receiver<serde_json::Value>,
-        state: Arc<Mutex<Shared>>,
+        state: &Arc<Mutex<Shared>>,
     ) {
-        let new_state = Arc::clone(&state);
+        let new_state = Arc::clone(state);
         tokio::spawn(async move { handle_message(new_state, channel).await });
         loop {
-            let new_proto = self.proto_name.clone();
+            let new_proto: String = self.proto_name.to_string();
             match self.socket.accept().await {
                 Ok((stream, addr)) => {
                     // Clone a handle to the `Shared` state for the new connection.
-                    let state = Arc::clone(&state);
+                    let state = Arc::clone(state);
 
                     // Spawn our handler to be run asynchronously.
                     tokio::spawn(async move {
                         info!("[TCP SERVER {new_proto}] accepted connection");
-                        if let Err(e) = process(state, stream, addr).await {
+                        if let Err(e) = process(&state, stream, addr).await {
                             info!(
                                 "[TCP SERVER {new_proto}] an error occurred; error = {:?}",
                                 e
@@ -110,8 +110,7 @@ impl TCPServeServer {
                 }
                 Err(e) => {
                     error!(
-                        "[TCP SERVER {new_proto}]: Error accepting connection: {}",
-                        e
+                        "[TCP SERVER {new_proto}]: Error accepting connection: {e}"
                     );
                     continue;
                 }
@@ -120,20 +119,25 @@ impl TCPServeServer {
     }
 }
 
-async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<serde_json::Value>) {
+async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<Value>) {
     loop {
-        let message = channel.recv().await;
+        let message: Option<Value> = channel.recv().await;
 
-        if let Some(message) = message {
-            let message_out = message["out_json"].clone();
-            let message_as_string = format!("{}\n", message_out);
-            state.lock().await.broadcast(&message_as_string).await;
+        if let Some(received_message) = message {
+            let message_out: Value = received_message["out_json"].clone();
+            let message_as_string: Result<String, serde_json::Error> = serde_json::to_string(&message_out);
+            match message_as_string {
+                Err(parse_error) => error!("Failed to parse Value to String: {}", parse_error),
+                Ok(string) => {
+                    state.lock().await.broadcast(&string).await;
+                }
+            }
         }
     }
 }
 
 async fn process(
-    state: Arc<Mutex<Shared>>,
+    state: &Arc<Mutex<Shared>>,
     stream: TcpStream,
     addr: SocketAddr,
 ) -> Result<(), Box<dyn Error>> {

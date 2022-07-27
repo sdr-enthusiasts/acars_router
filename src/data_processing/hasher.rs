@@ -5,7 +5,6 @@
 // Full license information available in the project LICENSE file.
 //
 
-use log::trace;
 use serde_json::Value;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -20,7 +19,7 @@ pub fn hash_message(mut message: Value) -> (u64, Value) {
     trace!("[Hasher] Message to be hashed: {}", msg);
     msg.hash(&mut hasher);
     let hashed_value = hasher.finish();
-    return (hashed_value, message);
+    (hashed_value, message)
 }
 
 fn generate_acarsdec_or_vdlm2dec_hashable_data(mut message: Value) -> Value {
@@ -97,7 +96,7 @@ fn generate_acarsdec_or_vdlm2dec_hashable_data(mut message: Value) -> Value {
 
     trace!("[Hasher] Hashable data: {}", message);
 
-    return message;
+    message
 }
 
 fn generate_dumpvdl2_hashable_data(mut message: Value) -> Value {
@@ -201,5 +200,5 @@ fn generate_dumpvdl2_hashable_data(mut message: Value) -> Value {
         false => (),
     }
 
-    return message;
+    message
 }
