@@ -138,6 +138,7 @@ pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> 
 }
 
 fn check_ports_are_valid(option_ports: &Option<Vec<String>>, name: &str) -> bool {
+    let mut is_input_sane = true;
     // if we have a zero length vector the input is always bad
     match option_ports {
         Some(ports) => {
@@ -150,8 +151,6 @@ fn check_ports_are_valid(option_ports: &Option<Vec<String>>, name: &str) -> bool
             if ports[0].is_empty() {
                 return true;
             }
-
-            let mut is_input_sane = true;
 
             for port in ports {
                 match port.chars().all(char::is_numeric)
@@ -168,13 +167,14 @@ fn check_ports_are_valid(option_ports: &Option<Vec<String>>, name: &str) -> bool
                     }
                 }
             }
-            return is_input_sane;
         }
-        None => return true,
+        None => (),
     }
+    is_input_sane
 }
 
 fn check_ports_are_valid_with_host(option_ports: &Option<Vec<String>>, name: &str) -> bool {
+    let mut is_input_sane = true;
     match option_ports {
         Some(ports) => {
             if ports.is_empty() {
@@ -184,8 +184,6 @@ fn check_ports_are_valid_with_host(option_ports: &Option<Vec<String>>, name: &st
             if ports[0].is_empty() {
                 return true;
             }
-
-            let mut is_input_sane = true;
 
             for port in ports {
                 // split the host and port
@@ -197,7 +195,8 @@ fn check_ports_are_valid_with_host(option_ports: &Option<Vec<String>>, name: &st
                         "{} Port is not in the format host:port. Found: {}",
                         name, port
                     );
-                    return false;
+                    is_input_sane = false;
+                    continue;
                 }
 
                 match split_port[1].chars().all(char::is_numeric)
@@ -214,8 +213,8 @@ fn check_ports_are_valid_with_host(option_ports: &Option<Vec<String>>, name: &st
                     }
                 }
             }
-            return is_input_sane;
         }
-        None => return true,
+        None => (),
     }
+    is_input_sane
 }
