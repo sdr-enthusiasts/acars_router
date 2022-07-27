@@ -68,7 +68,7 @@ pub async fn start_sender_servers(
             let hostname = format!("0.0.0.0:{}", host);
             let socket = TcpListener::bind(&hostname).await;
             match socket {
-                Err(e) => error!("[TCP SERVE {server_type}]: Error connecting to {host}: {e}"),
+                Err(e) => error!("[TCP SERVE {server_type}]: Error binding to {host}: {e}"),
                 Ok(socket) => {
                     let (tx_processed, rx_processed) = mpsc::channel(32);
                     let tcp_sender_server = TCPServeServer {
