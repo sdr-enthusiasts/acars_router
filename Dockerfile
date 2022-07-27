@@ -11,9 +11,9 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY ./rootfs /
-COPY ./target/armv7-unknown-linux-gnueabihf/release/acars_router /opt/acars_router.armv7
-COPY ./target/aarch64-unknown-linux-gnu/release/acars_router /opt/acars_router.aarch64
-COPY ./target/release/acars_router /opt/acars_router.x86_64
+COPY ./bin/acars_router.armv7 /opt/acars_router.armv7
+COPY ./bin/acars_router.aarch64 /opt/acars_router.aarch64
+COPY ./bin/acars_router.x86_64 /opt/acars_router.x86_64
 
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
