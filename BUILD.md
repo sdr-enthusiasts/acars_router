@@ -5,7 +5,7 @@
 Building with Docker is super easy.
 
 ```shell
-docker build -f Dockerfile . -t name, organization, or whatever you like < your > /acars_router:test
+docker build -f Dockerfile.local . -t name, organization, or whatever you like < your > /acars_router:test
 ```
 
 And the project should build with no issues.
