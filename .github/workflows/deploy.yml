@@ -96,7 +96,7 @@ jobs:
       - name: Build arm64
         run: |
           PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu RUSTFLAGS="-C linker=/usr/bin/aarch64-linux-gnu-gcc" cargo build --release --target aarch64-unknown-linux-gnu
-      
+
       - name: Build amd64
         run: |
           cargo build --release
@@ -139,7 +139,7 @@ jobs:
       #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #   with:
       #     limit-access-to-users: mikenye
-  
+
   release_binaries:
     name: Release Binaries
     needs: [binary_build]
@@ -188,7 +188,7 @@ jobs:
         uses: rickstaa/action-create-tag@v1
         with:
           tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
-          
+
       - name: Create binary release
         if: steps.get_cache.outputs.cache-hit == 'true'
         uses: ncipollo/release-action@v1
