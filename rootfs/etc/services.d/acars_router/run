@@ -1,17 +1,25 @@
 #!/usr/bin/with-contenv bash
 # shellcheck shell=bash
 
+if [[ ${AR_VERBOSITY,,} =~ info || -z "${AR_VERBOSITY}" ]]; then
+    DEBUG_LEVEL=""
+elif [[ ${AR_VERBOSITY,,} =~ debug ]]; then
+    DEBUG_LEVEL="-v"
+elif [[ ${AR_VERBOSITY,,} =~ trace ]]; then
+    DEBUG_LEVEL="-vv"
+fi
+
 if /opt/acars_router.amd64 --version > /dev/null 2>&1; then
-    /opt/acars_router.amd64
+    /opt/acars_router.amd64 "$DEBUG_LEVEL"
 
 elif /opt/acars_router.arm64 --version > /dev/null 2>&1; then
-    /opt/acars_router.arm64
+    /opt/acars_router.arm64 "$DEBUG_LEVEL"
 
 elif /opt/acars_router.armv7 --version > /dev/null 2>&1; then
-    /opt/acars_router.armv7
+    /opt/acars_router.armv7 "$DEBUG_LEVEL"
 
 elif /opt/acars_router --version > /dev/null 2>&1; then
-    /opt/acars_router
+    /opt/acars_router "$DEBUG_LEVEL"
 
 else
     >&2 echo "ERROR: Unsupported architecture"

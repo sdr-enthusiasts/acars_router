@@ -50,11 +50,11 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 
 ### Logging
 
-| Argument         | Environment Variable | Description                                                                                                         | Default |
-| ---------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------- | ------- |
-| `--stats-every`  | `AR_STATS_EVERY`     | Print statistics every `N` minutes                                                                                  | `5`     |
-| `--stats-file`   | `AR_STATS_FILE`      | Logs statistics (in JSON format) to this file every 10 seconds                                                      |         |
-| `-v` `--verbose` | `AR_VERBOSITY`       | Increase log verbosity. `-v`/`AR_VERBOSITY=debug` = Debug. `-vv`/`AR_VERBOSITY=trace` = Trace (raw packets printed) | `info`  |
+| Argument         | Environment Variable | Description                                                                                                                                                              | Default |
+| ---------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| `--stats-every`  | `AR_STATS_EVERY`     | Print statistics every `N` minutes                                                                                                                                       | `5`     |
+| `--stats-file`   | `AR_STATS_FILE`      | Logs statistics (in JSON format) to this file every 10 seconds                                                                                                           |         |
+| `-v` `--verbose` | `AR_VERBOSITY`       | Increase log verbosity. `No flag`/`AR_VERBOSITY=`/`AR_VERBOSITY=info` = info `-v`/`AR_VERBOSITY=debug` = Debug. `-vv`/`AR_VERBOSITY=trace` = Trace (raw packets printed) | `info`  |
 
 ### Deduplication
 
@@ -65,10 +65,10 @@ When using environment variables use `;` to separate entries, for example: `AR_S
 
 ### Message Modification
 
-| Argument                  | Environment Variable       | Description                               | Default |
-| ------------------------- | -------------------------- | ----------------------------------------- | ------- |
-| `--override-station-name` | `AR_OVERRIDE_STATION_NAME` | Overrides station id/name with this value |         |
-| `--dont-add-proxy-id`     | `AR_DONT_ADD_PROXY_ID`     | If set, don't add in `proxy` data.        |         |
+| Argument                  | Environment Variable       | Description                               | Default                                        |
+| ------------------------- | -------------------------- | ----------------------------------------- | ---------------------------------------------- |
+| `--override-station-name` | `AR_OVERRIDE_STATION_NAME` | Overrides station id/name with this value |                                                |
+| `--add-proxy-id`          | `AR_ADD_PROXY_ID`          | If set, will add in `proxy` data.         | `env`: `true`, if run via command line `false` |
 
 ### Advanced Settings
 
@@ -118,9 +118,9 @@ I have attempted to show this in a flow diagram:
 ## Interpreting Logs
 
 - With the default logging, the log level is informational and above. Log entries of levels `INFO`, `WARNING`, `ERROR` and `CRITICAL` are logged.
-- With `-v`/`AR_VERBOSITY=1` the `DEBUG` level is added, and log entries include the originating thread.
+- With `-v`/`AR_VERBOSITY=debug` the `DEBUG` level is added, and log entries include the originating thread.
   - Queue depths are logged in this level during scheduled statistics logging. During normal operation, all of these should be `0` (zero), with the exception of `recent_message_queue_acars` and `recent_message_queue_vdlm2`, which may be higher than zero - this is OK (as they contain a copy of message objects received in the past `--dedupe-window` / `AR_DEDUPE_WINDOW` seconds).
-- With `-vv`/`AR_VERBOSITY=2` the `TRACE` level is added, which prints the contents of the message object as it traverses through each process. This level is very noisy and is intended for application troubleshooting.
+- With `-vv`/`AR_VERBOSITY=trace` the `TRACE` level is added, which prints the contents of the message object as it traverses through each process. This level is very noisy and is intended for application troubleshooting.
   - As messages are received, they are given a UUID. This way, if odd message routing/processing behaviour is observed, the message object UUID can be found, the logs can be grepped for this UUID, and the logs will show how the message has been received and processed all the way through to being dropped or sent.
 
 ## Telegraf Integration
