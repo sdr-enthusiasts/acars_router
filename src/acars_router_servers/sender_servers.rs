@@ -97,7 +97,10 @@ pub async fn start_sender_servers(
             let new_state = Arc::clone(&sender_servers);
             let (tx_processed, rx_processed) = mpsc::channel(32);
             match socket {
-                Err(e) => error!("Error starting ZMQ {server_type} server on port {port}: {:?}", e),
+                Err(e) => error!(
+                    "Error starting ZMQ {server_type} server on port {port}: {:?}",
+                    e
+                ),
                 Ok(socket) => {
                     let zmq_sender_server = SenderServer {
                         host: server_address,

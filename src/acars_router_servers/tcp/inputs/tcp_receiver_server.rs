@@ -44,11 +44,7 @@ impl TCPReceiverServer {
             }
         };
 
-        let stream = match StubbornTcpStream::connect_with_options(
-            addr,
-            reconnect_options(),
-        )
-        .await
+        let stream = match StubbornTcpStream::connect_with_options(addr, reconnect_options()).await
         {
             Ok(stream) => stream,
             Err(e) => {
@@ -75,7 +71,7 @@ impl TCPReceiverServer {
                     msg_by_newline.split_terminator("}{").collect();
 
                 for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                    let mut final_message: String = String::new();
+                    let final_message: String;
                     // FIXME: This feels very non-rust idomatic and is ugly
 
                     // Our message had no brackets, so we can just send it
@@ -117,7 +113,10 @@ impl TCPReceiverServer {
                             );
                             match channel.send(msg).await {
                                 Ok(_) => {
-                                    trace!("[TCP SERVER {}] Message sent to channel", self.proto_name)
+                                    trace!(
+                                        "[TCP SERVER {}] Message sent to channel",
+                                        self.proto_name
+                                    )
                                 }
                                 Err(e) => error!(
                                     "[TCP Receiver Server {}]Error sending message to channel: {}",

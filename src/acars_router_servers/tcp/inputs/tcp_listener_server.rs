@@ -28,8 +28,8 @@ impl TCPListenerServer {
         listen_acars_udp_port: String,
         channel: Sender<serde_json::Value>,
     ) -> Result<(), io::Error> {
-
-        let listener: TcpListener = TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
+        let listener: TcpListener =
+            TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
         info!(
             "[TCP Listener SERVER: {}]: Listening on: {}",
             self.proto_name,
@@ -68,7 +68,7 @@ impl TCPListenerServer {
                         "[TCP Listener SERVER: {}] connection error: {}",
                         new_proto_name.clone(),
                         e
-                    )
+                    ),
                 };
             });
         }
@@ -94,7 +94,7 @@ async fn process_tcp_sockets(
                 msg_by_newline.split_terminator("}{").collect();
 
             for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                let mut final_message: String = String::new();
+                let final_message: String;
 
                 // Our message had no brackets, so we can just send it
                 if split_messages_by_brackets.len() == 1 {

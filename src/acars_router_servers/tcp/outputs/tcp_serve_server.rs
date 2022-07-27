@@ -11,12 +11,12 @@
 // listens for new connections. It does not actively connect to new clients.
 
 use futures::SinkExt;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use serde_json::Value;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::{mpsc, Mutex};
@@ -109,9 +109,7 @@ impl TCPServeServer {
                     });
                 }
                 Err(e) => {
-                    error!(
-                        "[TCP SERVER {new_proto}]: Error accepting connection: {e}"
-                    );
+                    error!("[TCP SERVER {new_proto}]: Error accepting connection: {e}");
                     continue;
                 }
             };
@@ -125,7 +123,8 @@ async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<Value>)
 
         if let Some(received_message) = message {
             let message_out: Value = received_message["out_json"].clone();
-            let message_as_string: Result<String, serde_json::Error> = serde_json::to_string(&message_out);
+            let message_as_string: Result<String, serde_json::Error> =
+                serde_json::to_string(&message_out);
             match message_as_string {
                 Err(parse_error) => error!("Failed to parse Value to String: {}", parse_error),
                 Ok(string) => {

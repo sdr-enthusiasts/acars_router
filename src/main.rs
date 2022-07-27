@@ -5,21 +5,22 @@
 // Full license information available in the project LICENSE file.
 //
 
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
+extern crate chrono;
+extern crate clap;
+extern crate derive_getters;
+extern crate env_logger;
+extern crate failure;
+extern crate futures;
+extern crate serde;
+extern crate serde_json;
+extern crate stubborn_io;
+extern crate tmq;
 extern crate tokio;
 extern crate tokio_stream;
 extern crate tokio_util;
-extern crate futures;
-extern crate clap;
-extern crate chrono;
-extern crate serde;
-extern crate serde_json;
 extern crate zmq;
-extern crate tmq;
-extern crate failure;
-extern crate stubborn_io;
-extern crate env_logger;
-extern crate derive_getters;
 
 #[path = "./config_options.rs"]
 mod config_options;
@@ -27,8 +28,8 @@ mod config_options;
 mod hasher;
 #[path = "./data_processing/message_handler.rs"]
 mod message_handler;
-#[path = "./sanity_checker.rs"]
-mod sanity_checker;
+// #[path = "./sanity_checker.rs"]
+// mod sanity_checker;
 #[path = "./acars_router_servers/tcp/inputs/tcp_listener_server.rs"]
 mod tcp_listener_server;
 #[path = "./acars_router_servers/udp/inputs/udp_listener_server.rs"]
@@ -44,8 +45,8 @@ mod listener_servers;
 #[path = "./acars_router_servers/sender_servers.rs"]
 mod sender_servers;
 
-#[path = "./helper_functions.rs"]
-mod helper_functions;
+// #[path = "./helper_functions.rs"]
+// mod helper_functions;
 
 #[path = "./acars_router_servers/zmq/outputs/zmq_sender_server.rs"]
 mod zmq_sender_server;
@@ -65,18 +66,18 @@ mod generics;
 #[path = "./data_processing/packet_handler.rs"]
 mod packet_handler;
 
-use chrono::Local;
-use env_logger::Builder;
-use std::error::Error;
-use std::io::Write;
-use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration};
-use clap::Parser;
 use crate::config_options::{Input, SetupLogging};
 use crate::generics::{OutputServerConfig, SenderServerConfig};
 use crate::listener_servers::start_listener_servers;
 use crate::message_handler::{watch_received_message_queue, MessageHandlerConfig};
 use crate::sender_servers::start_sender_servers;
+use chrono::Local;
+use clap::Parser;
+use env_logger::Builder;
+use std::error::Error;
+use std::io::Write;
+use tokio::sync::mpsc;
+use tokio::time::{sleep, Duration};
 
 async fn start_processes(args: Input) {
     Builder::new()
@@ -118,20 +119,24 @@ async fn start_processes(args: Input) {
     debug!("Starting input servers");
     // start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
     info!("Starting ACARS input servers");
-    let acars_input_config = OutputServerConfig::new(&args.listen_udp_acars,
-                                                     &args.listen_tcp_acars,
-                                                     &args.receive_tcp_acars,
-                                                     &args.receive_zmq_acars,
-                                                     &args.reassembly_window);
+    let acars_input_config = OutputServerConfig::new(
+        &args.listen_udp_acars,
+        &args.listen_tcp_acars,
+        &args.receive_tcp_acars,
+        &args.receive_zmq_acars,
+        &args.reassembly_window,
+    );
     tokio::spawn(async move {
         start_listener_servers(acars_input_config, tx_receivers_acars, "ACARS");
     });
 
-    let vdlm_input_config = OutputServerConfig::new(&args.listen_udp_vdlm2,
-                                                    &args.listen_tcp_vdlm2,
-                                                    &args.receive_zmq_vdlm2,
-                                                    &args.receive_tcp_vdlm2,
-                                                    &args.reassembly_window);
+    let vdlm_input_config = OutputServerConfig::new(
+        &args.listen_udp_vdlm2,
+        &args.listen_tcp_vdlm2,
+        &args.receive_zmq_vdlm2,
+        &args.receive_tcp_vdlm2,
+        &args.reassembly_window,
+    );
     tokio::spawn(async move {
         start_listener_servers(vdlm_input_config, tx_receivers_vdlm, "VDLM");
     });
@@ -140,26 +145,26 @@ async fn start_processes(args: Input) {
     debug!("Starting output servers");
 
     info!("Starting ACARS Output Servers");
-    let acars_output_config: SenderServerConfig = SenderServerConfig::new(&args.send_udp_acars,
-                                                      &args.send_tcp_acars,
-                                                      &args.serve_zmq_acars,
-                                                      &args.serve_tcp_acars,
-                                                      &args.max_udp_packet_size);
+    let acars_output_config: SenderServerConfig = SenderServerConfig::new(
+        &args.send_udp_acars,
+        &args.send_tcp_acars,
+        &args.serve_zmq_acars,
+        &args.serve_tcp_acars,
+        &args.max_udp_packet_size,
+    );
 
     tokio::spawn(async move {
-        start_sender_servers(
-            acars_output_config,
-            rx_processed_acars,
-            "ACARS",
-        ).await;
+        start_sender_servers(acars_output_config, rx_processed_acars, "ACARS").await;
     });
 
     info!("Starting VDLM Output Servers");
-    let vdlm_output_config = SenderServerConfig::new(&args.send_udp_vdlm2,
-                                                     &args.send_tcp_vdlm2,
-                                                     &args.serve_zmq_vdlm2,
-                                                     &args.serve_tcp_vdlm2,
-                                                     &args.max_udp_packet_size);
+    let vdlm_output_config = SenderServerConfig::new(
+        &args.send_udp_vdlm2,
+        &args.send_tcp_vdlm2,
+        &args.serve_zmq_vdlm2,
+        &args.serve_tcp_vdlm2,
+        &args.max_udp_packet_size,
+    );
 
     tokio::spawn(async move {
         start_sender_servers(vdlm_output_config, rx_processed_vdlm, "VDLM").await;
@@ -176,7 +181,8 @@ async fn start_processes(args: Input) {
                 rx_receivers_acars,
                 tx_processed_acars,
                 message_handler_config_acars,
-            ).await
+            )
+            .await
         });
     } else {
         info!("Not starting the ACARS message handler task. No input and/or output sources specified.");

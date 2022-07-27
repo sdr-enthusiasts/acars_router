@@ -18,7 +18,6 @@ on:
       - "**.sh"
 
 jobs:
-
   hadolint:
     name: "Linting: hadolint"
     runs-on: ubuntu-latest

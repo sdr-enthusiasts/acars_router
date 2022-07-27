@@ -41,17 +41,19 @@ pub struct SenderServerConfig {
 }
 
 impl SenderServerConfig {
-    pub fn new(send_udp: &Option<Vec<String>>,
-               send_tcp: &Option<Vec<String>>,
-               serve_tcp: &Option<Vec<String>>,
-               serve_zmq: &Option<Vec<String>>,
-               max_udp_packet_size: &u64) -> Self {
+    pub fn new(
+        send_udp: &Option<Vec<String>>,
+        send_tcp: &Option<Vec<String>>,
+        serve_tcp: &Option<Vec<String>>,
+        serve_zmq: &Option<Vec<String>>,
+        max_udp_packet_size: &u64,
+    ) -> Self {
         Self {
             send_udp: send_udp.clone(),
             send_tcp: send_tcp.clone(),
             serve_tcp: serve_tcp.clone(),
             serve_zmq: serve_zmq.clone(),
-            max_udp_packet_size: *max_udp_packet_size as usize
+            max_udp_packet_size: *max_udp_packet_size as usize,
         }
     }
 }
@@ -66,17 +68,19 @@ pub struct OutputServerConfig {
 }
 
 impl OutputServerConfig {
-    pub fn new(listen_udp: &Option<Vec<String>>,
-               listen_tcp: &Option<Vec<String>>,
-               receive_tcp: &Option<Vec<String>>,
-               receive_zmq: &Option<Vec<String>>,
-               reassembly_window: &u64) -> Self {
+    pub fn new(
+        listen_udp: &Option<Vec<String>>,
+        listen_tcp: &Option<Vec<String>>,
+        receive_tcp: &Option<Vec<String>>,
+        receive_zmq: &Option<Vec<String>>,
+        reassembly_window: &u64,
+    ) -> Self {
         Self {
             listen_udp: listen_udp.clone(),
             listen_tcp: listen_tcp.clone(),
             receive_tcp: receive_tcp.clone(),
             receive_zmq: receive_zmq.clone(),
-            reassembly_window: *reassembly_window
+            reassembly_window: *reassembly_window,
         }
     }
 }

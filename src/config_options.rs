@@ -26,7 +26,12 @@ pub struct Input {
     #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "1")]
     pub(crate) skew_window: u64,
     /// Set maximum UDP packet size, peer-to-peer.
-    #[clap(long, env = "AR_MAX_UDP_PACKET_SIZE", value_parser, default_value = "60000")]
+    #[clap(
+        long,
+        env = "AR_MAX_UDP_PACKET_SIZE",
+        value_parser,
+        default_value = "60000"
+    )]
     pub(crate) max_udp_packet_size: u64,
     // Message Modification
     /// Set to true to enable message modification
@@ -197,7 +202,7 @@ impl SetupLogging for u8 {
         match self {
             0 => LevelFilter::Info,
             1 => LevelFilter::Debug,
-            2..=u8::MAX => LevelFilter::Trace
+            2..=u8::MAX => LevelFilter::Trace,
         }
     }
 }

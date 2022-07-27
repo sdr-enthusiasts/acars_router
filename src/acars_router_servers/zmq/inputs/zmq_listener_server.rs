@@ -36,7 +36,8 @@ impl ZMQListnerServer {
             let composed_message = message
                 .iter()
                 .map(|item| item.as_str().unwrap_or("invalid text"))
-                .collect::<Vec<&str>>().join(" ");
+                .collect::<Vec<&str>>()
+                .join(" ");
             trace!(
                 "[ZMQ LISTENER SERVER {}] Received: {}",
                 self.proto_name,
@@ -44,7 +45,7 @@ impl ZMQListnerServer {
             );
             let stripped = composed_message
                 .strip_suffix("\r\n")
-                .or(composed_message.strip_suffix('\n'))
+                .or_else(|| composed_message.strip_suffix('\n'))
                 .unwrap_or(&composed_message);
 
             match serde_json::from_str(stripped) {

@@ -16,7 +16,8 @@ impl SenderServer<Publish> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 // send message to all client
-                let message_out: Result<String, serde_json::Error> = serde_json::to_string(&message["out_json"]);
+                let message_out: Result<String, serde_json::Error> =
+                    serde_json::to_string(&message["out_json"]);
                 match message_out {
                     Err(parse_error) => error!("Failed to parse Value to String: {}", parse_error),
                     Ok(string) => {

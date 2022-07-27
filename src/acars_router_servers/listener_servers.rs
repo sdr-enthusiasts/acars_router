@@ -66,11 +66,7 @@ pub fn start_listener_servers(
     }
 }
 
-fn start_zmq_listener_servers(
-    decoder_type: &str,
-    hosts: &[String],
-    channel: Sender<Value>,
-) {
+fn start_zmq_listener_servers(decoder_type: &str, hosts: &[String], channel: Sender<Value>) {
     let hosts: Vec<String> = hosts.to_vec();
     for host in hosts {
         let new_channel: Sender<Value> = channel.clone();
@@ -151,7 +147,7 @@ fn start_tcp_receiver_servers(
             };
             match tcp_receiver_server.run(new_channel).await {
                 Ok(_) => debug!("{} connection closed", proto_name),
-                Err(e) => error!("{} connection error: {}", proto_name.clone(), e)
+                Err(e) => error!("{} connection error: {}", proto_name.clone(), e),
             }
         });
     }

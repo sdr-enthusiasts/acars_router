@@ -6,6 +6,7 @@
 //
 
 use crate::hasher::hash_message;
+use crate::Input;
 use log::{debug, error, info, trace};
 use std::collections::VecDeque;
 use std::env;
@@ -14,7 +15,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
-use crate::Input;
 
 #[derive(Clone, Debug, Default)]
 pub struct MessageHandlerConfig {
@@ -39,7 +39,7 @@ impl MessageHandlerConfig {
                 queue_type: queue_type.to_string(),
                 should_override_station_name: args.override_station_name.is_some(),
                 station_name: station_name.to_string(),
-                stats_every: args.stats_every
+                stats_every: args.stats_every,
             }
         } else {
             Self {
@@ -50,7 +50,7 @@ impl MessageHandlerConfig {
                 queue_type: queue_type.to_string(),
                 should_override_station_name: false,
                 station_name: Default::default(),
-                stats_every: args.stats_every
+                stats_every: args.stats_every,
             }
         }
     }

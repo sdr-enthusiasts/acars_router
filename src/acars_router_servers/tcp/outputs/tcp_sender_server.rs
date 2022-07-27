@@ -23,16 +23,17 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 // send message to all client
-                let message_as_string: Result<String, serde_json::Error> = serde_json::to_string(&message["out_json"]);
+                let message_as_string: Result<String, serde_json::Error> =
+                    serde_json::to_string(&message["out_json"]);
                 match message_as_string {
                     Err(parse_error) => error!("Unable to parse Value to String: {}", parse_error),
                     Ok(value) => {
                         match self.socket.write_all(value.as_bytes()).await {
                             Ok(_) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
                             Err(e) => error!(
-                        "[TCP SENDER {}]: Error sending message: {}",
-                        self.proto_name, e
-                    ),
+                                "[TCP SENDER {}]: Error sending message: {}",
+                                self.proto_name, e
+                            ),
                         };
                     }
                 }
