@@ -34,21 +34,24 @@ impl TCPListenerServer {
             reassembly_window,
         } = self;
 
-        let listener = TcpListener::bind("0.0.0.0:".to_string() + &listen_acars_udp_port).await?;
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
         info!(
-            "[TCP SERVER: {}]: Listening on: {}",
+            "[TCP Listener SERVER: {}]: Listening on: {}",
             proto_name,
             listener.local_addr()?
         );
 
         loop {
-            trace!("[TCP SERVER: {}]: Waiting for connection", proto_name);
+            trace!(
+                "[TCP Listener SERVER: {}]: Waiting for connection",
+                proto_name
+            );
             // Asynchronously wait for an inbound TcpStream.
             let (stream, addr) = listener.accept().await?;
             let new_channel = channel.clone();
-            let new_proto_name = proto_name.clone() + ":" + &addr.to_string();
+            let new_proto_name = format!("{}:{}", proto_name, addr);
             info!(
-                "[TCP SERVER: {}]:accepted connection from {}",
+                "[TCP Listener SERVER: {}]:accepted connection from {}",
                 proto_name, addr
             );
             // Spawn our handler to be run asynchronously.
@@ -62,9 +65,12 @@ impl TCPListenerServer {
                 )
                 .await
                 {
-                    Ok(_) => debug!("[TCP SERVER {}] connection closed", new_proto_name),
+                    Ok(_) => debug!(
+                        "[TCP Listener SERVER: {}] connection closed",
+                        new_proto_name
+                    ),
                     Err(e) => error!(
-                        "[TCP SERVER {}] connection error: {}",
+                        "[TCP Listener SERVER: {}] connection error: {}",
                         new_proto_name.clone(),
                         e
                     ),
@@ -86,24 +92,65 @@ async fn process_tcp_sockets(
     let packet_handler = PacketHandler::new(&proto_name, reassembly_window);
 
     while let Some(Ok(line)) = lines.next().await {
-        let split_messages: Vec<&str> = line.split_terminator('\n').collect();
+        let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
 
-        for message in split_messages {
-            match packet_handler
-                .attempt_message_reassembly(message.to_string(), peer)
-                .await
-            {
-                Some(msg) => {
-                    trace!("[TCP SERVER: {}] Received message: {}", proto_name, msg);
-                    match channel.send(msg).await {
-                        Ok(_) => debug!("[TCP SERVER {proto_name}] Message sent to channel"),
-                        Err(e) => error!(
-                            "[TCP SERVER {}] sending message to channel: {}",
-                            proto_name, e
-                        ),
-                    };
+        for msg_by_newline in split_messages_by_newline {
+            let split_messages_by_brackets: Vec<&str> =
+                msg_by_newline.split_terminator("}{").collect();
+
+            for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
+                let final_message: String;
+                // FIXME: This feels very non-rust idomatic and is ugly
+
+                // Our message had no brackets, so we can just send it
+                if split_messages_by_brackets.len() == 1 {
+                    final_message = msg_by_brackets.to_string();
                 }
-                None => trace!("[TCP SERVER {}] Invalid Message", proto_name),
+                // We have a message that was split by brackets if the length is greater than one
+                // First case is the first element, which should only ever need a single closing bracket
+                else if count == 0 {
+                    trace!(
+                        "[TCP Listener SERVER: {}] Multiple messages received in a packet.",
+                        proto_name
+                    );
+                    final_message = format!("{}{}", "}", msg_by_brackets);
+                } else if count == split_messages_by_brackets.len() - 1 {
+                    // This case is for the last element, which should only ever need a single opening bracket
+                    trace!(
+                        "[TCP Listener SERVER: {}] End of a multiple message packet",
+                        proto_name
+                    );
+                    final_message = format!("{}{}", "{", msg_by_brackets);
+                } else {
+                    // This case is for any middle elements, which need both an opening and closing bracket
+                    trace!(
+                        "[TCP Listener SERVER: {}] Middle of a multiple message packet",
+                        proto_name
+                    );
+                    final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
+                }
+                match packet_handler
+                    .attempt_message_reassembly(final_message, peer)
+                    .await
+                {
+                    Some(msg) => {
+                        trace!(
+                            "[TCP Listener SERVER: {}] Received message: {}",
+                            proto_name,
+                            msg
+                        );
+                        match channel.send(msg).await {
+                            Ok(_) => debug!(
+                                "[TCP Listener SERVER: {proto_name}] Message sent to channel"
+                            ),
+                            Err(e) => error!(
+                                "[TCP Listener SERVER: {}] sending message to channel: {}",
+                                proto_name, e
+                            ),
+                        };
+                    }
+                    None => trace!("[TCP Listener SERVER: {}] Invalid Message", proto_name),
+                }
             }
         }
     }

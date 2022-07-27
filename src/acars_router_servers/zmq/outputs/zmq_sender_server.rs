@@ -17,7 +17,8 @@ impl SenderServer<Publish> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 // send message to all client
-                let message_out = message["out_json"].clone().to_string() + "\n";
+                // TODO: message is type "serde_json::Value"....does format! do the .to_string() for us?
+                let message_out = format!("{}\n", message["out_json"].to_string());
 
                 match self.socket.send(vec!["", &message_out]).await {
                     Ok(_) => (),

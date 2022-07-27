@@ -145,7 +145,7 @@ if __name__ == "__main__":
     # sock.bind((remote_ip, 25555))
 
     print(
-        f"STARTING UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ''}TEST\n\n"
+        f"STARTING UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ' '}TEST\n\n"
     )
     message_count = 0
     duplicated = 0
@@ -191,6 +191,7 @@ if __name__ == "__main__":
         else:
             # We are rounding to avoid an issue where acars_router will truncate the time
             # and thus the continunity check will fail even though it's good (sort of)
+
             message["timestamp"] = round(float(time.time()), 3)
             message_as_bytes = json.dumps(message).encode("utf-8") + b"\n"
 
@@ -225,7 +226,7 @@ if __name__ == "__main__":
 
     time.sleep(5)
     print(
-        f"UDP SEND/RECEIVE {'DUPLICATION' if check_for_dupes else ''}TEST COMPLETE\n\n"
+        f"UDP SEND/RECEIVE {'DUPLICATION' if check_for_dupes else ' '}TEST COMPLETE\n\n"
     )
     print(f"Sent {message_count} original messages")
     print(f"Sent {duplicated} duplicates")
@@ -245,11 +246,11 @@ if __name__ == "__main__":
         duplicated if not check_for_dupes else 0
     ):
         print(
-            f"UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ''}TEST PASSED"
+            f"UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ' '}TEST PASSED"
         )
     else:
         print(
-            f"UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ''}TEST FAILED"
+            f"UDP SEND/RECEIVE {'DUPLICATION ' if check_for_dupes else ' '}TEST FAILED"
         )
         TEST_PASSED = False
 
