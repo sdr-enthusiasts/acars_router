@@ -184,28 +184,35 @@ jobs:
         run: |
           cargo build --release
 
+      - name: Consolidate binaries
+        run: |
+          mkdir -p ./bin
+          cp -v ./target/release/acars_router ./bin/acars_router.amd64
+          cp -v ./target/armv7-unknown-linux-gnueabihf/release/acars_router ./bin/acars_router.armv7
+          cp -v ./target/aarch64-unknown-linux-gnu/release/acars_router ./bin/acars_router.arm64
+
       - name: Upload artifact amd64 binary
         uses: actions/upload-artifact@v3
         with:
-          name: acars_router_amd64
-          path: target/release/acars_router
+          name: acars_router.amd64
+          path: ./bin/acars_router.amd64
 
       - name: Upload artifact armv7 binary
         uses: actions/upload-artifact@v3
         with:
-          name: acars_router_armv7
-          path: target/armv7-unknown-linux-gnueabihf/release/acars_router
+          name: acars_router.armv7
+          path: ./bin/acars_router.armv7
 
       - name: Upload artifact arm64 binary
         uses: actions/upload-artifact@v3
         with:
-          name: acars_router_arm64
-          path: target/aarch64-unknown-linux-gnu/release/acars_router
+          name: acars_router.arm64
+          path: ./bin/acars_router.arm64
 
       - name: Cache Cargo Build Output
         uses: actions/cache@v3
         with:
-          path: target/
+          path: bin/
           key: ${{ github.run_id }}
 
       # # Allows troubleshooting via SSH
@@ -225,5 +232,5 @@ jobs:
       build_with_tmpfs: true
       build_nohealthcheck: false
       cache_enabled: true
-      cache_path: target/
+      cache_path: bin/
       cache_key: ${{ github.run_id }}
