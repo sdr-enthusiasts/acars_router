@@ -107,7 +107,7 @@ async fn process_tcp_sockets(
                         "[TCP Listener SERVER: {}] Multiple messages received in a packet.",
                         proto_name
                     );
-                    final_message = format!("}}{}", msg_by_brackets);
+                    final_message = format!("{}}}", msg_by_brackets);
                 } else if count == split_messages_by_brackets.len() - 1 {
                     // This case is for the last element, which should only ever need a single opening bracket
                     trace!(
