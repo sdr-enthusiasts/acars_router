@@ -8,7 +8,6 @@
 use crate::generics::{reconnect_options, SenderServer, SenderServerConfig, Shared};
 use crate::tcp_serve_server::TCPServeServer;
 use crate::udp_sender_server::UDPSenderServer;
-use serde_json::Value;
 use std::sync::Arc;
 use stubborn_io::StubbornTcpStream;
 use tmq::{publish, Context};
@@ -18,14 +17,14 @@ use tokio::sync::{mpsc, Mutex};
 
 pub async fn start_sender_servers(
     config: SenderServerConfig,
-    rx_processed: Receiver<Value>,
+    rx_processed: Receiver<String>,
     server_type: &str,
 ) {
     // Flow is check and see if there are any configured outputs for the queue
     // If so, start it up and save the transmit channel to the list of sender servers.
     // Then start watchers for the input queue
 
-    let sender_servers: Arc<Mutex<Vec<Sender<Value>>>> = Arc::new(Mutex::new(Vec::new()));
+    let sender_servers: Arc<Mutex<Vec<Sender<String>>>> = Arc::new(Mutex::new(Vec::new()));
 
     if let Some(send_udp) = config.send_udp {
         // Start the UDP sender servers for {server_type}
@@ -123,8 +122,8 @@ pub async fn start_sender_servers(
 }
 
 async fn monitor_queue(
-    mut rx_processed: mpsc::Receiver<Value>,
-    sender_servers: Arc<Mutex<Vec<Sender<Value>>>>,
+    mut rx_processed: mpsc::Receiver<String>,
+    sender_servers: Arc<Mutex<Vec<Sender<String>>>>,
     name: &str,
 ) {
     debug!("Starting the {name} Output Queue");
@@ -144,7 +143,7 @@ async fn monitor_queue(
 async fn start_tcp(
     host: String,
     socket_type: String,
-    sender_server: Arc<Mutex<Vec<Sender<Value>>>>,
+    sender_server: Arc<Mutex<Vec<Sender<String>>>>,
 ) {
     // Start a TCP sender server for {server_type}
     let socket = StubbornTcpStream::connect_with_options(host.clone(), reconnect_options()).await;

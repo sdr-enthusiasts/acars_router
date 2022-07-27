@@ -4,7 +4,6 @@
 // Permission is granted to use, copy, modify, and redistribute the work.
 // Full license information available in the project LICENSE file.
 //
-use serde_json::Value;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -24,7 +23,7 @@ pub struct SenderServer<T> {
     pub host: String,
     pub proto_name: String,
     pub socket: T,
-    pub channel: Receiver<Value>,
+    pub channel: Receiver<String>,
 }
 
 pub struct Shared {

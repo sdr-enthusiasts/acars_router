@@ -114,7 +114,7 @@ pub async fn clean_up_dedupe_queue(
 
 pub async fn watch_received_message_queue(
     mut input_queue: Receiver<serde_json::Value>,
-    output_queue: Sender<serde_json::Value>,
+    output_queue: Sender<String>,
     config: MessageHandlerConfig,
 ) {
     let dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>> =
@@ -169,9 +169,6 @@ pub async fn watch_received_message_queue(
         *stats_total_loop_context.lock().await += 1;
 
         trace!("[Message Handler {}] GOT: {}", config.queue_type, message);
-
-        // Create a copy of what we received. Not really used anywhere in the program but it's useful for debugging
-        let original_message = message.clone();
 
         let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(n) => n.as_secs(),
@@ -242,7 +239,7 @@ pub async fn watch_received_message_queue(
         }
 
         // Time to hash the message
-        let (hashed_value, hashed_message) = hash_message(message.clone());
+        let (hashed_value, _) = hash_message(message.clone());
 
         if config.dedupe {
             let mut rejected = false;
@@ -331,7 +328,6 @@ pub async fn watch_received_message_queue(
             "[Message Handler {}] SENDING: {}",
             config.queue_type, message
         );
-        let mut final_message = serde_json::Value::Object(serde_json::map::Map::new());
 
         // Set up the final json object following the pythonic convention
         // "data" stores the input JSON
@@ -341,21 +337,21 @@ pub async fn watch_received_message_queue(
         // We are not following the pythonic convention fully. There is a "JSON" field where a bunch of internal structures are stored.
         // I'll just store the message that was hashed here
 
-        final_message["msg_time"] =
-            serde_json::Value::Number(serde_json::Number::from(message_time));
-        final_message["hash"] = serde_json::Value::Number(serde_json::Number::from(hashed_value));
-        final_message["out_json"] = message;
-        final_message["data"] = original_message;
-        final_message["json"] = hashed_message;
-
+        trace!(
+            "[Message Handler {}] Hashed value: {}",
+            config.queue_type,
+            hashed_value
+        );
         trace!(
             "[Message Handler {}] Final message: {}",
             config.queue_type,
-            final_message
+            message
         );
 
+        let final_message = format!("{}\n", message.to_string());
+
         // Send to the output methods for emitting on the network
-        match output_queue.send(final_message).await {
+        match output_queue.send(final_message.to_string()).await {
             Ok(_) => {
                 debug!(
                     "[Message Handler {}] Message sent to output queue",

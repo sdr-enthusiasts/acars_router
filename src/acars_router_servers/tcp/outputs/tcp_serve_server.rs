@@ -11,7 +11,6 @@
 // listens for new connections. It does not actively connect to new clients.
 
 use futures::SinkExt;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
@@ -85,7 +84,7 @@ impl Peer {
 impl TCPServeServer {
     pub async fn watch_for_connections(
         self,
-        channel: Receiver<serde_json::Value>,
+        channel: Receiver<String>,
         state: &Arc<Mutex<Shared>>,
     ) {
         let new_state = Arc::clone(state);
@@ -117,21 +116,10 @@ impl TCPServeServer {
     }
 }
 
-async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<Value>) {
+async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<String>) {
     loop {
-        let message: Option<Value> = channel.recv().await;
-
-        if let Some(received_message) = message {
-            let message_out: Value = received_message["out_json"].clone();
-            let message_as_string: Result<String, serde_json::Error> =
-                serde_json::to_string(&message_out);
-            match message_as_string {
-                Err(parse_error) => error!("Failed to parse Value to String: {}", parse_error),
-                Ok(string) => {
-                    let final_message: String = format!("{}\n", string);
-                    state.lock().await.broadcast(&final_message).await;
-                }
-            }
+        if let Some(received_message) = channel.recv().await {
+            state.lock().await.broadcast(&received_message).await;
         }
     }
 }
