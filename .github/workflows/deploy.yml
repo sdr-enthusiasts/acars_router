@@ -207,7 +207,16 @@ jobs:
       ghcr_repo_owner: ${{ github.repository_owner }}
       ghcr_repo: ${{ github.repository }}
       build_with_tmpfs: true
-      get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
+      # ====
+      # Temporarily changed:
+      # get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
+      # ...to...
+      build_latest: false
+      build_version_specific: true
+      get_version_method: file_in_container:file=/IMAGE_VERSION
+      # This has been done to facilitate testing of the rust release
+      # See also the project's Dockerfile:38 for where /IMAGE_VERSION is created.
+      # ====
       build_nohealthcheck: false
       cache_enabled: true
       cache_path: bin/

@@ -34,4 +34,10 @@ RUN set -x && \
     # clean up
     apt-get remove -y "${TEMP_PACKAGES[@]}" && \
     apt-get autoremove -y && \
-    rm -rf /src/* /tmp/* /var/lib/apt/lists/*
+    rm -rf /src/* /tmp/* /var/lib/apt/lists/* && \
+    # ====
+    # Temporarily added:
+    echo "test" > /IMAGE_VERSION
+    # This has been done to facilitate testing of the rust release
+    # See also the project's deploy.yml:210
+    # ====
