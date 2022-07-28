@@ -183,7 +183,15 @@ jobs:
           RELEASE_VERSION=$(cat Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
           echo "::set-output name=RELEASE_VERSION::$RELEASE_VERSION"
 
+      - uses: mukunku/tag-exists-action@v1.0.0
+        id: checkTag
+        with: 
+          tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create tag
+        if: steps.checkTag.outputs.exists == 'false'
         uses: rickstaa/action-create-tag@v1
         with:
           tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
