@@ -168,3 +168,8 @@ pip-selfcheck.json
 
 # ignore patched test files
 test_data/*.patched
+
+# Added by cargo
+
+/target
+.idea
