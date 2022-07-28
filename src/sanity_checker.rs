@@ -7,9 +7,9 @@
 
 // File to verify the sanity of config options
 
+use crate::config_options::Input;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use crate::config_options::Input;
 
 pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> {
     let mut is_input_sane = true;
@@ -161,22 +161,56 @@ fn check_ports_are_valid_with_host(socket_addresses: &Option<Vec<String>>, name:
 
     if let Some(sockets) = socket_addresses {
         if sockets.is_empty() {
-            error!("{} has been provided, but there are no socket addresses", name);
+            error!(
+                "{} has been provided, but there are no socket addresses",
+                name
+            );
             is_input_sane = false;
         }
         for socket in sockets {
-            let parse_socket = SocketAddr::from_str(socket);
-            match parse_socket {
-                Err(parse_error) => {
-                    error!("{}: Failed to validate that {} is a properly formatted socket: {}", name, socket, parse_error);
+            // FIXME: Just doing a socketaddr parse fails if the host name isn't an IP address.
+
+            // check and see if there are alpha characters in the string
+            if socket
+                .chars()
+                .any(|c| !c.is_numeric() && !c.eq(&'.') && !c.eq(&':'))
+            {
+                // split the string on ':'
+                let socket_parts = socket.split(":").collect::<Vec<_>>();
+                let port = socket_parts[1];
+                // validate the port is numeric and between 1-65535
+                if !port.chars().all(|c| c.is_numeric()) {
+                    error!("{} Port is not numeric", name);
                     is_input_sane = false;
-                },
-                Ok(parsed_socket) => {
-                    if parsed_socket.port().eq(&0) {
-                        error!("{}: Socket address is valid, but the port provided is zero!", name);
+                } else {
+                    match port.parse::<u16>() {
+                        Ok(_) => trace!("{} Port is numeric", name),
+                        Err(_) => {
+                            error!("{} Port is not numeric", name);
+                            is_input_sane = false;
+                        }
+                    }
+                }
+            } else {
+                let parse_socket = SocketAddr::from_str(socket);
+                match parse_socket {
+                    Err(parse_error) => {
+                        error!(
+                            "{}: Failed to validate that {} is a properly formatted socket: {}",
+                            name, socket, parse_error
+                        );
                         is_input_sane = false;
-                    } else {
-                        trace!("{} is a valid socket address", socket);
+                    }
+                    Ok(parsed_socket) => {
+                        if parsed_socket.port().eq(&0) {
+                            error!(
+                                "{}: Socket address is valid, but the port provided is zero!",
+                                name
+                            );
+                            is_input_sane = false;
+                        } else {
+                            trace!("{} is a valid socket address", socket);
+                        }
                     }
                 }
             }
@@ -191,12 +225,22 @@ mod test {
 
     #[test]
     fn test_check_ports_are_valid_with_host() {
-        let valid_hosts: Option<Vec<String>> = Some(vec!["127.0.0.1:8008".to_string(), "10.0.0.1:12345".to_string(), "192.168.1.1:65535".to_string()]);
-        let invalid_hosts: Option<Vec<String>> = Some(vec!["127.0.0.1:0".to_string(), "10.0.0.1".to_string(), "192.168.1.1:65536".to_string()]);
+        let valid_hosts: Option<Vec<String>> = Some(vec![
+            "127.0.0.1:8008".to_string(),
+            "10.0.0.1:12345".to_string(),
+            "192.168.1.1:65535".to_string(),
+        ]);
+        let invalid_hosts: Option<Vec<String>> = Some(vec![
+            "127.0.0.1:0".to_string(),
+            "10.0.0.1".to_string(),
+            "192.168.1.1:65536".to_string(),
+        ]);
         let empty_host_vec: Option<Vec<String>> = Some(vec![]);
         let valid_hosts_tests: bool = check_ports_are_valid_with_host(&valid_hosts, "valid_hosts");
-        let invalid_hosts_tests: bool = check_ports_are_valid_with_host(&invalid_hosts, "invalid_hosts");
-        let empty_host_vec_test: bool = check_ports_are_valid_with_host(&empty_host_vec, "empty_vec");
+        let invalid_hosts_tests: bool =
+            check_ports_are_valid_with_host(&invalid_hosts, "invalid_hosts");
+        let empty_host_vec_test: bool =
+            check_ports_are_valid_with_host(&empty_host_vec, "empty_vec");
         assert_eq!(valid_hosts_tests, true);
         assert_eq!(invalid_hosts_tests, false);
         assert_eq!(empty_host_vec_test, false);

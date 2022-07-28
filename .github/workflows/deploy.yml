@@ -185,7 +185,7 @@ jobs:
 
       - uses: mukunku/tag-exists-action@v1.0.0
         id: checkTag
-        with: 
+        with:
           tag: ${{ steps.release_version.outputs.RELEASE_VERSION }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
