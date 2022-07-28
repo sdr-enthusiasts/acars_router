@@ -61,7 +61,7 @@ impl SenderServerConfig {
 pub struct OutputServerConfig {
     pub listen_udp: Option<Vec<u16>>,
     pub listen_tcp: Option<Vec<u16>>,
-    pub receive_tcp: Option<Vec<u16>>,
+    pub receive_tcp: Option<Vec<String>>,
     pub receive_zmq: Option<Vec<String>>,
     pub reassembly_window: u64,
 }
@@ -70,7 +70,7 @@ impl OutputServerConfig {
     pub fn new(
         listen_udp: &Option<Vec<u16>>,
         listen_tcp: &Option<Vec<u16>>,
-        receive_tcp: &Option<Vec<u16>>,
+        receive_tcp: &Option<Vec<String>>,
         receive_zmq: &Option<Vec<String>>,
         reassembly_window: &u64,
     ) -> Self {

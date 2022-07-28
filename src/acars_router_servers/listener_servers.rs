@@ -130,7 +130,7 @@ fn start_udp_listener_servers(
 
 fn start_tcp_receiver_servers(
     decoder_type: &str,
-    hosts: &[u16],
+    hosts: &[String],
     channel: Sender<Value>,
     reassembly_window: &u64,
 ) {

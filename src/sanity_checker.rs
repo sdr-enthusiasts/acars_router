@@ -34,7 +34,7 @@ pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> 
         is_input_sane = false;
     }
 
-    if !check_ports_are_valid(
+    if !check_ports_are_valid_with_host(
         &config_options.receive_tcp_acars,
         "AR_RECEIVE_TCP_ACARS/--receive-tcp-acars",
     ) {
@@ -55,7 +55,7 @@ pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> 
         is_input_sane = false;
     }
 
-    if !check_ports_are_valid(
+    if !check_ports_are_valid_with_host(
         &config_options.receive_tcp_vdlm2,
         "AR_RECEIVE_TCP_VDLM2/--receive-tcp-vdlm2",
     ) {
