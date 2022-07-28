@@ -171,3 +171,24 @@ impl SetupLogging for u8 {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_set_logging_level() {
+        let info_level: u8 = 0;
+        let debug_level: u8 = 1;
+        let trace_level: u8 = 2;
+        let stupid_levels: u8 = 255;
+        let info_level_logging: LevelFilter = info_level.set_logging_level();
+        let debug_level_logging: LevelFilter = debug_level.set_logging_level();
+        let trace_level_logging: LevelFilter = trace_level.set_logging_level();
+        let stupid_levels_logging: LevelFilter = stupid_levels.set_logging_level();
+        assert_eq!(info_level_logging, LevelFilter::Info);
+        assert_eq!(debug_level_logging, LevelFilter::Debug);
+        assert_eq!(trace_level_logging, LevelFilter::Trace);
+        assert_eq!(stupid_levels_logging, LevelFilter::Trace);
+    }
+}
