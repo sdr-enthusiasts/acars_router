@@ -171,7 +171,14 @@ fn check_ports_are_valid_with_host(socket_addresses: &Option<Vec<String>>, name:
                     error!("{}: Failed to validate that {} is a properly formatted socket: {}", name, socket, parse_error);
                     is_input_sane = false;
                 },
-                Ok(_) => trace!("{} is a valid socket address", socket)
+                Ok(parsed_socket) => {
+                    if parsed_socket.port().eq(&0) {
+                        error!("{}: Socket address is valid, but the port provided is zero!", name);
+                        is_input_sane = false;
+                    } else {
+                        trace!("{} is a valid socket address", socket);
+                    }
+                }
             }
         }
     }
