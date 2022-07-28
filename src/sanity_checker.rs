@@ -184,7 +184,17 @@ fn check_ports_are_valid_with_host(socket_addresses: &Option<Vec<String>>, name:
                     is_input_sane = false;
                 } else {
                     match port.parse::<u16>() {
-                        Ok(_) => trace!("{} Port is numeric", name),
+                        Ok(parsed_socket) => {
+                            if parsed_socket == 0 {
+                                error!(
+                                    "{}: Socket address is valid, but the port provided is zero!",
+                                    name
+                                );
+                                is_input_sane = false;
+                            } else {
+                                trace!("{} is a valid socket address", socket);
+                            }
+                        }
                         Err(_) => {
                             error!("{} Port is not numeric", name);
                             is_input_sane = false;
