@@ -7,8 +7,9 @@
 
 // File to verify the sanity of config options
 
+use std::net::SocketAddr;
+use std::str::FromStr;
 use crate::config_options::Input;
-use log::{error, trace};
 
 pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> {
     let mut is_input_sane = true;
@@ -33,7 +34,7 @@ pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> 
         is_input_sane = false;
     }
 
-    if !check_ports_are_valid_with_host(
+    if !check_ports_are_valid(
         &config_options.receive_tcp_acars,
         "AR_RECEIVE_TCP_ACARS/--receive-tcp-acars",
     ) {
@@ -54,7 +55,7 @@ pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> 
         is_input_sane = false;
     }
 
-    if !check_ports_are_valid_with_host(
+    if !check_ports_are_valid(
         &config_options.receive_tcp_vdlm2,
         "AR_RECEIVE_TCP_VDLM2/--receive-tcp-vdlm2",
     ) {
@@ -137,84 +138,73 @@ pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> 
     }
 }
 
-fn check_ports_are_valid(option_ports: &Option<Vec<String>>, name: &str) -> bool {
+fn check_ports_are_valid(option_ports: &Option<Vec<u16>>, name: &str) -> bool {
     let mut is_input_sane = true;
     // if we have a zero length vector the input is always bad
-    match option_ports {
-        Some(ports) => {
-            if ports.is_empty() {
-                return false;
-            }
-
-            // if the vector value of the first element is zero length the user
-            // didn't specify the option and the input is valid
-            if ports[0].is_empty() {
-                return true;
-            }
-
-            for port in ports {
-                match port.chars().all(char::is_numeric)
-                    && port.parse().unwrap_or(0) > 0
-                    && port.parse().unwrap_or(65536) < 65535
-                {
-                    true => trace!("{} UDP Port is numeric. Found: {}", name, port),
-                    false => {
-                        error!(
-                            "{} UDP Listen Port is not numeric or out of the range of 1-65353. Found: {}",
-                            name, port
-                        );
-                        is_input_sane = false;
-                    }
-                }
+    if let Some(ports) = option_ports {
+        if ports.is_empty() {
+            error!("{} An empty listen ports vec has been provided", name);
+            is_input_sane = false;
+        }
+        for port in ports {
+            if port.eq(&0) {
+                error!("{} Listen Port is invalid as it is zero", name);
+                is_input_sane = false
             }
         }
-        None => (),
     }
     is_input_sane
 }
 
-fn check_ports_are_valid_with_host(option_ports: &Option<Vec<String>>, name: &str) -> bool {
+fn check_ports_are_valid_with_host(socket_addresses: &Option<Vec<String>>, name: &str) -> bool {
     let mut is_input_sane = true;
-    match option_ports {
-        Some(ports) => {
-            if ports.is_empty() {
-                return false;
-            }
 
-            if ports[0].is_empty() {
-                return true;
-            }
-
-            for port in ports {
-                // split the host and port
-
-                let split_port: Vec<&str> = port.split(':').collect();
-
-                if split_port.len() != 2 {
-                    error!(
-                        "{} Port is not in the format host:port. Found: {}",
-                        name, port
-                    );
+    if let Some(sockets) = socket_addresses {
+        if sockets.is_empty() {
+            error!("{} has been provided, but there are no socket addresses", name);
+            is_input_sane = false;
+        }
+        for socket in sockets {
+            let parse_socket = SocketAddr::from_str(socket);
+            match parse_socket {
+                Err(parse_error) => {
+                    error!("{}: Failed to validate that {} is a properly formatted socket: {}", name, socket, parse_error);
                     is_input_sane = false;
-                    continue;
-                }
-
-                match split_port[1].chars().all(char::is_numeric)
-                    && split_port[1].parse().unwrap_or(0) > 0
-                    && split_port[1].parse().unwrap_or(65536) < 65535
-                {
-                    true => trace!("{} UDP Port is numeric. Found: {}", name, port),
-                    false => {
-                        error!(
-                            "{} UDP Listen Port is not numeric or out of the range of 1-65353. Found: {}",
-                            name, port
-                        );
-                        is_input_sane = false;
-                    }
-                }
+                },
+                Ok(_) => trace!("{} is a valid socket address", socket)
             }
         }
-        None => (),
     }
     is_input_sane
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_check_ports_are_valid_with_host() {
+        let valid_hosts: Option<Vec<String>> = Some(vec!["127.0.0.1:8008".to_string(), "10.0.0.1:12345".to_string(), "192.168.1.1:65535".to_string()]);
+        let invalid_hosts: Option<Vec<String>> = Some(vec!["127.0.0.1:0".to_string(), "10.0.0.1".to_string(), "192.168.1.1:65536".to_string()]);
+        let empty_host_vec: Option<Vec<String>> = Some(vec![]);
+        let valid_hosts_tests: bool = check_ports_are_valid_with_host(&valid_hosts, "valid_hosts");
+        let invalid_hosts_tests: bool = check_ports_are_valid_with_host(&invalid_hosts, "invalid_hosts");
+        let empty_host_vec_test: bool = check_ports_are_valid_with_host(&empty_host_vec, "empty_vec");
+        assert_eq!(valid_hosts_tests, true);
+        assert_eq!(invalid_hosts_tests, false);
+        assert_eq!(empty_host_vec_test, false);
+    }
+
+    #[test]
+    fn test_check_ports_are_valid() {
+        let valid_ports: Option<Vec<u16>> = Some(vec![1, 8008, 65535]);
+        let invalid_ports: Option<Vec<u16>> = Some(vec![0]);
+        let empty_ports: Option<Vec<u16>> = Some(vec![]);
+        let valid_ports_test: bool = check_ports_are_valid(&valid_ports, "valid_ports");
+        let invalid_ports_test: bool = check_ports_are_valid(&invalid_ports, "invalid_ports");
+        let empty_ports_test: bool = check_ports_are_valid(&empty_ports, "empty_ports");
+        assert_eq!(valid_ports_test, true);
+        assert_eq!(invalid_ports_test, false);
+        assert_eq!(empty_ports_test, false);
+    }
 }

@@ -52,13 +52,13 @@ pub struct Input {
     // ACARS
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, env = "AR_LISTEN_UDP_ACARS", value_parser, value_delimiter = ';')]
-    pub(crate) listen_udp_acars: Option<Vec<String>>,
+    pub(crate) listen_udp_acars: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, env = "AR_LISTEN_TCP_ACARS", value_parser, value_delimiter = ';')]
-    pub(crate) listen_tcp_acars: Option<Vec<String>>,
+    pub(crate) listen_tcp_acars: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, env = "AR_RECV_TCP_ACARS", value_parser, value_delimiter = ';')]
-    pub(crate) receive_tcp_acars: Option<Vec<String>>,
+    pub(crate) receive_tcp_acars: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. io host:5550;host:5551;host:5552
     #[clap(long, env = "AR_RECV_ZMQ_ACARS", value_parser, value_delimiter = ';')]
     pub(crate) receive_zmq_acars: Option<Vec<String>>,
@@ -66,13 +66,13 @@ pub struct Input {
     // VDLM2
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     #[clap(long, env = "AR_LISTEN_UDP_VDLM2", value_parser, value_delimiter = ';')]
-    pub(crate) listen_udp_vdlm2: Option<Vec<String>>,
+    pub(crate) listen_udp_vdlm2: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     #[clap(long, env = "AR_LISTEN_TCP_VDLM2", value_parser, value_delimiter = ';')]
-    pub(crate) listen_tcp_vdlm2: Option<Vec<String>>,
+    pub(crate) listen_tcp_vdlm2: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5555;5556;1557
     #[clap(long, env = "AR_RECV_TCP_VDLM2", value_parser, value_delimiter = ';')]
-    pub(crate) receive_tcp_vdlm2: Option<Vec<String>>,
+    pub(crate) receive_tcp_vdlm2: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
     #[clap(long, env = "AR_RECV_ZMQ_VDLM2", value_parser, value_delimiter = ';')]
     pub(crate) receive_zmq_vdlm2: Option<Vec<String>>,
@@ -86,10 +86,10 @@ pub struct Input {
     pub(crate) send_tcp_acars: Option<Vec<String>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, env = "AR_SERVE_TCP_ACARS", value_parser, value_delimiter = ';')]
-    pub(crate) serve_tcp_acars: Option<Vec<String>>,
+    pub(crate) serve_tcp_acars: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, env = "AR_SERVE_ZMQ_ACARS", value_parser, value_delimiter = ';')]
-    pub(crate) serve_zmq_acars: Option<Vec<String>>,
+    pub(crate) serve_zmq_acars: Option<Vec<u16>>,
     // VDLM
     /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
     #[clap(long, env = "AR_SEND_UDP_VDLM2", value_parser, value_delimiter = ';')]
@@ -99,10 +99,10 @@ pub struct Input {
     pub(crate) send_tcp_vdlm2: Option<Vec<String>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, env = "AR_SERVE_TCP_VDLM2", value_parser, value_delimiter = ';')]
-    pub(crate) serve_tcp_vdlm2: Option<Vec<String>>,
+    pub(crate) serve_tcp_vdlm2: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, env = "AR_SERVE_ZMQ_VDLM2", value_parser, value_delimiter = ';')]
-    pub(crate) serve_zmq_vdlm2: Option<Vec<String>>,
+    pub(crate) serve_zmq_vdlm2: Option<Vec<u16>>,
 }
 
 impl Input {
