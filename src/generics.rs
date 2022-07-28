@@ -34,8 +34,8 @@ pub struct Shared {
 pub struct SenderServerConfig {
     pub send_udp: Option<Vec<String>>,
     pub send_tcp: Option<Vec<String>>,
-    pub serve_tcp: Option<Vec<String>>,
-    pub serve_zmq: Option<Vec<String>>,
+    pub serve_tcp: Option<Vec<u16>>,
+    pub serve_zmq: Option<Vec<u16>>,
     pub max_udp_packet_size: usize,
 }
 
@@ -43,8 +43,8 @@ impl SenderServerConfig {
     pub fn new(
         send_udp: &Option<Vec<String>>,
         send_tcp: &Option<Vec<String>>,
-        serve_tcp: &Option<Vec<String>>,
-        serve_zmq: &Option<Vec<String>>,
+        serve_tcp: &Option<Vec<u16>>,
+        serve_zmq: &Option<Vec<u16>>,
         max_udp_packet_size: &u64,
     ) -> Self {
         Self {
@@ -59,8 +59,8 @@ impl SenderServerConfig {
 
 #[derive(Debug, Clone, Default)]
 pub struct OutputServerConfig {
-    pub listen_udp: Option<Vec<String>>,
-    pub listen_tcp: Option<Vec<String>>,
+    pub listen_udp: Option<Vec<u16>>,
+    pub listen_tcp: Option<Vec<u16>>,
     pub receive_tcp: Option<Vec<String>>,
     pub receive_zmq: Option<Vec<String>>,
     pub reassembly_window: u64,
@@ -68,8 +68,8 @@ pub struct OutputServerConfig {
 
 impl OutputServerConfig {
     pub fn new(
-        listen_udp: &Option<Vec<String>>,
-        listen_tcp: &Option<Vec<String>>,
+        listen_udp: &Option<Vec<u16>>,
+        listen_tcp: &Option<Vec<u16>>,
         receive_tcp: &Option<Vec<String>>,
         receive_zmq: &Option<Vec<String>>,
         reassembly_window: &u64,

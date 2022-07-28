@@ -87,7 +87,7 @@ fn start_zmq_listener_servers(decoder_type: &str, hosts: &[String], channel: Sen
 
 fn start_tcp_listener_servers(
     decoder_type: &str,
-    ports: &[String],
+    ports: &[u16],
     channel: Sender<Value>,
     reassembly_window: &u64,
 ) {
@@ -107,7 +107,7 @@ fn start_tcp_listener_servers(
 
 fn start_udp_listener_servers(
     decoder_type: &str,
-    ports: &[String],
+    ports: &[u16],
     channel: Sender<Value>,
     reassembly_window: &u64,
 ) {
@@ -130,7 +130,7 @@ fn start_udp_listener_servers(
 
 fn start_tcp_receiver_servers(
     decoder_type: &str,
-    hosts: &Vec<String>,
+    hosts: &[String],
     channel: Sender<Value>,
     reassembly_window: &u64,
 ) {
