@@ -9,22 +9,4 @@ elif [[ ${AR_VERBOSITY,,} =~ trace  || $AR_VERBOSITY -ge 2 ]]; then
     DEBUG_LEVEL+=("-vv")
 fi
 
-echo "${DEBUG_LEVEL[@]}"
-
-if /opt/acars_router.amd64 --version > /dev/null 2>&1; then
-    /opt/acars_router.amd64 "${DEBUG_LEVEL[@]}"
-
-elif /opt/acars_router.arm64 --version > /dev/null 2>&1; then
-    /opt/acars_router.arm64 "${DEBUG_LEVEL[@]}"
-
-elif /opt/acars_router.armv7 --version > /dev/null 2>&1; then
-    /opt/acars_router.armv7 "${DEBUG_LEVEL[@]}"
-
-elif /opt/acars_router --version > /dev/null 2>&1; then
-    /opt/acars_router "${DEBUG_LEVEL[@]}"
-
-else
-    >&2 echo "ERROR: Unsupported architecture"
-    sleep 60
-    exit 1
-fi
+/opt/acars_router "${DEBUG_LEVEL[@]}"

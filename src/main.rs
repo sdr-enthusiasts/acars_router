@@ -212,10 +212,6 @@ async fn start_processes(args: Input) {
         );
     }
 
-    // TODO: Is this the best way of doing this?
-    // Without sleeping and waiting the entire program exits immediately.
-    // For reasons
-
     trace!("Starting the sleep loop");
 
     loop {
