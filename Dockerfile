@@ -47,6 +47,8 @@ RUN set -x && \
     apt-get remove -y "${TEMP_PACKAGES[@]}" && \
     apt-get autoremove -y && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/* && \
+    # test
+    /opt/acars_router --version && \
     # ====
     # Temporarily added:
     echo "test" > /IMAGE_VERSION
