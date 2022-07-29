@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
   # Build and test deployment the image on pushes to main branch
   pull_request:
-    # Only publish on push to main branch
-    branches:
-      - main
+    # # Only publish on push to main branch
+    # branches:
+    #   - main
     # Only run if the PR yaml, Dockerfile, sh, py or rs files have changed
     paths:
       - Dockerfile**
