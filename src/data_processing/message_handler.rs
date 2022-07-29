@@ -65,16 +65,17 @@ pub async fn print_stats(
     let stats_minutes = stats_every / 60;
     loop {
         sleep(Duration::from_secs(stats_every)).await;
-        
+
         info!(
-            "Total {} messages processed: {}",
+            "Total {} messages processed all time: {}",
             &queue_type,
             total_all_time.lock().await
         );
 
         info!(
-            "Total {} messages processed since last update: {}",
+            "Total {} messages processed in the last {}: {}",
             &queue_type,
+            stats_minutes,
             total_since_last.lock().await
         );
 
