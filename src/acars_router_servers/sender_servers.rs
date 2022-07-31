@@ -30,6 +30,7 @@ pub async fn start_sender_servers(
         // Start the UDP sender servers for {server_type}
 
         match UdpSocket::bind("0.0.0.0:0".to_string()).await {
+            Err(e) => error!("[{}] Failed to start UDP sender server: {}", server_type, e),
             Ok(socket) => {
                 let (tx_processed, rx_processed) = mpsc::channel(32);
                 let udp_sender_server = UDPSenderServer {
@@ -46,9 +47,6 @@ pub async fn start_sender_servers(
                 tokio::spawn(async move {
                     udp_sender_server.send_message().await;
                 });
-            }
-            Err(e) => {
-                error!("[{}] Failed to start UDP sender server: {}", server_type, e);
             }
         };
     }
@@ -78,9 +76,7 @@ pub async fn start_sender_servers(
                     new_state.lock().await.push(tx_processed.clone());
                     let state = Arc::new(Mutex::new(Shared::new()));
                     tokio::spawn(async move {
-                        tcp_sender_server
-                            .watch_for_connections(rx_processed, &state)
-                            .await;
+                        tcp_sender_server.watch_for_connections(rx_processed, &state).await;
                     });
                 }
             }
@@ -96,10 +92,7 @@ pub async fn start_sender_servers(
             let new_state = Arc::clone(&sender_servers);
             let (tx_processed, rx_processed) = mpsc::channel(32);
             match socket {
-                Err(e) => error!(
-                    "Error starting ZMQ {server_type} server on port {port}: {:?}",
-                    e
-                ),
+                Err(e) => error!("Error starting ZMQ {server_type} server on port {port}: {:?}", e),
                 Ok(socket) => {
                     let zmq_sender_server = SenderServer {
                         host: server_address,
@@ -122,7 +115,7 @@ pub async fn start_sender_servers(
 }
 
 async fn monitor_queue(
-    mut rx_processed: mpsc::Receiver<String>,
+    mut rx_processed: Receiver<String>,
     sender_servers: Arc<Mutex<Vec<Sender<String>>>>,
     name: &str,
 ) {
@@ -132,9 +125,7 @@ async fn monitor_queue(
         for sender_server in sender_servers.lock().await.iter() {
             match sender_server.send(message.clone()).await {
                 Ok(_) => debug!("[CHANNEL SENDER {name}] Successfully sent the {name} message"),
-                Err(e) => {
-                    error!("[CHANNEL SENDER {name}]: Error sending message: {}", e);
-                }
+                Err(e) => error!("[CHANNEL SENDER {name}]: Error sending message: {}", e)
             }
         }
     }

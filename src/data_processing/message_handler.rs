@@ -12,6 +12,7 @@ use std::collections::VecDeque;
 use std::env;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
@@ -65,19 +66,8 @@ pub async fn print_stats(
     let stats_minutes = stats_every / 60;
     loop {
         sleep(Duration::from_secs(stats_every)).await;
-        
-        info!(
-            "Total {} messages processed: {}",
-            &queue_type,
-            total_all_time.lock().await
-        );
-
-        info!(
-            "Total {} messages processed since last update: {}",
-            &queue_type,
-            total_since_last.lock().await
-        );
-
+        info!("{} in the last {} minute(s):\nTotal messages processed: {}\nTotal messages processed since last update: {}",
+            queue_type, stats_minutes, total_all_time.lock().await, total_since_last.lock().await);
         *total_since_last.lock().await = 0;
     }
 }
@@ -103,17 +93,13 @@ pub async fn clean_up_dedupe_queue(
                 diff <= dedupe_window
             });
 
-            debug!(
-                "[Message Handler {}] dedupe queue size after pruning {}",
-                queue_type,
-                dedupe_queue.lock().await.len()
-            );
+            debug!("[Message Handler {}] dedupe queue size after pruning {}", queue_type, dedupe_queue.lock().await.len());
         }
     }
 }
 
 pub async fn watch_received_message_queue(
-    mut input_queue: Receiver<serde_json::Value>,
+    mut input_queue: Receiver<String>,
     output_queue: Sender<String>,
     config: MessageHandlerConfig,
 ) {
@@ -139,8 +125,7 @@ pub async fn watch_received_message_queue(
             stats_total_messages_since_last_context,
             stats_every,
             queue_type_stats.as_str(),
-        )
-        .await;
+        ).await;
     });
 
     // Generate an async loop that sleeps for the requested dedupe window and then cleans the queue
@@ -155,215 +140,124 @@ pub async fn watch_received_message_queue(
                 dedupe_queue_context,
                 dedupe_window,
                 queue_type_dedupe.as_str(),
-            )
-            .await;
+            ).await;
         });
     }
 
-    while let Some(mut message) = input_queue.recv().await {
+    while let Some(message_content) = input_queue.recv().await {
         // Grab the mutexes for the stats counter and increment the total messages processed by the message handler.
+        let parse_message: MessageResult<AcarsVdlm2Message> = message_content.decode_message();
         let stats_total_loop_context = Arc::clone(&total_messages_processed);
         let stats_total_loop_since_last_context = Arc::clone(&total_messages_since_last);
         let dedupe_queue_loop = Arc::clone(&dedupe_queue);
         *stats_total_loop_since_last_context.lock().await += 1;
         *stats_total_loop_context.lock().await += 1;
 
-        trace!("[Message Handler {}] GOT: {}", config.queue_type, message);
+        trace!("[Message Handler {}] GOT: {:?}", config.queue_type, parse_message);
 
-        let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(n) => n.as_secs(),
-            Err(_) => 0,
-        };
+        match parse_message {
+            Err(parse_error) => error!("[Message Handler {}] Failed to parse received message: {}\nReceived: {}", config.queue_type, parse_error, message_content),
+            Ok(mut message) => {
 
-        // acarsdec/vdlm2dec use floating point message times. dumpvdl2 uses ints.
-        // Determine if the message is dumpvdl2 or not, and handle correctly
-        // FIXME: There is some stupid bug here, and it'll probably be fixed by working out the todo below
-        // Basically I'll see the test suite fail super occasionally with an incorrect number of messages sent back,
-        // and a rerun of the test suite will show no issues. I suspect this is due to a message either NOT being marked as dupe when
-        // it should or a message not being marked as dupe when it should. Really this boils down to a) when the dupe queue is cleared,
-        // and b) the fact that we're only being precise as a second.
-        // In practice what this means is we'll probably see some messages get improperly handled, but it's such an edge case
-        // that it's likely this only really is a concern in super-high message rate envs (like the test suite).
+                let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+                    Ok(n) => n.as_secs_f64(),
+                    Err(_) => f64::default(),
+                };
 
-        let mut message_time = match message.get("vdl2") {
-            Some(_) => message["vdl2"]["t"]["sec"].as_u64().unwrap_or(0),
-            // TODO: I'd like to do this better. The as_u64() function did not give a correct value
-            // So we take the f64 value, round it, then cast it to u64.
-            // ALSO we seem to truncate the timestamp if the timestamp is too long.
-            // We're losing like.....pico seconds of precision or something. I don't care
-            // But we probably should? It is in fact mangling the output either here
-            // Or somewhere along the way. Perhaps it's the conversion from Value back to string....
-            None => message["timestamp"].as_f64().unwrap_or(0.0).round() as u64,
-        };
+                // acarsdec/vdlm2dec use floating point message times. dumpvdl2 uses ints.
+                // Determine if the message is dumpvdl2 or not, and handle correctly
+                // FIXME: There is some stupid bug here, and it'll probably be fixed by working out the todo below
+                // Basically I'll see the test suite fail super occasionally with an incorrect number of messages sent back,
+                // and a rerun of the test suite will show no issues. I suspect this is due to a message either NOT being marked as dupe when
+                // it should or a message not being marked as dupe when it should. Really this boils down to a) when the dupe queue is cleared,
+                // and b) the fact that we're only being precise as a second.
+                // In practice what this means is we'll probably see some messages get improperly handled, but it's such an edge case
+                // that it's likely this only really is a concern in super-high message rate envs (like the test suite).
 
-        // Sanity check to verify the message has a time stamp
-        // If no time stamp, reject the message
-        if message_time == 0 {
-            error!(
-                "[Message Handler {}] Message has no timestamp field. Skipping message.",
-                config.queue_type
-            );
-            continue;
-        }
+                let get_message_time = message.get_time();
 
-        // We can end up in a condition with rounding of the message time we end up thinking the message is
-        // from the future. It will cause the next check to panic. As a work around we'll set message_time to current time
-        // if the message time is in the future.
-        // TODO: This gives me the willies and seems like a terrible hack. Do better.
-
-        if message_time > current_time {
-            if (message_time - current_time) > config.skew_window {
-                error!(
-                    "[Message Handler {}] Message is from the future. Skipping. Current time {}, Message time {}. Difference {}",
-                    config.queue_type, current_time, message_time, message_time - current_time
-                );
-                continue;
-            }
-
-            trace!(
-                "[Message Handler {}] Message is from the future. Current time {}, Message time {}. Difference {}",
-                config.queue_type, current_time, message_time, message_time - current_time
-            );
-            message_time = current_time;
-        }
-        // If the message is older than the skew window, reject it
-        else if (current_time - message_time) > config.skew_window {
-            error!(
-                "[Message Handler {}] Message is {} seconds old. Time in message {}. Skipping message. {}",
-                config.queue_type,
-                current_time - message_time,
-                message_time,
-                config.skew_window
-            );
-            continue;
-        }
-
-        // Time to hash the message
-        let (hashed_value, _) = hash_message(message.clone());
-
-        if config.dedupe {
-            let mut rejected = false;
-            for (time, hashed_value_saved) in dedupe_queue_loop.lock().await.iter() {
-                if *hashed_value_saved == hashed_value
-                    && current_time - *time < config.dedupe_window
-                // Both the time and hash have to be equal to reject the message
-                {
-                    info!(
-                        "[Message Handler {}] Message is a duplicate. Skipping message.",
-                        config.queue_type
-                    );
-                    rejected = true;
-                    break;
-                }
-            }
-
-            if rejected {
-                continue;
-            } else {
-                dedupe_queue_loop
-                    .lock()
-                    .await
-                    .push_back((message_time, hashed_value));
-            }
-        }
-
-        if config.should_override_station_name {
-            trace!(
-                "[Message Handler {}] Overriding station name to {}",
-                config.queue_type,
-                config.station_name
-            );
-
-            match message["vdl2"].get("app") {
-                // dumpvdl2 message
-                Some(_) => {
-                    message["vdl2"]["station"] =
-                        serde_json::Value::String(config.station_name.clone());
-                }
-                // acarsdec or vdlm2dec message
-                None => {
-                    message["station_id"] = serde_json::Value::String(config.station_name.clone());
-                }
-            }
-        }
-
-        if config.add_proxy_id {
-            trace!(
-                "[Message Handler {}] Adding proxy_id to message",
-                config.queue_type
-            );
-            match message["vdl2"].get("app") {
-                // dumpvdl2 message
-                Some(_) => {
-                    message["vdl2"]["app"]["proxied"] = serde_json::Value::Bool(true);
-                    message["vdl2"]["app"]["proxied_by"] =
-                        serde_json::Value::String("acars_router".to_string());
-                    message["vdl2"]["app"]["acars_router_version"] =
-                        serde_json::Value::String(version.to_string());
-                }
-                // acarsdec or vdlm2dec message
-                None => match message.get("app") {
-                    Some(_) => {
-                        message["app"]["proxied"] = serde_json::Value::Bool(true);
-                        message["app"]["proxied_by"] =
-                            serde_json::Value::String("acars_router".to_string());
-                        message["app"]["acars_router_version"] =
-                            serde_json::Value::String(version.to_string());
-                    }
+                match get_message_time {
                     None => {
-                        // insert app in to message
-                        // This is a legacy implementation to handle old versions of acarsdec and vdlm2dec
-                        message["app"] = serde_json::Value::Object(serde_json::map::Map::new());
-                        message["app"]["proxied"] = serde_json::Value::Bool(true);
-                        message["app"]["proxied_by"] =
-                            serde_json::Value::String("acars_router".to_string());
-                        message["app"]["acars_router_version"] =
-                            serde_json::Value::String(version.to_string());
+                        error!("[Message Handler {}] Message has no timestamp field. Skipping message.", config.queue_type);
+                        continue;
+                    },
+                    Some(mut message_time) => {
+                        if message_time > current_time {
+                            if (message_time - current_time) > config.skew_window as f64 {
+                                error!("[Message Handler {}] Message is from the future. Skipping. Current time {}, Message time {}. Difference {}", config.queue_type, current_time, message_time, message_time - current_time);
+                                continue;
+                            }
+                            trace!("[Message Handler {}] Message is from the future. Current time {}, Message time {}. Difference {}", config.queue_type, current_time, message_time, message_time - current_time);
+                            message_time = current_time;
+                        }
+                        // If the message is older than the skew window, reject it
+                        else if (current_time - message_time) > config.skew_window as f64 {
+                            error!("[Message Handler {}] Message is {} seconds old. Time in message {}. Skipping message. {}", config.queue_type, current_time - message_time, message_time, config.skew_window);
+                            continue;
+                        }
+
+                        // Time to hash the message
+                        let hash_message = hash_message(message.clone());
+
+                        match hash_message {
+                            Err(hash_parsing_error) => error!("{}", hash_parsing_error),
+                            Ok(hashed_value) => {
+                                if config.dedupe {
+                                    let mut rejected = false;
+                                    for (time, hashed_value_saved) in dedupe_queue_loop.lock().await.iter() {
+                                        let f64_time = *time as f64;
+                                        if *hashed_value_saved == hashed_value && current_time - f64_time < config.dedupe_window as f64
+                                        // Both the time and hash have to be equal to reject the message
+                                        {
+                                            info!("[Message Handler {}] Message is a duplicate. Skipping message.", config.queue_type);
+                                            rejected = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if rejected {
+                                        continue;
+                                    } else {
+                                        dedupe_queue_loop.lock().await.push_back((message_time as u64, hashed_value));
+                                    }
+                                }
+
+                                match config.should_override_station_name {
+                                    false => message.clear_station_name(), // We'll nuke it again, just in case.
+                                    true => {
+                                        trace!("[Message Handler {}] Overriding station name to {}", config.queue_type, config.station_name);
+                                        message.set_station_name(&config.station_name);
+                                    }
+                                }
+
+                                match config.add_proxy_id {
+                                    false => message.clear_proxy_details(), // This shouldn't already be set, but we'll blow it away just in case
+                                    true => {
+                                        trace!("[Message Handler {}] Adding proxy_id to message", config.queue_type);
+                                        message.set_proxy_details("acars_router", version);
+                                    }
+                                }
+
+                                debug!("[Message Handler {}] SENDING: {:?}", config.queue_type, message);
+                                trace!("[Message Handler {}] Hashed value: {}", config.queue_type, hashed_value);
+                                trace!("[Message Handler {}] Final message: {:?}", config.queue_type, message);
+
+                                let parse_final_message: MessageResult<String> = message.to_string();
+                                match parse_final_message {
+                                    Err(parse_error) => error!("{}", parse_error),
+                                    Ok(final_message) => {
+                                        // Send to the output methods for emitting on the network
+                                        match output_queue.send(final_message).await {
+                                            Ok(_) => debug!("[Message Handler {}] Message sent to output queue", config.queue_type),
+                                            Err(e) => error!("[Message Handler {}] Error sending message to output queue: {}", config.queue_type, e)
+                                        };
+                                    }
+                                }
+                            }
+                        }
                     }
-                },
+                }
             }
         }
-
-        debug!(
-            "[Message Handler {}] SENDING: {}",
-            config.queue_type, message
-        );
-
-        // Set up the final json object following the pythonic convention
-        // "data" stores the input JSON
-        // "hash" stores the hashed value
-        // "msg_time" stores the message time (I added this, not in the pythonic JSON format)
-        // "out_json" stores the output JSON
-        // We are not following the pythonic convention fully. There is a "JSON" field where a bunch of internal structures are stored.
-        // I'll just store the message that was hashed here
-
-        trace!(
-            "[Message Handler {}] Hashed value: {}",
-            config.queue_type,
-            hashed_value
-        );
-        trace!(
-            "[Message Handler {}] Final message: {}",
-            config.queue_type,
-            message
-        );
-
-        let final_message = format!("{}\n", message.to_string());
-
-        // Send to the output methods for emitting on the network
-        match output_queue.send(final_message.to_string()).await {
-            Ok(_) => {
-                debug!(
-                    "[Message Handler {}] Message sent to output queue",
-                    config.queue_type
-                );
-            }
-            Err(e) => {
-                error!(
-                    "[Message Handler {}] Error sending message to output queue: {}",
-                    config.queue_type, e
-                );
-            }
-        };
     }
 }

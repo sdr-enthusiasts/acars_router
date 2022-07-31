@@ -26,12 +26,7 @@ pub struct Input {
     #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "1")]
     pub(crate) skew_window: u64,
     /// Set maximum UDP packet size, peer-to-peer.
-    #[clap(
-        long,
-        env = "AR_MAX_UDP_PACKET_SIZE",
-        value_parser,
-        default_value = "60000"
-    )]
+    #[clap(long, env = "AR_MAX_UDP_PACKET_SIZE", value_parser, default_value = "60000")]
     pub(crate) max_udp_packet_size: u64,
     // Message Modification
     /// Set to true to enable message modification
@@ -45,8 +40,8 @@ pub struct Input {
     #[clap(long, env = "AR_STATS_EVERY", value_parser, default_value = "5")]
     pub(crate) stats_every: u64,
     /// Attempt message reassembly on incomplete messages within the specified number of seconds
-    #[clap(long, env = "AR_REASSEMBLY_WINDOW", value_parser, default_value = "1")]
-    pub(crate) reassembly_window: u64,
+    #[clap(long, env = "AR_REASSEMBLY_WINDOW", value_parser, default_value = "1.0")]
+    pub(crate) reassembly_window: f64,
     // Input Options
 
     // ACARS

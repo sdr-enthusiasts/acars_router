@@ -21,6 +21,8 @@ extern crate tokio;
 extern crate tokio_stream;
 extern crate tokio_util;
 extern crate zmq;
+extern crate async_trait;
+extern crate nom;
 
 #[path = "./config_options.rs"]
 mod config_options;

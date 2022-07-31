@@ -18,19 +18,14 @@ use tokio_util::codec::{Framed, LinesCodec};
 pub struct TCPReceiverServer {
     pub host: String,
     pub proto_name: String,
-    pub reassembly_window: u64,
+    pub reassembly_window: f64,
 }
 
 impl TCPReceiverServer {
     pub async fn run(
         self,
-        channel: Sender<serde_json::Value>,
+        channel: Sender<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // let TCPReceiverServer {
-        //     host,
-        //     proto_name,
-        //     reassembly_window,
-        // } = self;
         trace!("[TCP Receiver Server {}] Starting", self.proto_name);
         // create a SocketAddr from host
         let addr = match self.host.parse::<SocketAddr>() {
@@ -105,26 +100,20 @@ impl TCPReceiverServer {
                         .attempt_message_reassembly(final_message, addr)
                         .await
                     {
-                        Some(msg) => {
-                            trace!(
-                                "[TCP Receiver Server {}] Received message: {}",
-                                self.proto_name,
-                                msg
-                            );
-                            match channel.send(msg).await {
-                                Ok(_) => {
-                                    trace!(
-                                        "[TCP SERVER {}] Message sent to channel",
-                                        self.proto_name
-                                    )
+                        Some(encoded_msg) => {
+                            let parse_msg = encoded_msg.to_string();
+                            match parse_msg {
+                                Err(parse_error) => error!("{}", parse_error),
+                                Ok(msg) => {
+                                    trace!("[TCP Receiver Server {}] Received message: {}", self.proto_name, msg);
+                                    match channel.send(msg).await {
+                                        Ok(_) => trace!("[TCP SERVER {}] Message sent to channel", self.proto_name),
+                                        Err(e) => error!("[TCP Receiver Server {}]Error sending message to channel: {}", self.proto_name, e)
+                                    }
                                 }
-                                Err(e) => error!(
-                                    "[TCP Receiver Server {}]Error sending message to channel: {}",
-                                    self.proto_name, e
-                                ),
-                            };
-                        }
-                        None => trace!("[TCP Receiver Server {}] Invalid Message", self.proto_name),
+                            }
+                        },
+                        None => trace!("[TCP Receiver Server {}] Invalid Message", self.proto_name)
                     }
                 }
             }

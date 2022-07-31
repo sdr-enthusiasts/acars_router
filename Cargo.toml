@@ -26,3 +26,6 @@ tmq = "0.3.2"
 futures = "0.3.21"
 failure = "0.1.8"
 stubborn-io = "0.3.1"
+acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.1.2" }
+async-trait = "0.1.56"
+nom = "7.1.1"

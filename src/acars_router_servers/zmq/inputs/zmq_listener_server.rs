@@ -17,12 +17,10 @@ pub struct ZMQListnerServer {
 }
 
 impl ZMQListnerServer {
-    pub async fn run(self, channel: Sender<serde_json::Value>) -> Result<()> {
+    pub async fn run(self, channel: Sender<String>) -> Result<()> {
         debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
         let address = format!("tcp://{}", self.host);
-        let mut socket = subscribe(&Context::new())
-            .connect(&address)?
-            .subscribe(b"")?;
+        let mut socket = subscribe(&Context::new()).connect(&address)?.subscribe(b"")?;
 
         while let Some(msg) = socket.next().await {
             let message = match msg {
@@ -38,33 +36,15 @@ impl ZMQListnerServer {
                 .map(|item| item.as_str().unwrap_or("invalid text"))
                 .collect::<Vec<&str>>()
                 .join(" ");
-            trace!(
-                "[ZMQ LISTENER SERVER {}] Received: {}",
-                self.proto_name,
-                composed_message
-            );
+            trace!("[ZMQ LISTENER SERVER {}] Received: {}", self.proto_name, composed_message);
             let stripped = composed_message
                 .strip_suffix("\r\n")
                 .or_else(|| composed_message.strip_suffix('\n'))
                 .unwrap_or(&composed_message);
 
-            match serde_json::from_str(stripped) {
-                Ok(json) => match channel.send(json).await {
-                    Ok(_) => trace!(
-                        "[ZMQ LISTENER SERVER {}] Message sent to channel",
-                        self.proto_name
-                    ),
-                    Err(e) => error!(
-                        "[ZMQ LISTENER SERVER {}] Error sending message to channel: {}",
-                        self.proto_name, e
-                    ),
-                },
-                Err(e) => {
-                    error!(
-                        "[ZMQ LISTENER SERVER {}] Invalid Message: {}. {}",
-                        self.proto_name, e, stripped
-                    );
-                }
+            match channel.send(stripped.to_string()).await {
+                Ok(_) => trace!("[ZMQ LISTENER SERVER {}] Message sent to channel",self.proto_name),
+                Err(e) => error!("[ZMQ LISTENER SERVER {}] Error sending message to channel: {}", self.proto_name, e),
             }
         }
         Ok(())

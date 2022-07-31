@@ -161,62 +161,57 @@ fn check_ports_are_valid_with_host(socket_addresses: &Option<Vec<String>>, name:
 
     if let Some(sockets) = socket_addresses {
         if sockets.is_empty() {
-            error!(
-                "{} has been provided, but there are no socket addresses",
-                name
-            );
+            error!("{} has been provided, but there are no socket addresses",name);
             is_input_sane = false;
         }
         for socket in sockets {
-            // FIXME: Just doing a socketaddr parse fails if the host name isn't an IP address.
-
             // check and see if there are alpha characters in the string
-            if socket
-                .chars()
-                .any(|c| !c.is_numeric() && !c.eq(&'.') && !c.eq(&':'))
-            {
+            if socket.chars().any(|c| c.is_alphabetic()) { // !c.is_numeric() && !c.eq(&'.') && !c.eq(&':')) {
                 // split the string on ':'
-                let socket_parts = socket.split(":").collect::<Vec<_>>();
-                let port = socket_parts[1];
-                // validate the port is numeric and between 1-65535
-                if !port.chars().all(|c| c.is_numeric()) {
-                    error!("{} Port is not numeric", name);
-                    is_input_sane = false;
-                } else {
-                    match port.parse::<u16>() {
-                        Ok(parsed_socket) => {
-                            if parsed_socket == 0 {
-                                error!(
-                                    "{}: Socket address is valid, but the port provided is zero!",
-                                    name
-                                );
-                                is_input_sane = false;
-                            } else {
-                                trace!("{} is a valid socket address", socket);
+                let socket_parts = socket.split(':').collect::<Vec<_>>();
+                match socket_parts.len() {
+                    1 => {
+                        error!("{} has no port specified for: {}", name, socket);
+                        is_input_sane = false;
+                    },
+                    2 => {
+                        let port = socket_parts[1];
+                        // validate the port is numeric and between 1-65535
+                        if !port.chars().all(|c| c.is_numeric()) {
+                            error!("{} Port is not numeric for: {}", name, socket);
+                            is_input_sane = false;
+                        } else {
+                            match port.parse::<u16>() {
+                                Ok(parsed_socket) => {
+                                    if parsed_socket == 0 {
+                                        error!("{}: Socket address is valid, but the port provided is zero: {}", name, socket);
+                                        is_input_sane = false;
+                                    } else {
+                                        trace!("{} is a valid socket address", socket);
+                                    }
+                                }
+                                Err(_) => {
+                                    error!("{} Port is invalid for: {}", name, socket);
+                                    is_input_sane = false;
+                                }
                             }
                         }
-                        Err(_) => {
-                            error!("{} Port is not numeric", name);
-                            is_input_sane = false;
-                        }
+                    },
+                    3 | _ => {
+                        error!("{} has an address with more than one colon in it: {}", name, socket);
+                        is_input_sane = false;
                     }
                 }
             } else {
                 let parse_socket = SocketAddr::from_str(socket);
                 match parse_socket {
                     Err(parse_error) => {
-                        error!(
-                            "{}: Failed to validate that {} is a properly formatted socket: {}",
-                            name, socket, parse_error
-                        );
+                        error!("{}: Failed to validate that {} is a properly formatted socket: {}", name, socket, parse_error);
                         is_input_sane = false;
                     }
                     Ok(parsed_socket) => {
                         if parsed_socket.port().eq(&0) {
-                            error!(
-                                "{}: Socket address is valid, but the port provided is zero!",
-                                name
-                            );
+                            error!("{}: Socket address is valid, but the port provided is zero: {}", name, socket);
                             is_input_sane = false;
                         } else {
                             trace!("{} is a valid socket address", socket);
@@ -239,11 +234,16 @@ mod test {
             "127.0.0.1:8008".to_string(),
             "10.0.0.1:12345".to_string(),
             "192.168.1.1:65535".to_string(),
+            "localhost:8008".to_string()
         ]);
         let invalid_hosts: Option<Vec<String>> = Some(vec![
             "127.0.0.1:0".to_string(),
             "10.0.0.1".to_string(),
             "192.168.1.1:65536".to_string(),
+            "localhost".to_string(),
+            "localhost:65536".to_string(),
+            "123:456".to_string(),
+            "abc:12three".to_string()
         ]);
         let empty_host_vec: Option<Vec<String>> = Some(vec![]);
         let valid_hosts_tests: bool = check_ports_are_valid_with_host(&valid_hosts, "valid_hosts");

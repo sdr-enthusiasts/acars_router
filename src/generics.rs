@@ -63,7 +63,7 @@ pub struct OutputServerConfig {
     pub listen_tcp: Option<Vec<u16>>,
     pub receive_tcp: Option<Vec<String>>,
     pub receive_zmq: Option<Vec<String>>,
-    pub reassembly_window: u64,
+    pub reassembly_window: f64,
 }
 
 impl OutputServerConfig {
@@ -72,7 +72,7 @@ impl OutputServerConfig {
         listen_tcp: &Option<Vec<u16>>,
         receive_tcp: &Option<Vec<String>>,
         receive_zmq: &Option<Vec<String>>,
-        reassembly_window: &u64,
+        reassembly_window: &f64,
     ) -> Self {
         Self {
             listen_udp: listen_udp.clone(),
