@@ -177,6 +177,9 @@ fn check_ports_are_valid_with_host(socket_addresses: &Option<Vec<String>>, name:
             {
                 // split the string on ':'
                 let socket_parts = socket.split(":").collect::<Vec<_>>();
+                if socket.len() != 2 {
+                    return false;
+                }
                 let port = socket_parts[1];
                 // validate the port is numeric and between 1-65535
                 if !port.chars().all(|c| c.is_numeric()) {
