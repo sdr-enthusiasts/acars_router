@@ -13,10 +13,9 @@ task_failed() {
   exit 1
 }
 
-if [[ -z "$ACARS_ROUTER_PATH" ]]; then
-  echo "ACARS_ROUTER_PATH is not set"
-  exit 1
-fi
+# run cargo test
+
+cargo test
 
 # UDP Tests
 # We will also check primary program logic with UDP here. All other tests will not check program logic
@@ -25,7 +24,7 @@ fi
 # run acars_router with out deduping. Connection checking here
 
 echo "UDP Send/Receive without deduping"
-env "$ACARS_ROUTER_PATH" --add-proxy-id --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 &
+cargo run -- --add-proxy-id --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 &
 sleep 3
 python3 data_feeder_test_udp.py || task_failed
 
@@ -34,7 +33,7 @@ echo "UDP Send/Receive without deduping PASS"
 
 echo "UDP Send/Receive with deduping AND small UDP packet size AND data continuity"
 
-env "$ACARS_ROUTER_PATH" --enable-dedupe --max-udp-packet-size 512 --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 &
+cargo run -- --enable-dedupe --max-udp-packet-size 512 --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 &
 sleep 3
 python3 data_feeder_test_udp.py --check-data-continuity --check-for-no-proxy-id --check-for-dupes || task_failed
 
@@ -43,7 +42,7 @@ pkill acars_router
 echo "UDP Send/Receive without deduping AND small UDP packet size AND data continuity PASS"
 
 echo "UDP Send/Receive with deduping AND fragmented packets AND data continuity"
-env "$ACARS_ROUTER_PATH" --enable-dedupe --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 &
+cargo run -- --enable-dedupe --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 &
 sleep 3
 python3 data_feeder_test_udp.py --check-data-continuity --check-for-no-proxy-id --check-for-dupes --fragment-packets || task_failed
 pkill acars_router
@@ -54,7 +53,7 @@ echo "UDP Send/Receive with deduping AND fragmented packets AND data continuity 
 # run acars_router with deduping
 
 echo "UDP Send/Receive with deduping"
-"$ACARS_ROUTER_PATH" --add-proxy-id --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe &
+cargo run -- --add-proxy-id --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe &
 sleep 3
 python3 data_feeder_test_udp.py --check-for-dupes || task_failed
 
@@ -62,7 +61,7 @@ pkill acars_router
 echo "UDP Send/Receive with deduping PASS"
 
 echo "UDP Send/Receive and verify no proxied field"
-"$ACARS_ROUTER_PATH" --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe &
+cargo run -- --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe &
 sleep 3
 python3 data_feeder_test_udp.py --check-for-dupes --check-for-no-proxy-id || task_failed
 
@@ -71,7 +70,7 @@ echo "UDP Send/Receive and verify no proxied field PASS"
 
 echo "UDP Send/Receive and verify station id is replaced"
 
-"$ACARS_ROUTER_PATH" --add-proxy-id --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe --override-station-name TEST &
+cargo run -- --add-proxy-id --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe --override-station-name TEST &
 sleep 3
 python3 data_feeder_test_udp.py --check-for-dupes --check-for-station-id TEST || task_failed
 
@@ -80,7 +79,7 @@ echo "UDP Send/Receive and verify station id is replaced PASS"
 
 echo "UDP Send/Receive data continuity"
 
-"$ACARS_ROUTER_PATH" --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe &
+cargo run -- --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 --enable-dedupe &
 sleep 3
 python3 data_feeder_test_udp.py --check-for-dupes --check-data-continuity --check-for-no-proxy-id || task_failed
 
@@ -93,7 +92,7 @@ echo "UDP Send/Receive data continuity PASS"
 
 echo "TCP Send/Receive with deduping"
 
-"$ACARS_ROUTER_PATH" --add-proxy-id --listen-tcp-acars 15551 --listen-tcp-vdlm2 15556 --serve-tcp-acars 15550 --serve-tcp-vdlm2 15555 --enable-dedupe &
+cargo run -- --add-proxy-id --listen-tcp-acars 15551 --listen-tcp-vdlm2 15556 --serve-tcp-acars 15550 --serve-tcp-vdlm2 15555 --enable-dedupe &
 sleep 3
 python3 data_feeder_test_sender_tcp.py --check-for-dupes || task_failed
 
@@ -102,7 +101,7 @@ echo "TCP Send/Receive with deduping PASS"
 
 echo "TCP Listen/Send with deduping"
 
-"$ACARS_ROUTER_PATH" --add-proxy-id --receive-tcp-acars 127.0.0.1:15551 --receive-tcp-vdlm2 127.0.0.1:15556 --send-tcp-acars 127.0.0.1:15550 --send-tcp-vdlm2 127.0.0.1:15555 --enable-dedupe &
+cargo run -- --add-proxy-id --receive-tcp-acars 127.0.0.1:15551 --receive-tcp-vdlm2 127.0.0.1:15556 --send-tcp-acars 127.0.0.1:15550 --send-tcp-vdlm2 127.0.0.1:15555 --enable-dedupe &
 
 python3 data_feeder_test_receiver_tcp.py --check-for-dupes || task_failed
 
@@ -113,7 +112,7 @@ echo "TCP Listen/Send with deduping PASS"
 
 echo "ZMQ VDLM Send/UDP ACARS Send and ZMQ Receive"
 
-"$ACARS_ROUTER_PATH" --add-proxy-id --listen-udp-acars 15551 --receive-zmq-vdlm2 127.0.0.1:15556 --serve-zmq-acars 15550 --serve-zmq-vdlm2 15555 --enable-dedupe &
+cargo run -- --add-proxy-id --listen-udp-acars 15551 --receive-zmq-vdlm2 127.0.0.1:15556 --serve-zmq-acars 15550 --serve-zmq-vdlm2 15555 --enable-dedupe &
 
 python3 data_feeder_test_zmq.py --check-for-dupes || task_failed
 sleep 3
