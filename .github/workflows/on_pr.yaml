@@ -45,9 +45,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends libzmq3-dev
           python3 -m pip install zmq
 
-      - name: Build acars_router
-        run: |
-          cargo build --release
       - name: Run tests
         run: |
           cd test_data

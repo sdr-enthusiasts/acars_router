@@ -25,7 +25,7 @@ cargo test
 
 echo "UDP Send/Receive without deduping"
 cargo run -- -v --add-proxy-id --listen-udp-acars 15551 --listen-udp-vdlm2 15556 --send-udp-acars 127.0.0.1:15550 --send-udp-vdlm2 127.0.0.1:15555 &
-sleep 10
+sleep 30
 python3 data_feeder_test_udp.py || task_failed
 
 pkill acars_router
