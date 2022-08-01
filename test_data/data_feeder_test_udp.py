@@ -153,13 +153,15 @@ if __name__ == "__main__":
     for message in test_messages:
         # UDP
         print(f"Sending message {message_count + 1}")
+
         # Randomly decide if the message should be sent twice
         if random.randint(0, 10) < 3:
             send_twice = True
             duplicated += 1
         else:
             send_twice = False
-
+        print("Sending twice: {}", send_twice)
+        print(message)
         if "vdl2" in message:
             # replace message["vdlm"]["t"]["sec"] with current unix epoch time
             message["vdl2"]["t"]["sec"] = int(time.time())
