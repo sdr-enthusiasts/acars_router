@@ -32,7 +32,6 @@ def UDPSocketListener(port, queue):
             # packets are going to be misordered or from another message
             if data:
                 good_data = False
-                print(data)
 
                 if data.endswith(b"\n"):
                     # This is the end of a message sequence. Try deserializing it
@@ -160,8 +159,7 @@ if __name__ == "__main__":
             duplicated += 1
         else:
             send_twice = False
-        print("Sending twice: {}", send_twice)
-        print(message)
+
         if "vdl2" in message:
             # replace message["vdlm"]["t"]["sec"] with current unix epoch time
             message["vdl2"]["t"]["sec"] = int(time.time())

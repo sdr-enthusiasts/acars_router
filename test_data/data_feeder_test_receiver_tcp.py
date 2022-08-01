@@ -201,9 +201,13 @@ if __name__ == "__main__":
     # Clean up
 
     vdlm_client.close()
+    vdlm_client = None
     acars_client.close()
+    acars_client = None
     acars_client_remote.close()
+    acars_client_remote = None
     vdlm_client_remote.close()
+    vdlm_client_remote = None
 
     # stop all threads
 
