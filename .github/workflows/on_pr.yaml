@@ -31,7 +31,6 @@ jobs:
   test_rust_functionality:
     name: Build and test rust functionality
     runs-on: ubuntu-latest
-    needs: flake8-lint
 
     steps:
       - name: Checkout
