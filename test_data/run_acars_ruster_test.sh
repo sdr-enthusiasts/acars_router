@@ -99,14 +99,14 @@ python3 data_feeder_test_sender_tcp.py --check-for-dupes || task_failed
 pkill acars_router
 echo "TCP Send/Receive with deduping PASS"
 
-echo "TCP Listen/Send with deduping"
+# echo "TCP Listen/Send with deduping"
 
-cargo run -- --add-proxy-id --receive-tcp-acars 127.0.0.1:15551 --receive-tcp-vdlm2 127.0.0.1:15556 --send-tcp-acars 127.0.0.1:15550 --send-tcp-vdlm2 127.0.0.1:15555 --enable-dedupe &
+# cargo run -- --add-proxy-id --receive-tcp-acars 127.0.0.1:15551 --receive-tcp-vdlm2 127.0.0.1:15556 --send-tcp-acars 127.0.0.1:15550 --send-tcp-vdlm2 127.0.0.1:15555 --enable-dedupe &
 
-python3 data_feeder_test_receiver_tcp.py --check-for-dupes || task_failed
+# python3 data_feeder_test_receiver_tcp.py --check-for-dupes || task_failed
 
-pkill acars_router
-echo "TCP Listen/Send with deduping PASS"
+# pkill acars_router
+# echo "TCP Listen/Send with deduping PASS"
 
 # ZMQ SEND / LISTEN
 
