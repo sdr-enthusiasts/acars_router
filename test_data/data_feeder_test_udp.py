@@ -32,6 +32,7 @@ def UDPSocketListener(port, queue):
             # packets are going to be misordered or from another message
             if data:
                 good_data = False
+                print(data)
 
                 if data.endswith(b"\n"):
                     # This is the end of a message sequence. Try deserializing it
