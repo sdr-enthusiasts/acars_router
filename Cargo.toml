@@ -1,6 +1,6 @@
 [package]
 name = "acars_router"
-version = "1.0.6"
+version = "1.0.7"
 edition = "2021"
 authors = ["Fred Clausen", "Mike Nye", "Alex Austin"]
 description = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers."
