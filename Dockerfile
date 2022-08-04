@@ -7,7 +7,8 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
     AR_SERVE_TCP_ACARS=15550 \
     AR_SERVE_TCP_VDLM2=15555 \
     AR_SERVE_ZMQ_ACARS=45550 \
-    AR_SERVE_ZMQ_VDLM2=45555
+    AR_SERVE_ZMQ_VDLM2=45555 \
+    AR_ADD_PROXY_ID=true
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY ./rootfs /
@@ -22,25 +23,25 @@ RUN set -x && \
     KEPT_PACKAGES+=(libzmq5) && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        "${KEPT_PACKAGES[@]}" \
-        "${TEMP_PACKAGES[@]}"\
-        && \
+    "${KEPT_PACKAGES[@]}" \
+    "${TEMP_PACKAGES[@]}"\
+    && \
     # ensure binaries are executable
     chmod -v a+x \
-        /opt/acars_router.armv7 \
-        /opt/acars_router.arm64 \
-        /opt/acars_router.amd64 \
-        && \
+    /opt/acars_router.armv7 \
+    /opt/acars_router.arm64 \
+    /opt/acars_router.amd64 \
+    && \
     # determine which binary to keep
     if /opt/acars_router.amd64 --version > /dev/null 2>&1; then \
-        mv -v /opt/acars_router.amd64 /opt/acars_router; \
+    mv -v /opt/acars_router.amd64 /opt/acars_router; \
     elif /opt/acars_router.arm64 --version > /dev/null 2>&1; then \
-        mv -v /opt/acars_router.arm64 /opt/acars_router; \
+    mv -v /opt/acars_router.arm64 /opt/acars_router; \
     elif /opt/acars_router.armv7 --version > /dev/null 2>&1; then \
-        mv -v /opt/acars_router.armv7 /opt/acars_router; \
+    mv -v /opt/acars_router.armv7 /opt/acars_router; \
     else \
-        >&2 echo "ERROR: Unsupported architecture"; \
-        exit 1; \
+    >&2 echo "ERROR: Unsupported architecture"; \
+    exit 1; \
     fi && \
     rm -v /opt/acars_router.* && \
     # clean up
@@ -52,6 +53,6 @@ RUN set -x && \
     # ====
     # Temporarily added:
     echo "test" > /IMAGE_VERSION
-    # This has been done to facilitate testing of the rust release
-    # See also the project's deploy.yml:210
-    # ====
+# This has been done to facilitate testing of the rust release
+# See also the project's deploy.yml:210
+# ====

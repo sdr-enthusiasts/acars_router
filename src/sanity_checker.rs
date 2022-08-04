@@ -132,10 +132,237 @@ pub fn check_config_option_sanity(config_options: &Input) -> Result<(), String> 
         is_input_sane = false;
     }
 
+    if !check_no_duplicate_ports(config_options) {
+        is_input_sane = false;
+    }
+
+    if !check_no_duplicate_hosts(config_options) {
+        is_input_sane = false;
+    }
+
     match is_input_sane {
         true => Ok(()),
         false => Err("Config option sanity check failed".to_string()),
     }
+}
+
+fn check_no_duplicate_ports(config: &Input) -> bool {
+    // We want to verify that no ports are duplicated, but only the ports that are going to be bound
+    // AR_RECV, AR_SEND are not checked because we make outbound connections on those
+    // AR_LISTEN and AR_SERVE are checked because we bind ports on the local machine to those
+
+    let mut ports: Vec<u16> = Vec::new();
+    let mut is_input_sane = true;
+
+    if let Some(ports_in_config) = &config.listen_udp_acars {
+        for port in ports_in_config {
+            if ports.contains(&port) {
+                is_input_sane = false;
+                error!("Duplicate port {} in configuration!", port);
+            } else {
+                ports.push(port.clone());
+            }
+        }
+    }
+
+    if let Some(ports_in_config) = &config.listen_tcp_acars {
+        for port in ports_in_config {
+            if ports.contains(&port) {
+                is_input_sane = false;
+                error!("Duplicate port {} in configuration!", port);
+            } else {
+                ports.push(port.clone());
+            }
+        }
+    }
+
+    if let Some(ports_in_config) = &config.listen_udp_vdlm2 {
+        for port in ports_in_config {
+            if ports.contains(&port) {
+                is_input_sane = false;
+                error!("Duplicate port {} in configuration!", port);
+            } else {
+                ports.push(port.clone());
+            }
+        }
+    }
+
+    if let Some(ports_in_config) = &config.listen_tcp_vdlm2 {
+        for port in ports_in_config {
+            if ports.contains(&port) {
+                is_input_sane = false;
+                error!("Duplicate port {} in configuration!", port);
+            } else {
+                ports.push(port.clone());
+            }
+        }
+    }
+
+    if let Some(ports_in_config) = &config.serve_tcp_acars {
+        for port in ports_in_config {
+            if ports.contains(&port) {
+                is_input_sane = false;
+                error!("Duplicate port {} in configuration!", port);
+            } else {
+                ports.push(port.clone());
+            }
+        }
+    }
+
+    if let Some(ports_in_config) = &config.serve_zmq_acars {
+        for port in ports_in_config {
+            if ports.contains(&port) {
+                is_input_sane = false;
+                error!("Duplicate port {} in configuration!", port);
+            } else {
+                ports.push(port.clone());
+            }
+        }
+    }
+
+    if let Some(ports_in_config) = &config.serve_tcp_vdlm2 {
+        for port in ports_in_config {
+            if ports.contains(&port) {
+                is_input_sane = false;
+                error!("Duplicate port {} in configuration!", port);
+            } else {
+                ports.push(port.clone());
+            }
+        }
+    }
+
+    if let Some(ports_in_config) = &config.serve_zmq_vdlm2 {
+        for port in ports_in_config {
+            if ports.contains(&port) {
+                is_input_sane = false;
+                error!("Duplicate port {} in configuration!", port);
+            } else {
+                ports.push(port.clone());
+            }
+        }
+    }
+
+    is_input_sane
+}
+
+fn check_no_duplicate_hosts(config: &Input) -> bool {
+    // We want to verify that no hosts are duplicated for an input
+    // AR_RECV, AR_SEND are checked
+    let mut is_input_sane = true;
+    let mut hosts: Vec<String> = Vec::new();
+    if let Some(ports_in_config) = &config.receive_tcp_acars {
+        for host in ports_in_config {
+            if hosts.contains(&host) {
+                is_input_sane = false;
+                error!(
+                    "Duplicate host {} in --receive-tcp-acars/AR_RECV_TCP_ACARS configuration!",
+                    host
+                );
+            } else {
+                hosts.push(host.clone());
+            }
+        }
+    }
+    hosts.clear();
+    if let Some(ports_in_config) = &config.receive_zmq_acars {
+        for host in ports_in_config {
+            if hosts.contains(&host) {
+                is_input_sane = false;
+                error!(
+                    "Duplicate host {} in --receive-zmq-acars/AR_RECEIVE_ZMQ_ACARS configuration!",
+                    host
+                );
+            } else {
+                hosts.push(host.clone());
+            }
+        }
+    }
+    hosts.clear();
+    if let Some(ports_in_config) = &config.receive_tcp_vdlm2 {
+        for host in ports_in_config {
+            if hosts.contains(&host) {
+                is_input_sane = false;
+                error!(
+                    "Duplicate host {} in --receive-tcp-vdlm2/AR_RECV_TCP_VDLM2 configuration!",
+                    host
+                );
+            } else {
+                hosts.push(host.clone());
+            }
+        }
+    }
+    hosts.clear();
+    if let Some(ports_in_config) = &config.receive_zmq_vdlm2 {
+        for host in ports_in_config {
+            if hosts.contains(&host) {
+                is_input_sane = false;
+                error!(
+                    "Duplicate host {} in --receive-zmq-vdlm2/AR_RECEIVE_ZMQ_VDLM2 configuration!",
+                    host
+                );
+            } else {
+                hosts.push(host.clone());
+            }
+        }
+    }
+    hosts.clear();
+    if let Some(ports_in_config) = &config.send_tcp_acars {
+        for host in ports_in_config {
+            if hosts.contains(&host) {
+                is_input_sane = false;
+                error!(
+                    "Duplicate host {} in --send-tcp-acars/AR_SEND_TCP_ACARS configuration!",
+                    host
+                );
+            } else {
+                hosts.push(host.clone());
+            }
+        }
+    }
+    hosts.clear();
+    if let Some(ports_in_config) = &config.send_udp_acars {
+        for host in ports_in_config {
+            if hosts.contains(&host) {
+                is_input_sane = false;
+                error!(
+                    "Duplicate host {} in --send-udp-acars/AR_SEND_UDP_ACARS configuration!",
+                    host
+                );
+            } else {
+                hosts.push(host.clone());
+            }
+        }
+    }
+    hosts.clear();
+    if let Some(ports_in_config) = &config.send_tcp_vdlm2 {
+        for host in ports_in_config {
+            if hosts.contains(&host) {
+                is_input_sane = false;
+                error!(
+                    "Duplicate host {} in --send-tcp-vdlm2/AR_SEND_TCP_VDLM2 configuration!",
+                    host
+                );
+            } else {
+                hosts.push(host.clone());
+            }
+        }
+    }
+    hosts.clear();
+    if let Some(ports_in_config) = &config.send_udp_vdlm2 {
+        for host in ports_in_config {
+            if hosts.contains(&host) {
+                is_input_sane = false;
+                error!(
+                    "Duplicate host {} in --send-udp-vdlm2/AR_SEND_UDP_VDLM2 configuration!",
+                    host
+                );
+            } else {
+                hosts.push(host.clone());
+            }
+        }
+    }
+
+    is_input_sane
 }
 
 fn check_ports_are_valid(option_ports: &Option<Vec<u16>>, name: &str) -> bool {
@@ -177,6 +404,16 @@ fn check_ports_are_valid_with_host(socket_addresses: &Option<Vec<String>>, name:
             {
                 // split the string on ':'
                 let socket_parts = socket.split(":").collect::<Vec<_>>();
+
+                if socket_parts.len() != 2 {
+                    is_input_sane = false;
+                    error!(
+                        "{} has been provided, but is not a valid socket address",
+                        name
+                    );
+                    continue;
+                }
+
                 let port = socket_parts[1];
                 // validate the port is numeric and between 1-65535
                 if !port.chars().all(|c| c.is_numeric()) {
@@ -232,6 +469,8 @@ fn check_ports_are_valid_with_host(socket_addresses: &Option<Vec<String>>, name:
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::config_options::Input;
+    use clap::Parser;
 
     #[test]
     fn test_check_ports_are_valid_with_host() {
@@ -239,18 +478,22 @@ mod test {
             "127.0.0.1:8008".to_string(),
             "10.0.0.1:12345".to_string(),
             "192.168.1.1:65535".to_string(),
+            "test.com:80".to_string(),
         ]);
+
         let invalid_hosts: Option<Vec<String>> = Some(vec![
             "127.0.0.1:0".to_string(),
             "10.0.0.1".to_string(),
             "192.168.1.1:65536".to_string(),
         ]);
+
         let empty_host_vec: Option<Vec<String>> = Some(vec![]);
         let valid_hosts_tests: bool = check_ports_are_valid_with_host(&valid_hosts, "valid_hosts");
         let invalid_hosts_tests: bool =
             check_ports_are_valid_with_host(&invalid_hosts, "invalid_hosts");
         let empty_host_vec_test: bool =
             check_ports_are_valid_with_host(&empty_host_vec, "empty_vec");
+
         assert_eq!(valid_hosts_tests, true);
         assert_eq!(invalid_hosts_tests, false);
         assert_eq!(empty_host_vec_test, false);
@@ -261,11 +504,85 @@ mod test {
         let valid_ports: Option<Vec<u16>> = Some(vec![1, 8008, 65535]);
         let invalid_ports: Option<Vec<u16>> = Some(vec![0]);
         let empty_ports: Option<Vec<u16>> = Some(vec![]);
+
         let valid_ports_test: bool = check_ports_are_valid(&valid_ports, "valid_ports");
         let invalid_ports_test: bool = check_ports_are_valid(&invalid_ports, "invalid_ports");
         let empty_ports_test: bool = check_ports_are_valid(&empty_ports, "empty_ports");
+
         assert_eq!(valid_ports_test, true);
         assert_eq!(invalid_ports_test, false);
         assert_eq!(empty_ports_test, false);
+    }
+
+    #[test]
+    fn test_duplicate_ports_are_valid() {
+        let mut ports: Input = Input::parse();
+        // Generate clean input
+        ports.listen_udp_vdlm2 = Some(vec![8008, 65535]);
+        ports.listen_udp_acars = Some(vec![8009, 65534]);
+        ports.listen_tcp_acars = Some(vec![8010, 65533]);
+        ports.listen_tcp_vdlm2 = Some(vec![8011, 65532]);
+        ports.serve_tcp_acars = Some(vec![8012, 65531]);
+        ports.serve_tcp_vdlm2 = Some(vec![8013, 65530]);
+        ports.serve_zmq_acars = Some(vec![8014, 65529]);
+        ports.serve_zmq_vdlm2 = Some(vec![8015, 65528]);
+
+        let valid_ports_test: bool = check_no_duplicate_ports(&ports);
+
+        // Duplicate one set of ports
+        ports.listen_udp_acars = Some(vec![1, 8008, 65535]);
+        let invalid_ports_test: bool = check_no_duplicate_ports(&ports);
+
+        assert_eq!(valid_ports_test, true);
+        assert_eq!(invalid_ports_test, false);
+    }
+
+    #[test]
+    fn test_duplicate_hosts_are_valid() {
+        let mut hosts: Input = Input::parse();
+        // Generate clean input
+        hosts.receive_tcp_acars = Some(vec![
+            "test.com:8080".to_string(),
+            "192.168.1.1:8080".to_string(),
+        ]);
+        hosts.receive_zmq_acars = Some(vec![
+            "test.com:8081".to_string(),
+            "192.168.1.1:8081".to_string(),
+        ]);
+        hosts.receive_tcp_vdlm2 = Some(vec![
+            "test.com:8082".to_string(),
+            "192.168.1.1:8082".to_string(),
+        ]);
+        hosts.receive_zmq_vdlm2 = Some(vec![
+            "test.com:8083".to_string(),
+            "192.168.1.1:8083".to_string(),
+        ]);
+        hosts.send_tcp_acars = Some(vec![
+            "test.com:8084".to_string(),
+            "192.168.1.1:8084".to_string(),
+        ]);
+        hosts.send_udp_acars = Some(vec![
+            "test.com:8085".to_string(),
+            "192.168.1.1:8085".to_string(),
+        ]);
+        hosts.send_tcp_vdlm2 = Some(vec![
+            "test.com:8086".to_string(),
+            "192.168.1.1:8086".to_string(),
+        ]);
+        hosts.send_udp_vdlm2 = Some(vec![
+            "test.com:8087".to_string(),
+            "192.168.1.1:8087".to_string(),
+        ]);
+        let valid_hosts_test: bool = check_no_duplicate_hosts(&hosts);
+
+        hosts.send_udp_vdlm2 = Some(vec![
+            "test.com:8087".to_string(),
+            "192.168.1.1:8087".to_string(),
+            "test.com:8087".to_string(),
+        ]);
+        let invalid_hosts_test: bool = check_no_duplicate_hosts(&hosts);
+
+        assert_eq!(valid_hosts_test, true);
+        assert_eq!(invalid_hosts_test, false);
     }
 }

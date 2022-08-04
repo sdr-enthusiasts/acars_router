@@ -152,6 +152,7 @@ if __name__ == "__main__":
     for message in test_messages:
         # UDP
         print(f"Sending message {message_count + 1}")
+
         # Randomly decide if the message should be sent twice
         if random.randint(0, 10) < 3:
             send_twice = True
