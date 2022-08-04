@@ -151,93 +151,94 @@ fn check_no_duplicate_ports(config: &Input) -> bool {
     // AR_RECV, AR_SEND are not checked because we make outbound connections on those
     // AR_LISTEN and AR_SERVE are checked because we bind ports on the local machine to those
 
-    let mut ports: Vec<u16> = Vec::new();
+    let mut ports_udp: Vec<u16> = Vec::new();
+    let mut ports_tcp_and_zmq: Vec<u16> = Vec::new();
     let mut is_input_sane = true;
 
     if let Some(ports_in_config) = &config.listen_udp_acars {
         for port in ports_in_config {
-            if ports.contains(&port) {
+            if ports_udp.contains(&port) {
                 is_input_sane = false;
                 error!("Duplicate port {} in configuration!", port);
             } else {
-                ports.push(port.clone());
+                ports_udp.push(port.clone());
             }
         }
     }
 
     if let Some(ports_in_config) = &config.listen_tcp_acars {
         for port in ports_in_config {
-            if ports.contains(&port) {
+            if ports_tcp_and_zmq.contains(&port) {
                 is_input_sane = false;
                 error!("Duplicate port {} in configuration!", port);
             } else {
-                ports.push(port.clone());
+                ports_tcp_and_zmq.push(port.clone());
             }
         }
     }
 
     if let Some(ports_in_config) = &config.listen_udp_vdlm2 {
         for port in ports_in_config {
-            if ports.contains(&port) {
+            if ports_udp.contains(&port) {
                 is_input_sane = false;
                 error!("Duplicate port {} in configuration!", port);
             } else {
-                ports.push(port.clone());
+                ports_udp.push(port.clone());
             }
         }
     }
 
     if let Some(ports_in_config) = &config.listen_tcp_vdlm2 {
         for port in ports_in_config {
-            if ports.contains(&port) {
+            if ports_tcp_and_zmq.contains(&port) {
                 is_input_sane = false;
                 error!("Duplicate port {} in configuration!", port);
             } else {
-                ports.push(port.clone());
+                ports_tcp_and_zmq.push(port.clone());
             }
         }
     }
 
     if let Some(ports_in_config) = &config.serve_tcp_acars {
         for port in ports_in_config {
-            if ports.contains(&port) {
+            if ports_tcp_and_zmq.contains(&port) {
                 is_input_sane = false;
                 error!("Duplicate port {} in configuration!", port);
             } else {
-                ports.push(port.clone());
+                ports_tcp_and_zmq.push(port.clone());
             }
         }
     }
 
     if let Some(ports_in_config) = &config.serve_zmq_acars {
         for port in ports_in_config {
-            if ports.contains(&port) {
+            if ports_tcp_and_zmq.contains(&port) {
                 is_input_sane = false;
                 error!("Duplicate port {} in configuration!", port);
             } else {
-                ports.push(port.clone());
+                ports_tcp_and_zmq.push(port.clone());
             }
         }
     }
 
     if let Some(ports_in_config) = &config.serve_tcp_vdlm2 {
         for port in ports_in_config {
-            if ports.contains(&port) {
+            if ports_tcp_and_zmq.contains(&port) {
                 is_input_sane = false;
                 error!("Duplicate port {} in configuration!", port);
             } else {
-                ports.push(port.clone());
+                ports_tcp_and_zmq.push(port.clone());
             }
         }
     }
 
     if let Some(ports_in_config) = &config.serve_zmq_vdlm2 {
         for port in ports_in_config {
-            if ports.contains(&port) {
+            if ports_tcp_and_zmq.contains(&port) {
                 is_input_sane = false;
                 error!("Duplicate port {} in configuration!", port);
             } else {
-                ports.push(port.clone());
+                ports_tcp_and_zmq.push(port.clone());
             }
         }
     }
@@ -520,7 +521,7 @@ mod test {
         // Generate clean input
         ports.listen_udp_vdlm2 = Some(vec![8008, 65535]);
         ports.listen_udp_acars = Some(vec![8009, 65534]);
-        ports.listen_tcp_acars = Some(vec![8010, 65533]);
+        ports.listen_tcp_acars = Some(vec![8008, 65533]);
         ports.listen_tcp_vdlm2 = Some(vec![8011, 65532]);
         ports.serve_tcp_acars = Some(vec![8012, 65531]);
         ports.serve_tcp_vdlm2 = Some(vec![8013, 65530]);
@@ -530,7 +531,7 @@ mod test {
         let valid_ports_test: bool = check_no_duplicate_ports(&ports);
 
         // Duplicate one set of ports
-        ports.listen_udp_acars = Some(vec![1, 8008, 65535]);
+        ports.serve_zmq_vdlm2 = Some(vec![8008, 65528]);
         let invalid_ports_test: bool = check_no_duplicate_ports(&ports);
 
         assert_eq!(valid_ports_test, true);
