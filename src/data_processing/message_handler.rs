@@ -65,19 +65,18 @@ pub async fn print_stats(
     let stats_minutes = stats_every / 60;
     loop {
         sleep(Duration::from_secs(stats_every)).await;
-        let total_all_time_lock = total_all_time.lock().await;
-        let total_since_last_lock = total_since_last.lock().await;
+        info!("{queue_type} in the last {stats_minutes} minute(s):");
 
         info!(
-            "Total {} messages processed all time: {}",
-            &queue_type, total_all_time_lock
+            "Total {} messages processed: {}",
+            &queue_type,
+            total_all_time.lock().await
         );
-
         info!(
-            "Total {} messages processed in the last {}: {}",
-            &queue_type, stats_minutes, total_since_last_lock
+            "Total {} messages processed since last update: {}",
+            &queue_type,
+            total_since_last.lock().await
         );
-
         *total_since_last.lock().await = 0;
     }
 }
