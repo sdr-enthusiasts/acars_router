@@ -1,10 +1,26 @@
-// Copyright (c) Mike Nye, Fred Clausen
-//
-// Licensed under the MIT license: https://opensource.org/licenses/MIT
-// Permission is granted to use, copy, modify, and redistribute the work.
-// Full license information available in the project LICENSE file.
-//
+#[macro_use] extern crate log;
+extern crate stubborn_io;
+pub extern crate tokio as tokio;
+extern crate tokio_stream;
+extern crate tokio_util;
+extern crate futures;
+extern crate async_trait;
+extern crate tmq;
+extern crate zmq;
+extern crate acars_vdlm2_parser;
+extern crate acars_config;
+
+pub mod packet_handler;
+pub mod service_init;
+pub mod tcp_services;
+pub mod udp_services;
+pub mod zmq_services;
+pub mod message_handler;
+
+
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Formatter;
 use std::net::SocketAddr;
 use std::time::Duration;
 use stubborn_io::ReconnectOptions;
@@ -19,6 +35,7 @@ pub type Rx = mpsc::UnboundedReceiver<String>;
 
 pub type DurationIterator = Box<dyn Iterator<Item = Duration> + Send + Sync>;
 
+#[derive(Debug)]
 pub struct SenderServer<T> {
     pub host: String,
     pub proto_name: String,
@@ -31,30 +48,32 @@ pub struct Shared {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct SocketListenerServer {
+    pub(crate) proto_name: String,
+    pub(crate) port: u16,
+    pub(crate) reassembly_window: f64,
+    pub(crate) socket_type: SocketType
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum SocketType {
+    Tcp,
+    Udp
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum ServerType {
+    Acars,
+    Vdlm2
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct SenderServerConfig {
     pub send_udp: Option<Vec<String>>,
     pub send_tcp: Option<Vec<String>>,
     pub serve_tcp: Option<Vec<u16>>,
     pub serve_zmq: Option<Vec<u16>>,
     pub max_udp_packet_size: usize,
-}
-
-impl SenderServerConfig {
-    pub fn new(
-        send_udp: &Option<Vec<String>>,
-        send_tcp: &Option<Vec<String>>,
-        serve_tcp: &Option<Vec<u16>>,
-        serve_zmq: &Option<Vec<u16>>,
-        max_udp_packet_size: &u64,
-    ) -> Self {
-        Self {
-            send_udp: send_udp.clone(),
-            send_tcp: send_tcp.clone(),
-            serve_tcp: serve_tcp.clone(),
-            serve_zmq: serve_zmq.clone(),
-            max_udp_packet_size: *max_udp_packet_size as usize,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -64,24 +83,6 @@ pub struct OutputServerConfig {
     pub receive_tcp: Option<Vec<String>>,
     pub receive_zmq: Option<Vec<String>>,
     pub reassembly_window: f64,
-}
-
-impl OutputServerConfig {
-    pub fn new(
-        listen_udp: &Option<Vec<u16>>,
-        listen_tcp: &Option<Vec<u16>>,
-        receive_tcp: &Option<Vec<String>>,
-        receive_zmq: &Option<Vec<String>>,
-        reassembly_window: &f64,
-    ) -> Self {
-        Self {
-            listen_udp: listen_udp.clone(),
-            listen_tcp: listen_tcp.clone(),
-            receive_tcp: receive_tcp.clone(),
-            receive_zmq: receive_zmq.clone(),
-            reassembly_window: *reassembly_window,
-        }
-    }
 }
 
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients
@@ -117,10 +118,19 @@ fn get_our_standard_reconnect_strategy() -> DurationIterator {
         Duration::from_secs(50),
         Duration::from_secs(60),
     ];
-
+    
     let repeat = std::iter::repeat(Duration::from_secs(60));
-
+    
     let forever_iterator = initial_attempts.into_iter().chain(repeat);
-
+    
     Box::new(forever_iterator)
+}
+
+impl fmt::Display for ServerType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ServerType::Acars => write!(f, "ACARS"),
+            ServerType::Vdlm2 => write!(f, "VDLM")
+        }
+    }
 }

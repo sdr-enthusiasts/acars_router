@@ -1,0 +1,19 @@
+[package]
+name = "acars_connection_manager"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+stubborn-io = "0.3.1"
+log = "0.4.17"
+tokio = { version = "1.20.1", features = ["full", "tracing"] }
+tokio-util = { version = "0.7.3", features = ["full"] }
+tokio-stream = "0.1.9"
+futures = "0.3.21"
+async-trait = "0.1.56"
+zmq = "0.9.2"
+tmq = "0.3.2"
+acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.1.2" }
+acars_config = { path = "../acars_config" }

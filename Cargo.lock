@@ -3,27 +3,57 @@
 version = 3
 
 [[package]]
-name = "acars_router"
-version = "1.0.4"
+name = "acars_config"
+version = "0.1.0"
 dependencies = [
+ "acars_logging",
+ "clap",
+ "log",
+]
+
+[[package]]
+name = "acars_connection_manager"
+version = "0.1.0"
+dependencies = [
+ "acars_config",
  "acars_vdlm2_parser",
  "async-trait",
- "chrono",
- "clap",
- "derive-getters",
- "env_logger",
- "failure",
  "futures",
  "log",
- "nom",
- "serde",
- "serde_json",
  "stubborn-io",
  "tmq",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "zmq",
+]
+
+[[package]]
+name = "acars_data_processing"
+version = "0.1.0"
+
+[[package]]
+name = "acars_logging"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "env_logger",
+ "log",
+]
+
+[[package]]
+name = "acars_router"
+version = "1.0.4"
+dependencies = [
+ "acars_config",
+ "acars_connection_manager",
+ "acars_logging",
+ "chrono",
+ "failure",
+ "log",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -187,17 +217,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5538cd660450ebeb4234cfecf8f2284b844ffc4c50531e66d584ad5b91293613"
 dependencies = [
  "os_str_bytes",
-]
-
-[[package]]
-name = "derive-getters"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c5905670fd9c320154f3a4a01c9e609733cd7b753f3c58777ab7d5ce26686b3"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -442,12 +461,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minimal-lexical"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
 name = "miniz_oxide"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -466,16 +479,6 @@ dependencies = [
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys",
-]
-
-[[package]]
-name = "nom"
-version = "7.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8903e5a29a317527874d0402f867152a3d21c908bb0b933e416c65e301d4c36"
-dependencies = [
- "memchr",
- "minimal-lexical",
 ]
 
 [[package]]
