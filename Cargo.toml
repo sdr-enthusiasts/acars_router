@@ -1,6 +1,6 @@
 [package]
 name = "acars_router"
-version = "1.0.7"
+version = "1.0.8"
 edition = "2021"
 authors = ["Fred Clausen", "Mike Nye", "Alex Austin"]
 description = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers."
@@ -18,8 +18,8 @@ chrono = "0.4.19"
 tokio = { version = "1.20.1", features = ["full", "tracing"] }
 tokio-util = { version = "0.7.3", features = ["full"] }
 tokio-stream = "0.1.9"
-serde = { version = "1.0.141", features = ["derive"] }
-serde_json = "1.0.82"
+serde = { version = "1.0.142", features = ["derive"] }
+serde_json = "1.0.8"
 derive-getters = "0.2.0"
 zmq = "0.9.2"
 tmq = "0.3.2"

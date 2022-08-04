@@ -16,6 +16,7 @@ on:
       - "**.py"
       - "**.rs"
       - "**.sh"
+      - "**.toml"
 
 jobs:
   hadolint:
