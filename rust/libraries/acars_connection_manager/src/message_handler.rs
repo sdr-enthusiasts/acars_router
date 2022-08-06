@@ -15,8 +15,6 @@ use tokio::time::{sleep, Duration};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
-use acars_vdlm2_parser::acars::AcarsMessage;
-use acars_vdlm2_parser::vdlm2::Vdlm2Message;
 use acars_config::Input;
 
 #[derive(Clone, Debug, Default)]
@@ -174,12 +172,9 @@ impl MessageHandlerConfig {
                                         message.set_station_name(&self.station_name);
                                     }
                                     
-                                    match self.add_proxy_id {
-                                        false => message.clear_proxy_details(), // This shouldn't already be set, but we'll blow it away just in case
-                                        true => {
-                                            trace!("[Message Handler {}] Adding proxy_id to message", self.queue_type);
-                                            message.set_proxy_details("acars_router", version);
-                                        }
+                                    if self.add_proxy_id {
+                                        trace!("[Message Handler {}] Adding proxy_id to message", self.queue_type);
+                                        message.set_proxy_details("acars_router", version);
                                     }
                                     
                                     debug!("[Message Handler {}] SENDING: {:?}", self.queue_type, message);
@@ -191,6 +186,7 @@ impl MessageHandlerConfig {
                                         Err(parse_error) => error!("{}", parse_error),
                                         Ok(final_message) => {
                                             // Send to the output methods for emitting on the network
+                                            debug!("[Message Handler {}] Message to be sent: {}", self.queue_type, &final_message);
                                             match output_queue.send(final_message).await {
                                                 Ok(_) => debug!("[Message Handler {}] Message sent to output queue", self.queue_type),
                                                 Err(e) => error!("[Message Handler {}] Error sending message to output queue: {}", self.queue_type, e)

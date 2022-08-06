@@ -341,7 +341,7 @@ impl TCPServeServer {
 async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<String>) {
     loop {
         if let Some(received_message) = channel.recv().await {
-            state.lock().await.broadcast(&received_message).await;
+            state.lock().await.broadcast(&format!("{}\n",received_message)).await;
         }
     }
 }

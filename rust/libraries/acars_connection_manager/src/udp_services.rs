@@ -118,7 +118,8 @@ impl UDPSenderServer {
         // We will send out a configured max amount bytes at a time until the buffer is exhausted
         
         while let Some(message) = self.channel.recv().await {
-            let message_as_bytes = message.as_bytes();
+            let line_ended_message: String = format!("{}\n", message);
+            let message_as_bytes = line_ended_message.as_bytes();
             let message_size: usize = message_as_bytes.len();
             
             for addr in &self.host {
