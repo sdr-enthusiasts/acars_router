@@ -10,7 +10,6 @@
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use std::io;
 use std::net::SocketAddr;
-use std::str;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Sender, Receiver};
 use tokio::time::{sleep, Duration};
@@ -18,7 +17,6 @@ use tokio::time::{sleep, Duration};
 #[derive(Debug, Clone)]
 pub(crate) struct UDPListenerServer {
     pub(crate) proto_name: String,
-    pub(crate) port: u16,
     pub(crate) reassembly_window: f64
 }
 
@@ -34,7 +32,6 @@ pub(crate) struct UDPSenderServer {
 impl UDPListenerServer {
     pub(crate) fn new(proto_name: &str, reassembly_window: &f64) -> Self {
         Self {
-            port: 0,
             proto_name: proto_name.to_string(),
             reassembly_window: *reassembly_window,
         }
@@ -56,7 +53,7 @@ impl UDPListenerServer {
                 
                 loop {
                     if let Some((size, peer)) = to_send {
-                        let msg_string = match str::from_utf8(buf[..size].as_ref()) {
+                        let msg_string = match std::str::from_utf8(buf[..size].as_ref()) {
                             Ok(s) => s,
                             Err(_) => {
                                 warn!("[UDP SERVER: {}] Invalid message received from {}", self.proto_name, peer);

@@ -39,11 +39,7 @@ impl TCPListenerServer {
         }
     }
     
-    pub(crate) async fn run(
-        self,
-        listen_acars_udp_port: String,
-        channel: Sender<String>,
-    ) -> Result<(), io::Error> {
+    pub(crate) async fn run(self, listen_acars_udp_port: String, channel: Sender<String>) -> Result<(), io::Error> {
         let listener: TcpListener =
             TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
         info!("[TCP Listener SERVER: {}]: Listening on: {}", self.proto_name, listener.local_addr()?);
@@ -130,7 +126,7 @@ impl TCPReceiverServer {
     pub async fn run(
         self,
         channel: Sender<String>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn Error>> {
         trace!("[TCP Receiver Server {}] Starting", self.proto_name);
         // create a SocketAddr from host
         let addr = match self.host.parse::<SocketAddr>() {

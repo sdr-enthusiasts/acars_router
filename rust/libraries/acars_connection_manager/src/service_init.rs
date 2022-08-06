@@ -6,19 +6,27 @@
 //
 
 use std::sync::Arc;
-use stubborn_io::StubbornTcpStream;
+use std::io;
+use std::net::{AddrParseError, IpAddr, SocketAddr};
+use std::str::FromStr;
 use tmq::{publish, Context};
-use tokio::net::{TcpListener, UdpSocket};
+use tokio::net::{TcpListener, UdpSocket, TcpStream};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{sleep, Duration};
+use tokio_stream::StreamExt;
 use acars_config::Input;
 use async_trait::async_trait;
+use stubborn_io::tokio::StubbornIo;
+use stubborn_io::StubbornTcpStream;
+use tokio::io::BufReader;
+use tokio_util::codec::{Framed, LinesCodec};
 use crate::tcp_services::{TCPListenerServer, TCPServeServer, TCPReceiverServer};
 use crate::udp_services::{UDPListenerServer, UDPSenderServer};
 use crate::zmq_services::ZMQListnerServer;
 use crate::{reconnect_options, SenderServer, SenderServerConfig, Shared, OutputServerConfig, SocketListenerServer, SocketType};
 use crate::message_handler::MessageHandlerConfig;
+use crate::packet_handler::{PacketHandler, ProcessAssembly};
 
 pub async fn start_processes(args: Input) {
     
@@ -393,7 +401,13 @@ impl SenderServers for Arc<Mutex<Vec<Sender<String>>>> {
     }
 }
 
+// All this below is brand new, not wired in.
+// Needs to be logic checked etc, then wired in.
+// It's a first pass at unifying the listener logic, and can very likely be made into smaller functions.
+// Doing this will help DRY it up more.
+
 impl SocketListenerServer {
+    
     pub(crate) fn new(proto_name: &str, port: &u16, reassembly_window: &f64, socket_type: SocketType) -> Self {
         Self {
             proto_name: proto_name.to_string(),
@@ -403,5 +417,137 @@ impl SocketListenerServer {
         }
     }
     
+    pub(crate) async fn run(self, channel: Sender<String>) -> Result<(), Box<dyn std::error::Error>> {
+        let build_ip_address = IpAddr::from_str("0.0.0.0");
+        let build_socket_address = match build_ip_address {
+            Ok(ip_address) => Ok(SocketAddr::new(ip_address, self.port)),
+            Err(ip_parse_error) => Err(ip_parse_error)
+        };
+        match build_socket_address {
+            Err(address_error) => Err(address_error.into()),
+            Ok(socket_address) => {
+                match self.socket_type {
+                    SocketType::Tcp => {
+                        trace!("[{} Receiver Server {}] Starting", self.socket_type.to_string(), self.proto_name);
+                        let open_stream: io::Result<StubbornIo<TcpStream, SocketAddr>> = StubbornTcpStream::connect_with_options(socket_address, reconnect_options()).await;
+                        match open_stream {
+                            Err(stream_error) => {
+                                error!("[{} Receiver Server {}] Error connecting to {}: {}", self.socket_type.to_string(), self.proto_name, socket_address.to_string(), &stream_error);
+                                Err(stream_error.into())
+                            },
+                            Ok(stream) => {
+                                let reader: BufReader<StubbornIo<TcpStream, SocketAddr>> = BufReader::new(stream);
+                                let mut lines: Framed<BufReader<StubbornIo<TcpStream, SocketAddr>>, LinesCodec> = Framed::new(reader, LinesCodec::new());
+                                let packet_handler: PacketHandler = PacketHandler::new(&self.proto_name, self.reassembly_window);
+                                while let Some(Ok(line)) = lines.next().await {
+                                    let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
+                                    for msg_by_newline in split_messages_by_newline {
+                                        let split_messages_by_brackets: Vec<&str> =
+                                            msg_by_newline.split_terminator("}{").collect();
+                                        if split_messages_by_brackets.len().eq(&1) {
+                                            let final_message: String = split_messages_by_brackets[0].to_string();
+                                            packet_handler.attempt_message_reassembly(final_message, socket_address).await
+                                                          .process_reassembly(&self.proto_name, &channel, &self.socket_type.to_string()).await;
+                                        } else {
+                                            for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
+                                                let final_message = if count == 0 {
+                                                    // First case is the first element, which should only ever need a single closing bracket
+                                                    trace!("[{} Receiver Server {}]Multiple messages received in a packet.", self.socket_type.to_string(), self.proto_name);
+                                                    format!("{}}}", msg_by_brackets)
+                                                } else if count == split_messages_by_brackets.len() - 1 {
+                                                    // This case is for the last element, which should only ever need a single opening bracket
+                                                    trace!("[{} Receiver Server {}] End of a multiple message packet", self.socket_type.to_string(), self.proto_name);
+                                                    format!("{{{}", msg_by_brackets)
+                                                } else {
+                                                    // This case is for any middle elements, which need both an opening and closing bracket
+                                                    trace!("[{} Receiver Server {}] Middle of a multiple message packet", self.socket_type.to_string(), self.proto_name);
+                                                    format!("{{{}}}", msg_by_brackets)
+                                                };
+                                                packet_handler.attempt_message_reassembly(final_message, socket_address).await
+                                                              .process_reassembly(&self.proto_name, &channel, &self.socket_type.to_string()).await
+                                            }
+                                        };
+                                    }
+                                }
+                                Ok(())
+                            }
+                        }
+                        
+                    }
+                    SocketType::Udp => {
+                        let mut buf: Vec<u8> = vec![0; 5000];
+                        let mut to_send: Option<(usize, SocketAddr)>= None;
+                        let build_ip_address: Result<IpAddr, AddrParseError> = IpAddr::from_str("0.0.0.0");
+                        let build_socket_address: Result<SocketAddr, AddrParseError> = match build_ip_address {
+                            Ok(ip_address) => Ok(SocketAddr::new(ip_address, self.port)),
+                            Err(ip_parse_error) => Err(ip_parse_error)
+                        };
+                        
+                        let open_socket: Result<UdpSocket, Box<dyn std::error::Error>> = match build_socket_address {
+                            Err(socket_error) => {
+                                error!("[{} SERVER: {} ] Error creating socket address: {}", self.socket_type.to_string(), self.proto_name, socket_error);
+                                Err(socket_error.into())
+                            },
+                            Ok(socket_address) => {
+                                let init_socket: Result<UdpSocket, io::Error> = UdpSocket::bind(socket_address).await;
+                                match init_socket {
+                                    Err(socket_open_error) => Err(socket_open_error.into()),
+                                    Ok(socket) => Ok(socket)
+                                }
+                            }
+                        };
     
+                        match open_socket {
+                            Err(e) => error!("[{} SERVER: {}] Error listening on port: {}", self.socket_type.to_string(), self.proto_name, e),
+                            Ok(socket) => {
+                                info!("[{} SERVER: {}]: Listening on: {}", self.socket_type.to_string(), self.proto_name, socket.local_addr()?);
+                                let packet_handler: PacketHandler = PacketHandler::new(&self.proto_name, self.reassembly_window);
+                                loop {
+                                    if let Some((size, peer)) = to_send {
+                                        let msg_string = match std::str::from_utf8(buf[..size].as_ref()) {
+                                            Ok(s) => s,
+                                            Err(_) => {
+                                                warn!("[{} SERVER: {}] Invalid message received from {}", self.socket_type.to_string(), self.proto_name, peer);
+                                                continue;
+                                            }
+                                        };
+                                        let split_messages_by_newline: Vec<&str> = msg_string.split_terminator('\n').collect();
+                    
+                                        for msg_by_newline in split_messages_by_newline {
+                                            let split_messages_by_brackets: Vec<&str> = msg_by_newline.split_terminator("}{").collect();
+                                            if split_messages_by_brackets.len().eq(&1) {
+                                                packet_handler.attempt_message_reassembly(split_messages_by_brackets[0].to_string(), peer).await
+                                                              .process_reassembly(&self.proto_name, &channel, &self.socket_type.to_string()).await;
+                                            } else {
+                                                // We have a message that was split by brackets if the length is greater than one
+                                                for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
+                                                    let final_message = if count == 0 {
+                                                        // First case is the first element, which should only ever need a single closing bracket
+                                                        trace!("[{} SERVER: {}] Multiple messages received in a packet.", self.socket_type.to_string(), self.proto_name);
+                                                        format!("{}}}", msg_by_brackets)
+                                                    } else if count == split_messages_by_brackets.len() - 1 {
+                                                        // This case is for the last element, which should only ever need a single opening bracket
+                                                        trace!("[{} SERVER: {}] End of a multiple message packet", self.socket_type.to_string(), self.proto_name);
+                                                        format!("{{{}", msg_by_brackets)
+                                                    } else {
+                                                        // This case is for any middle elements, which need both an opening and closing bracket
+                                                        trace!("[{} SERVER: {}] Middle of a multiple message packet", self.socket_type.to_string(), self.proto_name);
+                                                        format!("{{{}}}", msg_by_brackets)
+                                                    };
+                                                    packet_handler.attempt_message_reassembly(final_message, peer).await
+                                                                  .process_reassembly(&self.proto_name, &channel, &self.socket_type.to_string()).await;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    to_send = Some(socket.recv_from(&mut buf).await?);
+                                }
+                            }
+                        };
+                        Ok(())
+                    }
+                }
+            }
+        }
+    }
 }

@@ -134,3 +134,12 @@ impl fmt::Display for ServerType {
         }
     }
 }
+
+impl fmt::Display for SocketType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SocketType::Tcp => write!(f, "TCP"),
+            SocketType::Udp => write!(f, "UDP")
+        }
+    }
+}

@@ -146,7 +146,8 @@ impl MessageHandlerConfig {
                             let hash_message = hash_message(message.clone());
                             
                             match hash_message {
-                                Err(hash_parsing_error) => error!("{}", hash_parsing_error),
+                                Err(hash_parsing_error) => error!("[Message Handler {}] Failed to create hash of message: {}",
+                                    self.queue_type, hash_parsing_error),
                                 Ok(hashed_value) => {
                                     if self.dedupe {
                                         let mut rejected = false;
@@ -224,11 +225,7 @@ pub async fn print_stats(
     }
 }
 
-pub async fn clean_up_dedupe_queue(
-    dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>>,
-    dedupe_window: u64,
-    queue_type: &str,
-) {
+pub async fn clean_up_dedupe_queue(dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>>, dedupe_window: u64, queue_type: &str) {
     loop {
         sleep(Duration::from_secs(dedupe_window)).await;
         // Remove old messages from the dedupe_queue
@@ -252,10 +249,8 @@ pub async fn clean_up_dedupe_queue(
 
 fn hash_message(mut message: AcarsVdlm2Message) -> MessageResult<u64> {
     let mut hasher = DefaultHasher::new();
-    message = match message {
-        AcarsVdlm2Message::Vdlm2Message(vdml2) => generate_dumpvdl2_hashable_data(vdml2),
-        AcarsVdlm2Message::AcarsMessage(acars) => generate_acarsdec_or_vdlm2dec_hashable_data(acars)
-    };
+    message.clear_station_name();
+    message.clear_time();
     let parse_msg = message.to_string();
     match parse_msg {
         Err(parse_error) => Err(parse_error),
@@ -266,28 +261,4 @@ fn hash_message(mut message: AcarsVdlm2Message) -> MessageResult<u64> {
             Ok(hashed_value)
         }
     }
-}
-
-fn generate_acarsdec_or_vdlm2dec_hashable_data(mut message: AcarsMessage) -> AcarsVdlm2Message {
-    
-    // if station_id is present, remove it
-    message.clear_station_name();
-    
-    // if timestamp is present, remove it
-    message.clear_time();
-    
-    trace!("[Hasher] Hashable data: {:?}", message);
-    
-    AcarsVdlm2Message::AcarsMessage(message)
-}
-
-fn generate_dumpvdl2_hashable_data(mut message: Vdlm2Message) -> AcarsVdlm2Message {
-    
-    // if station is present in vdl2, remove it
-    message.clear_station_name();
-    
-    // if t is present in vdl2, remove it
-    message.clear_time();
-    
-    AcarsVdlm2Message::Vdlm2Message(message)
 }
