@@ -43,7 +43,7 @@ dependencies = [
 
 [[package]]
 name = "acars_router"
-version = "1.0.4"
+version = "1.0.8"
 dependencies = [
  "acars_config",
  "acars_connection_manager",
