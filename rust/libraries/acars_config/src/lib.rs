@@ -15,31 +15,31 @@ pub struct Input {
     #[clap(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
     /// Enable message deduplication
-    #[clap(long, value_parser)]
+    #[clap(long, env = "AR_ENABLE_DEDUPE", value_parser)]
     pub enable_dedupe: bool,
     /// Set the number of seconds that a message will be considered as a duplicate
     /// if it is received again.
-    #[clap(long, value_parser, default_value = "2")]
+    #[clap(long, env = "AR_DEDUPE_WINDOW", value_parser, default_value = "2")]
     pub dedupe_window: u64,
     /// Reject messages with a timestamp greater than +/- this many seconds.
-    #[clap(long, value_parser, default_value = "1")]
+    #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "1")]
     pub skew_window: u64,
     /// Set maximum UDP packet size, peer-to-peer.
-    #[clap(long, value_parser, default_value = "60000")]
+    #[clap(long, env = "AR_MAX_UDP_PACKET_SIZE", value_parser, default_value = "60000")]
     pub max_udp_packet_size: u64,
     // Message Modification
     /// Set to true to enable message modification
     /// This will add a "proxied" field to the message
-    #[clap(long, value_parser)]
+    #[clap(long, env = "AR_ADD_PROXY_ID", value_parser)]
     pub add_proxy_id: bool,
     /// Override the station name in the message.
-    #[clap(long, value_parser)]
+    #[clap(long, env = "AR_OVERRIDE_STATION_NAME", value_parser)]
     pub override_station_name: Option<String>,
     /// Print statistics every N minutes
-    #[clap(long, value_parser, default_value = "5")]
+    #[clap(long, env = "AR_STATS_EVERY", value_parser, default_value = "5")]
     pub stats_every: u64,
     /// Attempt message reassembly on incomplete messages within the specified number of seconds
-    #[clap(long, value_parser, default_value = "1.0")]
+    #[clap(long, env = "AR_REASSEMBLY_WINDOW", value_parser, default_value = "1.0")]
     pub reassembly_window: f64,
     // Input Options
     
