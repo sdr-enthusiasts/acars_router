@@ -4,7 +4,7 @@
 
 ## Runtime Configuration
 
-`acars_router` can be configured via command line arguments or environment variables. Command line arguments take preference over environment variables.
+`acars_router` can be configured via command line arguments or environment variables. Command line arguments take preference over environment variables. Environment variables should only be used for running in Docker as internally in acars_router not every environment variable will be read in.
 
 When using environment variables use `;` to separate entries, for example: `AR_SEND_UDP_ACARS="1.2.3.4:5550;5.6.7.8:5550"`
 

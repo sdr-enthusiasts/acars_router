@@ -1,12 +1,84 @@
 #!/usr/bin/with-contenv bash
 # shellcheck shell=bash
 
-DEBUG_LEVEL=()
+AR_COMMAND=()
 
 if [[ ${AR_VERBOSITY,,} =~ debug || $AR_VERBOSITY -eq 1 ]]; then
-    DEBUG_LEVEL+=("-v")
+    AR_COMMAND+=("-v")
 elif [[ ${AR_VERBOSITY,,} =~ trace  || $AR_VERBOSITY -ge 2 ]]; then
-    DEBUG_LEVEL+=("-vv")
+    AR_COMMAND+=("-vv")
 fi
 
-/opt/acars_router "${DEBUG_LEVEL[@]}"
+# ACARS Input
+
+if [[ -n $AR_LISTEN_UDP_ACARS ]]; then
+    AR_COMMAND+=("--listen-udp-acars" "$AR_LISTEN_UDP_ACARS")
+fi
+
+if [[ -n $AR_LISTEN_TCP_ACARS ]]; then
+    AR_COMMAND+=("--listen-tcp-acars" "$AR_LISTEN_TCP_ACARS")
+fi
+
+if [[ -n $AR_RECV_TCP_ACARS ]]; then
+    AR_COMMAND+=("--receive-tcp-acars" "$AR_RECV_TCP_ACARS")
+fi
+
+if [[ -n $AR_RECV_ZMQ_ACARS ]]; then
+    AR_COMMAND+=("--receive-zmq-acars" "$AR_RECV_ZMQ_ACARS")
+fi
+
+# VDLM2 input
+
+if [[ -n $AR_LISTEN_UDP_VDLM2 ]]; then
+    AR_COMMAND+=("--listen-udp-vdlm2" "$AR_LISTEN_UDP_VDLM2")
+fi
+
+if [[ -n $AR_LISTEN_TCP_VDLM2 ]]; then
+    AR_COMMAND+=("--listen-tcp-vdlm2" "$AR_LISTEN_TCP_VDLM2")
+fi
+
+if [[ -n $AR_RECV_TCP_VDLM2 ]]; then
+    AR_COMMAND+=("--receive-tcp-vdlm2" "$AR_RECV_TCP_VDLM2")
+fi
+
+if [[ -n $AR_RECV_ZMQ_VDLM2 ]]; then
+    AR_COMMAND+=("--receive-zmq-vdlm2" "$AR_RECV_ZMQ_VDLM2")
+fi
+
+# ACARS Output
+
+if [[ -n $AR_SEND_UDP_ACARS ]]; then
+    AR_COMMAND+=("--send-udp-acars" "$AR_SEND_UDP_ACARS")
+fi
+
+if [[ -n $AR_SEND_TCP_ACARS ]]; then
+    AR_COMMAND+=("--send-tcp-acars" "$AR_SEND_TCP_ACARS")
+fi
+
+if [[ -n $AR_SERVE_TCP_ACARS ]]; then
+    AR_COMMAND+=("--serve-tcp-acars" "$AR_SERVE_TCP_ACARS")
+fi
+
+if [[ -n $AR_SERVE_ZMQ_ACARS ]]; then
+    AR_COMMAND+=("--serve-zmq-acars" "$AR_SERVE_ZMQ_ACARS")
+fi
+
+# VDLM2 Output
+
+if [[ -n $AR_SEND_UDP_VDLM2 ]]; then
+    AR_COMMAND+=("--send-udp-vdlm2" "$AR_SEND_UDP_VDLM2")
+fi
+
+if [[ -n $AR_SEND_TCP_VDLM2 ]]; then
+    AR_COMMAND+=("--send-tcp-vdlm2" "$AR_SEND_TCP_VDLM2")
+fi
+
+if [[ -n $AR_SERVE_TCP_VDLM2 ]]; then
+    AR_COMMAND+=("--serve-tcp-vdlm2" "$AR_SERVE_TCP_VDLM2")
+fi
+
+if [[ -n $AR_SERVE_ZMQ_VDLM2 ]]; then
+    AR_COMMAND+=("--serve-zmq-vdlm2" "$AR_SERVE_ZMQ_VDLM2")
+fi
+
+/opt/acars_router "${AR_COMMAND[@]}"

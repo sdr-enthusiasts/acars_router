@@ -231,9 +231,12 @@ if __name__ == "__main__":
     thread_stop_event.set()
     # clean up
     acars_sock.close()
+    acars_sock = None
     # destroy is def not the best way but it works
     vdlm_context.destroy()
+    vdlm_context = None
     acars_context.destroy()
+    acars_context = None
     # stop all threads
 
     sys.exit(0 if TEST_PASSED else 1)
