@@ -169,12 +169,9 @@ impl MessageHandlerConfig {
                                         }
                                     }
                                     
-                                    match self.should_override_station_name {
-                                        false => message.clear_station_name(), // We'll nuke it again, just in case.
-                                        true => {
-                                            trace!("[Message Handler {}] Overriding station name to {}", self.queue_type, self.station_name);
-                                            message.set_station_name(&self.station_name);
-                                        }
+                                    if self.should_override_station_name {
+                                        trace!("[Message Handler {}] Overriding station name to {}", self.queue_type, self.station_name);
+                                        message.set_station_name(&self.station_name);
                                     }
                                     
                                     match self.add_proxy_id {

@@ -15,87 +15,87 @@ pub struct Input {
     #[clap(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
     /// Enable message deduplication
-    #[clap(long, env = "AR_ENABLE_DEDUPE", value_parser)]
+    #[clap(long, value_parser)]
     pub enable_dedupe: bool,
     /// Set the number of seconds that a message will be considered as a duplicate
     /// if it is received again.
-    #[clap(long, env = "AR_DEDUPE_WINDOW", value_parser, default_value = "2")]
+    #[clap(long, value_parser, default_value = "2")]
     pub dedupe_window: u64,
     /// Reject messages with a timestamp greater than +/- this many seconds.
-    #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "1")]
+    #[clap(long, value_parser, default_value = "1")]
     pub skew_window: u64,
     /// Set maximum UDP packet size, peer-to-peer.
-    #[clap(long, env = "AR_MAX_UDP_PACKET_SIZE", value_parser, default_value = "60000")]
+    #[clap(long, value_parser, default_value = "60000")]
     pub max_udp_packet_size: u64,
     // Message Modification
     /// Set to true to enable message modification
     /// This will add a "proxied" field to the message
-    #[clap(long, env = "AR_ADD_PROXY_ID", value_parser)]
+    #[clap(long, value_parser)]
     pub add_proxy_id: bool,
     /// Override the station name in the message.
-    #[clap(long, env = "AR_OVERRIDE_STATION_NAME", value_parser)]
+    #[clap(long, value_parser)]
     pub override_station_name: Option<String>,
     /// Print statistics every N minutes
-    #[clap(long, env = "AR_STATS_EVERY", value_parser, default_value = "5")]
+    #[clap(long, value_parser, default_value = "5")]
     pub stats_every: u64,
     /// Attempt message reassembly on incomplete messages within the specified number of seconds
-    #[clap(long, env = "AR_REASSEMBLY_WINDOW", value_parser, default_value = "1.0")]
+    #[clap(long, value_parser, default_value = "1.0")]
     pub reassembly_window: f64,
     // Input Options
     
     // ACARS
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, env = "AR_LISTEN_UDP_ACARS", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub listen_udp_acars: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, env = "AR_LISTEN_TCP_ACARS", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub listen_tcp_acars: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
-    #[clap(long, env = "AR_RECV_TCP_ACARS", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_tcp_acars: Option<Vec<String>>,
     /// Semi-Colon separated list of arguments. io host:5550;host:5551;host:5552
-    #[clap(long, env = "AR_RECV_ZMQ_ACARS", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_zmq_acars: Option<Vec<String>>,
     
     // VDLM2
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
-    #[clap(long, env = "AR_LISTEN_UDP_VDLM2", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub listen_udp_vdlm2: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
-    #[clap(long, env = "AR_LISTEN_TCP_VDLM2", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub listen_tcp_vdlm2: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
-    #[clap(long, env = "AR_RECV_TCP_VDLM2", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_tcp_vdlm2: Option<Vec<String>>,
     /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
-    #[clap(long, env = "AR_RECV_ZMQ_VDLM2", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_zmq_vdlm2: Option<Vec<String>>,
     // JSON Output options
     // ACARS
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
-    #[clap(long, env = "AR_SEND_UDP_ACARS", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub send_udp_acars: Option<Vec<String>>,
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
-    #[clap(long, env = "AR_SEND_TCP_ACARS", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub send_tcp_acars: Option<Vec<String>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, env = "AR_SERVE_TCP_ACARS", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_tcp_acars: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, env = "AR_SERVE_ZMQ_ACARS", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_zmq_acars: Option<Vec<u16>>,
     // VDLM
     /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
-    #[clap(long, env = "AR_SEND_UDP_VDLM2", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub send_udp_vdlm2: Option<Vec<String>>,
     /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
-    #[clap(long, env = "AR_SEND_TCP_VDLM2", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub send_tcp_vdlm2: Option<Vec<String>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, env = "AR_SERVE_TCP_VDLM2", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_tcp_vdlm2: Option<Vec<u16>>,
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
-    #[clap(long, env = "AR_SERVE_ZMQ_VDLM2", value_parser, value_delimiter = ';')]
+    #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_zmq_vdlm2: Option<Vec<u16>>,
 }
 
