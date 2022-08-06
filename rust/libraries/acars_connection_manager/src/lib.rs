@@ -36,15 +36,16 @@ pub type Rx = mpsc::UnboundedReceiver<String>;
 pub type DurationIterator = Box<dyn Iterator<Item = Duration> + Send + Sync>;
 
 #[derive(Debug)]
-pub struct SenderServer<T> {
-    pub host: String,
-    pub proto_name: String,
-    pub socket: T,
-    pub channel: Receiver<String>,
+pub(crate) struct SenderServer<T> {
+    pub(crate) host: String,
+    pub(crate) proto_name: String,
+    pub(crate) socket: T,
+    pub(crate) channel: Receiver<String>,
 }
 
-pub struct Shared {
-    pub peers: HashMap<SocketAddr, Tx>,
+#[derive(Debug, Default)]
+pub(crate) struct Shared {
+    pub(crate) peers: HashMap<SocketAddr, Tx>,
 }
 
 #[derive(Debug, Clone)]
@@ -68,21 +69,22 @@ pub(crate) enum ServerType {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct SenderServerConfig {
-    pub send_udp: Option<Vec<String>>,
-    pub send_tcp: Option<Vec<String>>,
-    pub serve_tcp: Option<Vec<u16>>,
-    pub serve_zmq: Option<Vec<u16>>,
-    pub max_udp_packet_size: usize,
+pub(crate) struct SenderServerConfig {
+    pub(crate) send_udp: Option<Vec<String>>,
+    pub(crate) send_tcp: Option<Vec<String>>,
+    pub(crate) serve_tcp: Option<Vec<u16>>,
+    pub(crate) serve_zmq: Option<Vec<u16>>,
+    pub(crate) max_udp_packet_size: usize,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct OutputServerConfig {
-    pub listen_udp: Option<Vec<u16>>,
-    pub listen_tcp: Option<Vec<u16>>,
-    pub receive_tcp: Option<Vec<String>>,
-    pub receive_zmq: Option<Vec<String>>,
-    pub reassembly_window: f64,
+#[derive(Debug, Clone)]
+pub(crate) struct OutputServerConfig {
+    pub(crate) listen_udp: Option<Vec<u16>>,
+    pub(crate) listen_tcp: Option<Vec<u16>>,
+    pub(crate) receive_tcp: Option<Vec<String>>,
+    pub(crate) receive_zmq: Option<Vec<String>>,
+    pub(crate) reassembly_window: f64,
+    pub(crate) output_server_type: ServerType
 }
 
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients

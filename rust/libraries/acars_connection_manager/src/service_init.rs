@@ -24,7 +24,7 @@ use tokio_util::codec::{Framed, LinesCodec};
 use crate::tcp_services::{TCPListenerServer, TCPServeServer, TCPReceiverServer};
 use crate::udp_services::{UDPListenerServer, UDPSenderServer};
 use crate::zmq_services::ZMQListnerServer;
-use crate::{reconnect_options, SenderServer, SenderServerConfig, Shared, OutputServerConfig, SocketListenerServer, SocketType};
+use crate::{reconnect_options, SenderServer, SenderServerConfig, Shared, OutputServerConfig, SocketListenerServer, SocketType, ServerType};
 use crate::message_handler::MessageHandlerConfig;
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 
@@ -59,9 +59,10 @@ pub async fn start_processes(args: Input) {
         &args.receive_tcp_acars,
         &args.receive_zmq_acars,
         &args.reassembly_window,
+        ServerType::Acars
     );
     tokio::spawn(async move {
-        acars_input_config.start_listeners(tx_receivers_acars, "ACARS");
+        acars_input_config.start_listeners(tx_receivers_acars);
     });
     
     let vdlm_input_config = OutputServerConfig::new(
@@ -70,9 +71,10 @@ pub async fn start_processes(args: Input) {
         &args.receive_tcp_vdlm2,
         &args.receive_zmq_vdlm2,
         &args.reassembly_window,
+        ServerType::Vdlm2
     );
     tokio::spawn(async move {
-        vdlm_input_config.start_listeners(tx_receivers_vdlm, "VDLM");
+        vdlm_input_config.start_listeners(tx_receivers_vdlm);
     });
     
     // start the output servers
@@ -145,6 +147,7 @@ impl OutputServerConfig {
         receive_tcp: &Option<Vec<String>>,
         receive_zmq: &Option<Vec<String>>,
         reassembly_window: &f64,
+        output_server_type: ServerType
     ) -> Self {
         Self {
             listen_udp: listen_udp.clone(),
@@ -152,38 +155,39 @@ impl OutputServerConfig {
             receive_tcp: receive_tcp.clone(),
             receive_zmq: receive_zmq.clone(),
             reassembly_window: *reassembly_window,
+            output_server_type
         }
     }
     
-    fn start_listeners(self, tx_receivers: Sender<String>, server_type: &str) {
+    fn start_listeners(self, tx_receivers: Sender<String>) {
         // Start the UDP listener servers
     
         // Make sure we have at least one UDP port to listen on
         if let Some(listen_udp) = self.listen_udp {
             // Start the UDP listener servers for server_type
-            info!("Starting UDP listener servers for {server_type}");
-            listen_udp.udp_port_listener(server_type, tx_receivers.clone(), &self.reassembly_window);
+            info!("Starting UDP listener servers for {}", &self.output_server_type.to_string());
+            listen_udp.udp_port_listener(&self.output_server_type.to_string(), tx_receivers.clone(), &self.reassembly_window);
         }
     
         // Start the TCP listeners
     
         if let Some(listen_tcp) = self.listen_tcp {
             // Start the TCP listener servers for server_type
-            info!("Starting TCP listener servers for {server_type}");
-            listen_tcp.tcp_port_listener(server_type, tx_receivers.clone(), &self.reassembly_window);
+            info!("Starting TCP listener servers for {}", &self.output_server_type.to_string());
+            listen_tcp.tcp_port_listener(&self.output_server_type.to_string(), tx_receivers.clone(), &self.reassembly_window);
         }
     
         // Start the ZMQ listeners
     
         if let Some(receive_zmq) = self.receive_zmq {
             // Start the ZMQ listener servers for {server_type}
-            info!("Starting ZMQ Receiver servers for {server_type}");
-            receive_zmq.start_zmq(server_type, tx_receivers.clone());
+            info!("Starting ZMQ Receiver servers for {}", &self.output_server_type.to_string());
+            receive_zmq.start_zmq(&self.output_server_type.to_string(), tx_receivers.clone());
         }
     
         if let Some(receive_tcp) = self.receive_tcp {
-            info!("Starting TCP Receiver servers for {server_type}");
-            receive_tcp.start_tcp_receivers(server_type, tx_receivers, &self.reassembly_window);
+            info!("Starting TCP Receiver servers for {}", &self.output_server_type.to_string());
+            receive_tcp.start_tcp_receivers(&self.output_server_type.to_string(), tx_receivers, &self.reassembly_window);
         }
     }
 }

@@ -263,7 +263,7 @@ struct Peer {
 
 impl Shared {
     /// Create a new, empty, instance of `Shared`.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Shared {
             peers: HashMap::new(),
         }
@@ -304,7 +304,7 @@ impl TCPServeServer {
             proto_name: proto_name.to_string(),
         }
     }
-    pub async fn watch_for_connections(
+    pub(crate) async fn watch_for_connections(
         self,
         channel: Receiver<String>,
         state: &Arc<Mutex<Shared>>,

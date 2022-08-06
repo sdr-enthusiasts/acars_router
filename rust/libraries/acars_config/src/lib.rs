@@ -7,7 +7,7 @@ pub mod sanity_checker;
 use clap::Parser;
 use acars_logging::SetupLogging;
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Clone, Default)]
 #[clap(name = "ACARS Router", author, version, about, long_about = None)]
 pub struct Input {
     // Output Options
