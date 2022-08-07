@@ -242,8 +242,17 @@ pub async fn clean_up_dedupe_queue(dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>
 
 fn hash_message(mut message: AcarsVdlm2Message) -> MessageResult<u64> {
     let mut hasher = DefaultHasher::new();
-    message.clear_station_name();
-    message.clear_time();
+    message.clear_proxy_details(); // Clears out "app"
+    message.clear_error(); // Clears out "error"
+    message.clear_level(); // Clears out "level"
+    message.clear_station_name(); // Clears out "vdl2.station" or "station_id"
+    message.clear_time(); // Clears out "timestamp" or "vdl2.t"
+    message.clear_channel(); // Clears out "channel"
+    message.clear_freq_skew(); // Clears out "vdl2.freq_skew"
+    message.clear_hdr_bits_fixed(); // Clears out "vdl2.hdr_bits_fixed"
+    message.clear_noise_level(); // Clears out "vdl2.noise_level"
+    message.clear_octets_corrected_by_fec(); // Clears out "vdl2.octets_corrected_by_fec"
+    message.clear_sig_level(); // Clears out "vdl2.sig_level"
     let parse_msg = message.to_string();
     match parse_msg {
         Err(parse_error) => Err(parse_error),

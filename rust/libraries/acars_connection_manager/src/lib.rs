@@ -35,6 +35,7 @@ pub type Rx = mpsc::UnboundedReceiver<String>;
 
 pub type DurationIterator = Box<dyn Iterator<Item = Duration> + Send + Sync>;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct SenderServer<T> {
     pub(crate) host: String,
@@ -56,6 +57,7 @@ pub(crate) struct SocketListenerServer {
     pub(crate) socket_type: SocketType
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum SocketType {
     Tcp,

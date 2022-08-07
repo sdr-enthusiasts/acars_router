@@ -409,7 +409,7 @@ impl SenderServers for Arc<Mutex<Vec<Sender<String>>>> {
 // Needs to be logic checked etc, then wired in.
 // It's a first pass at unifying the listener logic, and can very likely be made into smaller functions.
 // Doing this will help DRY it up more.
-
+#[allow(dead_code)]
 impl SocketListenerServer {
     
     pub(crate) fn new(proto_name: &str, port: &u16, reassembly_window: &f64, socket_type: SocketType) -> Self {
