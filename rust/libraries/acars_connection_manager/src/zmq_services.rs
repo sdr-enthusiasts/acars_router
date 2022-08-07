@@ -66,7 +66,7 @@ impl SenderServer<Publish> {
     pub async fn send_message(mut self) {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
-                match self.socket.send(vec!["", &message]).await {
+                match self.socket.send(vec!["", &format!("{}\n",message)]).await {
                     Ok(_) => (),
                     Err(e) => error!("[TCP SENDER]: Error sending message: {:?}", e),
                 };
