@@ -228,7 +228,7 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
     pub async fn send_message(mut self) {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
-                match self.socket.write_all(message.as_bytes()).await {
+                match self.socket.write_all(format!("{}\n",message).as_bytes()).await {
                     Ok(_) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
                     Err(e) => error!(
                         "[TCP SENDER {}]: Error sending message: {}",
