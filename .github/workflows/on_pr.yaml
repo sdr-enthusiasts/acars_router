@@ -47,7 +47,6 @@ jobs:
           python3 -m pip install zmq
 
       - name: Get binary version from Cargo.toml
-        if: steps.get_cache.outputs.cache-hit == 'true'
         id: release_version
         run: |
           # Get version from Cargo.toml
