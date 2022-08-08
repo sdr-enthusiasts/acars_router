@@ -50,7 +50,7 @@ jobs:
         id: release_version
         run: |
           # Get version from Cargo.toml
-          RELEASE_VERSION=$(cat ./rust/bin/Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
+          RELEASE_VERSION=$(cat ./rust/bin/acars_router/Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
           echo "$RELEASE_VERSION"
 
       - name: Run tests
