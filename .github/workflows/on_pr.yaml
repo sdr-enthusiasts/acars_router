@@ -12,7 +12,7 @@ on:
     # Only run if the PR yaml, Dockerfile, sh, py or rs files have changed
     paths:
       - Dockerfile**
-      - "./github/workflows/on_pr.yml"
+      - "./github/workflows/on_pr.yaml"
       - "**.py"
       - "**.rs"
       - "**.sh"
