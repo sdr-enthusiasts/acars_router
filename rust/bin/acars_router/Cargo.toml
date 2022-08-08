@@ -1,0 +1,22 @@
+[package]
+name = "acars_router"
+version = "1.0.9"
+edition = "2021"
+authors = ["Fred Clausen", "Mike Nye", "Alex Austin"]
+description = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers."
+documentation = "https://github.com/sdr-enthusiasts/acars_router"
+homepage = "https://github.com/sdr-enthusiasts/acars_router"
+repository = "https://github.com/sdr-enthusiasts/acars_router"
+readme = "README.md"
+license = "MIT"
+
+[dependencies]
+log = "0.4.17"
+tokio = { version = "1.20.1", features = ["full", "tracing"] }
+chrono = "0.4.20"
+serde = { version = "1.0.142", features = ["derive"] }
+serde_json = "1.0.83"
+failure = "0.1.8"
+acars_config = { path = "../../libraries/acars_config" }
+acars_logging = { path = "../../libraries/acars_logging" }
+acars_connection_manager = { path = "../../libraries/acars_connection_manager" }

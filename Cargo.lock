@@ -3,24 +3,62 @@
 version = 3
 
 [[package]]
-name = "acars_router"
-version = "1.0.8"
+name = "acars_config"
+version = "1.0.9"
 dependencies = [
- "chrono",
+ "acars_logging",
  "clap",
- "derive-getters",
- "env_logger",
- "failure",
+ "log",
+]
+
+[[package]]
+name = "acars_connection_manager"
+version = "0.1.1"
+dependencies = [
+ "acars_config",
+ "acars_vdlm2_parser",
+ "async-trait",
  "futures",
  "log",
- "serde",
- "serde_json",
  "stubborn-io",
  "tmq",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "zmq",
+]
+
+[[package]]
+name = "acars_logging"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "env_logger",
+ "log",
+]
+
+[[package]]
+name = "acars_router"
+version = "1.0.9"
+dependencies = [
+ "acars_config",
+ "acars_connection_manager",
+ "acars_logging",
+ "chrono",
+ "failure",
+ "log",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "acars_vdlm2_parser"
+version = "0.1.5"
+source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#faf21844a9e8e8d85565764a4b0096b473c89929"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -56,6 +94,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "async-trait"
+version = "0.1.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76464446b8bc32758d7e88ee1a804d9914cd9b1cb264c029899680b0be29826f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -171,17 +220,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
 dependencies = [
  "os_str_bytes",
-]
-
-[[package]]
-name = "derive-getters"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c5905670fd9c320154f3a4a01c9e609733cd7b753f3c58777ab7d5ce26686b3"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
