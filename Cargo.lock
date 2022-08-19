@@ -54,8 +54,8 @@ dependencies = [
 
 [[package]]
 name = "acars_vdlm2_parser"
-version = "0.1.5"
-source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#faf21844a9e8e8d85565764a4b0096b473c89929"
+version = "0.1.6"
+source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#6196d5d421af15403bc19cf28a20883e953a9dbf"
 dependencies = [
  "serde",
  "serde_json",
