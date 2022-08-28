@@ -12,7 +12,7 @@ on:
     # Only run if the PR yaml, Dockerfile, sh, py or rs files have changed
     paths:
       - Dockerfile**
-      - "**on_pr.yml"
+      - "**on_pr.yaml"
       - "**.py"
       - "**.rs"
       - "**.sh"
@@ -45,6 +45,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libzmq3-dev
           python3 -m pip install zmq
+
+      - name: Get binary version from Cargo.toml
+        id: release_version
+        run: |
+          # Get version from Cargo.toml
+          RELEASE_VERSION=$(cat ./rust/bin/acars_router/Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
+          echo "$RELEASE_VERSION"
 
       - name: Run tests
         run: |
