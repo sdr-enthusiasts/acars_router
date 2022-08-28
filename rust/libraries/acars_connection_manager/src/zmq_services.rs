@@ -7,6 +7,7 @@
 
 // NOTE: This is a listener. WE **SUB** to a *PUB* socket.
 
+use acars_vdlm2_parser::AcarsVdlm2Message;
 use futures::StreamExt;
 use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -55,7 +56,7 @@ impl ZMQListnerServer {
 }
 
 impl SenderServer<Publish> {
-    pub(crate) fn new(server_address: &str, name: &str, socket: Publish, channel: Receiver<String>) -> Self {
+    pub(crate) fn new(server_address: &str, name: &str, socket: Publish, channel: Receiver<AcarsVdlm2Message>) -> Self {
         Self {
             host: server_address.to_string(),
             proto_name: name.to_string(),
@@ -66,10 +67,13 @@ impl SenderServer<Publish> {
     pub async fn send_message(mut self) {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
-                match self.socket.send(vec!["", &format!("{}\n",message)]).await {
-                    Ok(_) => (),
-                    Err(e) => error!("[TCP SENDER]: Error sending message: {:?}", e),
-                };
+                match message.to_string_newline() {
+                    Err(decode_error) => error!("[TCP SENDER]: Error parsing message to string: {}", decode_error),
+                    Ok(payload) => match self.socket.send(vec!["", &payload]).await {
+                        Ok(_) => (),
+                        Err(e) => error!("[TCP SENDER]: Error sending message: {:?}", e)
+                    }
+                }
             }
         });
     }

@@ -10,6 +10,7 @@
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use std::io;
 use std::net::SocketAddr;
+use acars_vdlm2_parser::AcarsVdlm2Message;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Sender, Receiver};
 use tokio::time::{sleep, Duration};
@@ -26,7 +27,7 @@ pub(crate) struct UDPSenderServer {
     pub(crate) proto_name: String,
     pub(crate) socket: UdpSocket,
     pub(crate) max_udp_packet_size: usize,
-    pub(crate) channel: Receiver<String>,
+    pub(crate) channel: Receiver<AcarsVdlm2Message>,
 }
 
 impl UDPListenerServer {
@@ -102,7 +103,7 @@ impl UDPSenderServer {
                       server_type: &str,
                       socket: UdpSocket,
                       max_udp_packet_size: &usize,
-                      rx_processed: Receiver<String>) -> Self {
+                      rx_processed: Receiver<AcarsVdlm2Message>) -> Self {
         Self {
             host: send_udp.to_vec(),
             proto_name: server_type.to_string(),
@@ -118,60 +119,45 @@ impl UDPSenderServer {
         // We will send out a configured max amount bytes at a time until the buffer is exhausted
         
         while let Some(message) = self.channel.recv().await {
-            let line_ended_message: String = format!("{}\n", message);
-            let message_as_bytes = line_ended_message.as_bytes();
-            let message_size: usize = message_as_bytes.len();
-            
-            for addr in &self.host {
-                let mut keep_sending: bool = true;
-                let mut buffer_position: usize = 0;
-                let mut buffer_end: usize = match message_as_bytes.len() < self.max_udp_packet_size
-                {
-                    true => message_as_bytes.len(),
-                    false => self.max_udp_packet_size,
-                };
-                
-                while keep_sending {
-                    trace!("[UDP SENDER {}] Sending {buffer_position} to {buffer_end} of {message_size} to {addr}", self.proto_name);
-                    let bytes_sent = self
-                        .socket
-                        .send_to(&message_as_bytes[buffer_position..buffer_end], addr)
-                        .await;
-                    
-                    match bytes_sent {
-                        Ok(bytes_sent) => {
-                            debug!(
-                                "[UDP SENDER {}] sent {} bytes to {}",
-                                self.proto_name, bytes_sent, addr
-                            );
-                        }
-                        Err(e) => {
-                            warn!(
-                                "[UDP SENDER {}] failed to send message to {}: {:?}",
-                                self.proto_name, addr, e
-                            );
-                        }
-                    }
-                    
-                    if buffer_end == message_size {
-                        keep_sending = false;
-                    } else {
-                        buffer_position = buffer_end;
-                        buffer_end = match buffer_position + self.max_udp_packet_size < message_size
-                        {
-                            true => buffer_position + self.max_udp_packet_size,
-                            false => message_size,
+            match message.to_bytes_newline() {
+                Err(bytes_error) => error!("[UDP SENDER {}] Failed to encode to bytes: {}", self.proto_name, bytes_error),
+                Ok(message_as_bytes) => {
+                    let message_size: usize = message_as_bytes.len();
+                    for addr in &self.host {
+                        let mut keep_sending: bool = true;
+                        let mut buffer_position: usize = 0;
+                        let mut buffer_end: usize = match message_as_bytes.len() < self.max_udp_packet_size {
+                            true => message_as_bytes.len(),
+                            false => self.max_udp_packet_size,
                         };
-                        
-                        // Slow the sender down!
-                        sleep(Duration::from_millis(100)).await;
+        
+                        while keep_sending {
+                            trace!("[UDP SENDER {}] Sending {buffer_position} to {buffer_end} of {message_size} to {addr}", self.proto_name);
+                            let bytes_sent = self
+                                .socket
+                                .send_to(&message_as_bytes[buffer_position..buffer_end], addr)
+                                .await;
+            
+                            match bytes_sent {
+                                Ok(bytes_sent) => debug!("[UDP SENDER {}] sent {} bytes to {}", self.proto_name, bytes_sent, addr),
+                                Err(e) => warn!("[UDP SENDER {}] failed to send message to {}: {:?}", self.proto_name, addr, e)
+                            }
+            
+                            if buffer_end == message_size {
+                                keep_sending = false;
+                            } else {
+                                buffer_position = buffer_end;
+                                buffer_end = match buffer_position + self.max_udp_packet_size < message_size {
+                                    true => buffer_position + self.max_udp_packet_size,
+                                    false => message_size,
+                                };
+                
+                                // Slow the sender down!
+                                sleep(Duration::from_millis(100)).await;
+                            }
+                            trace!("[UDP SENDER {}] New buffer start: {}, end: {}", self.proto_name, buffer_position, buffer_end);
+                        }
                     }
-                    trace!(
-                        "[UDP SENDER {}] New buffer start: {}, end: {}",
-                        self.proto_name,
-                        buffer_position,
-                        buffer_end
-                    );
                 }
             }
         }

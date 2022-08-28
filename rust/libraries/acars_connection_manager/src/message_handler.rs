@@ -5,7 +5,6 @@
 // Full license information available in the project LICENSE file.
 //
 
-use std::collections::VecDeque;
 use std::env;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -13,6 +12,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::vec_deque::VecDeque;
 use std::hash::{Hash, Hasher};
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
 use acars_config::Input;
@@ -56,22 +56,22 @@ impl MessageHandlerConfig {
         }
     }
     
-    pub(crate) async fn watch_message_queue(self, mut input_queue: Receiver<String>, output_queue: Sender<String>) {
+    pub(crate) async fn watch_message_queue(self, mut input_queue: Receiver<String>, output_queue: Sender<AcarsVdlm2Message>) {
         let dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>> =
             Arc::new(Mutex::new(VecDeque::with_capacity(100)));
-        let total_messages_processed = Arc::new(Mutex::new(0));
-        let total_messages_since_last = Arc::new(Mutex::new(0));
-        let queue_type_stats = self.queue_type.clone();
-        let queue_type_dedupe = self.queue_type.clone();
-        let stats_every = self.stats_every * 60; // Value has to be in seconds. Input is in minutes.
-        let version = env!("CARGO_PKG_VERSION");
+        let total_messages_processed: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
+        let total_messages_since_last: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
+        let queue_type_stats: String = self.queue_type.clone();
+        let queue_type_dedupe: String = self.queue_type.clone();
+        let stats_every: u64 = self.stats_every * 60; // Value has to be in seconds. Input is in minutes.
+        let version: &str = env!("CARGO_PKG_VERSION");
         
         // Generate an async loop that sleeps for the requested stats print duration and then logs
         // Give it the context for the counters
         // The stats values to the console.
         
-        let stats_total_messages_context = Arc::clone(&total_messages_processed);
-        let stats_total_messages_since_last_context = Arc::clone(&total_messages_since_last);
+        let stats_total_messages_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_processed);
+        let stats_total_messages_since_last_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_since_last);
         
         tokio::spawn(async move {
             print_stats(
@@ -86,8 +86,8 @@ impl MessageHandlerConfig {
         // Give it the context for the dedupe queue
         // The dedupe queue to be cleaned.
         if self.dedupe {
-            let dedupe_queue_context = Arc::clone(&dedupe_queue);
-            let dedupe_window = self.dedupe_window;
+            let dedupe_queue_context: Arc<Mutex<VecDeque<(u64,u64)>>> = Arc::clone(&dedupe_queue);
+            let dedupe_window: u64 = self.dedupe_window;
             
             tokio::spawn(async move {
                 clean_up_dedupe_queue(
@@ -101,9 +101,9 @@ impl MessageHandlerConfig {
         while let Some(message_content) = input_queue.recv().await {
             // Grab the mutexes for the stats counter and increment the total messages processed by the message handler.
             let parse_message: MessageResult<AcarsVdlm2Message> = message_content.decode_message();
-            let stats_total_loop_context = Arc::clone(&total_messages_processed);
-            let stats_total_loop_since_last_context = Arc::clone(&total_messages_since_last);
-            let dedupe_queue_loop = Arc::clone(&dedupe_queue);
+            let stats_total_loop_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_processed);
+            let stats_total_loop_since_last_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_since_last);
+            let dedupe_queue_loop: Arc<Mutex<VecDeque<(u64,u64)>>> = Arc::clone(&dedupe_queue);
             *stats_total_loop_since_last_context.lock().await += 1;
             *stats_total_loop_context.lock().await += 1;
             
@@ -113,12 +113,12 @@ impl MessageHandlerConfig {
                 Err(parse_error) => error!("[Message Handler {}] Failed to parse received message: {}\nReceived: {}", self.queue_type, parse_error, message_content),
                 Ok(mut message) => {
                     
-                    let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+                    let current_time: f64 = match SystemTime::now().duration_since(UNIX_EPOCH) {
                         Ok(n) => n.as_secs_f64(),
                         Err(_) => f64::default(),
                     };
                     
-                    let get_message_time = message.get_time();
+                    let get_message_time: Option<f64> = message.get_time();
                     
                     match get_message_time {
                         None => {
@@ -141,16 +141,16 @@ impl MessageHandlerConfig {
                             }
                             
                             // Time to hash the message
-                            let hash_message = hash_message(message.clone());
+                            let hash_message: MessageResult<u64> = hash_message(message.clone());
                             
                             match hash_message {
                                 Err(hash_parsing_error) => error!("[Message Handler {}] Failed to create hash of message: {}",
                                     self.queue_type, hash_parsing_error),
                                 Ok(hashed_value) => {
                                     if self.dedupe {
-                                        let mut rejected = false;
+                                        let mut rejected: bool = false;
                                         for (time, hashed_value_saved) in dedupe_queue_loop.lock().await.iter() {
-                                            let f64_time = *time as f64;
+                                            let f64_time: f64 = *time as f64;
                                             if *hashed_value_saved == hashed_value && current_time - f64_time < self.dedupe_window as f64
                                             // Both the time and hash have to be equal to reject the message
                                             {
@@ -181,18 +181,22 @@ impl MessageHandlerConfig {
                                     trace!("[Message Handler {}] Hashed value: {}", self.queue_type, hashed_value);
                                     trace!("[Message Handler {}] Final message: {:?}", self.queue_type, message);
                                     
-                                    let parse_final_message: MessageResult<String> = message.to_string();
-                                    match parse_final_message {
-                                        Err(parse_error) => error!("{}", parse_error),
-                                        Ok(final_message) => {
-                                            // Send to the output methods for emitting on the network
-                                            debug!("[Message Handler {}] Message to be sent: {}", self.queue_type, &final_message);
-                                            match output_queue.send(final_message).await {
-                                                Ok(_) => debug!("[Message Handler {}] Message sent to output queue", self.queue_type),
-                                                Err(e) => error!("[Message Handler {}] Error sending message to output queue: {}", self.queue_type, e)
-                                            };
-                                        }
+                                    match output_queue.send(message).await {
+                                        Ok(_) => debug!("[Message Handler {}] Message sent to output queue", self.queue_type),
+                                        Err(e) => error!("[Message Handler {}] Error sending message to output queue: {}", self.queue_type, e)
                                     }
+                                    // let parse_final_message: MessageResult<String> = message.to_string();
+                                    // match parse_final_message {
+                                    //     Err(parse_error) => error!("{}", parse_error),
+                                    //     Ok(final_message) => {
+                                    //         // Send to the output methods for emitting on the network
+                                    //         debug!("[Message Handler {}] Message to be sent: {}", self.queue_type, &final_message);
+                                    //         match output_queue.send(final_message).await {
+                                    //             Ok(_) => debug!("[Message Handler {}] Message sent to output queue", self.queue_type),
+                                    //             Err(e) => error!("[Message Handler {}] Error sending message to output queue: {}", self.queue_type, e)
+                                    //         };
+                                    //     }
+                                    // }
                                 }
                             }
                         }
@@ -253,7 +257,7 @@ fn hash_message(mut message: AcarsVdlm2Message) -> MessageResult<u64> {
     message.clear_noise_level(); // Clears out "vdl2.noise_level"
     message.clear_octets_corrected_by_fec(); // Clears out "vdl2.octets_corrected_by_fec"
     message.clear_sig_level(); // Clears out "vdl2.sig_level"
-    let parse_msg = message.to_string();
+    let parse_msg: MessageResult<String> = message.to_string();
     match parse_msg {
         Err(parse_error) => Err(parse_error),
         Ok(msg) => {

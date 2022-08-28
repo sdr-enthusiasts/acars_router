@@ -9,7 +9,8 @@ use std::sync::Arc;
 use std::io;
 use std::net::{AddrParseError, IpAddr, SocketAddr};
 use std::str::FromStr;
-use tmq::{publish, Context};
+use acars_vdlm2_parser::AcarsVdlm2Message;
+use tmq::{publish, Context, TmqError};
 use tokio::net::{TcpListener, UdpSocket, TcpStream};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{mpsc, Mutex};
@@ -19,6 +20,7 @@ use acars_config::Input;
 use async_trait::async_trait;
 use stubborn_io::tokio::StubbornIo;
 use stubborn_io::StubbornTcpStream;
+use tmq::publish::Publish;
 use tokio::io::BufReader;
 use tokio_util::codec::{Framed, LinesCodec};
 use crate::tcp_services::{TCPListenerServer, TCPServeServer, TCPReceiverServer};
@@ -53,7 +55,7 @@ pub async fn start_processes(args: Input) {
     debug!("Starting input servers");
     // start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
     info!("Starting ACARS input servers");
-    let acars_input_config = OutputServerConfig::new(
+    let acars_input_config: OutputServerConfig = OutputServerConfig::new(
         &args.listen_udp_acars,
         &args.listen_tcp_acars,
         &args.receive_tcp_acars,
@@ -65,7 +67,7 @@ pub async fn start_processes(args: Input) {
         acars_input_config.start_listeners(tx_receivers_acars);
     });
     
-    let vdlm_input_config = OutputServerConfig::new(
+    let vdlm_input_config: OutputServerConfig = OutputServerConfig::new(
         &args.listen_udp_vdlm2,
         &args.listen_tcp_vdlm2,
         &args.receive_tcp_vdlm2,
@@ -94,7 +96,7 @@ pub async fn start_processes(args: Input) {
     });
     
     info!("Starting VDLM Output Servers");
-    let vdlm_output_config = SenderServerConfig::new(
+    let vdlm_output_config: SenderServerConfig = SenderServerConfig::new(
         &args.send_udp_vdlm2,
         &args.send_tcp_vdlm2,
         &args.serve_tcp_vdlm2,
@@ -228,7 +230,7 @@ impl StartHostListeners for Vec<String> {
             let server_host: String = host.to_string();
             let reassembly_window: f64 = *reassembly_window;
             tokio::spawn(async move {
-                let tcp_receiver_server = TCPReceiverServer::new(&server_host, &proto_name, reassembly_window);
+                let tcp_receiver_server: TCPReceiverServer = TCPReceiverServer::new(&server_host, &proto_name, reassembly_window);
                 match tcp_receiver_server.run(new_channel).await {
                     Ok(_) => debug!("{} connection closed", proto_name),
                     Err(e) => error!("{} connection error: {}", proto_name, e),
@@ -279,12 +281,12 @@ impl SenderServerConfig {
         }
     }
     
-    async fn start_senders(self, rx_processed: Receiver<String>, server_type: &str) {
+    async fn start_senders(self, rx_processed: Receiver<AcarsVdlm2Message>, server_type: &str) {
         // Flow is check and see if there are any configured outputs for the queue
         // If so, start it up and save the transmit channel to the list of sender servers.
         // Then start watchers for the input queue
         
-        let sender_servers: Arc<Mutex<Vec<Sender<String>>>> = Arc::new(Mutex::new(Vec::new()));
+        let sender_servers: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> = Arc::new(Mutex::new(Vec::new()));
         
         if let Some(send_udp) = self.send_udp {
             // Start the UDP sender servers for {server_type}
@@ -295,7 +297,7 @@ impl SenderServerConfig {
                     let (tx_processed, rx_processed) = mpsc::channel(32);
                     let udp_sender_server: UDPSenderServer = UDPSenderServer::new(&send_udp, server_type, socket, &self.max_udp_packet_size, rx_processed);
                     
-                    let new_state = Arc::clone(&sender_servers);
+                    let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> = Arc::clone(&sender_servers);
                     new_state.lock().await.push(tx_processed.clone());
                     
                     tokio::spawn(async move {
@@ -307,8 +309,8 @@ impl SenderServerConfig {
         
         if let Some(send_tcp) = self.send_tcp {
             for host in send_tcp {
-                let new_state = Arc::clone(&sender_servers);
-                let s_type = server_type.to_string();
+                let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> = Arc::clone(&sender_servers);
+                let s_type: String = server_type.to_string();
                 tokio::spawn(async move { new_state.start_tcp(&s_type, &host).await });
             }
         }
@@ -316,17 +318,17 @@ impl SenderServerConfig {
         if let Some(serve_tcp) = self.serve_tcp {
             // Start the TCP servers for {server_type}
             for host in serve_tcp {
-                let hostname = format!("0.0.0.0:{}", host);
-                let socket = TcpListener::bind(&hostname).await;
+                let hostname: String = format!("0.0.0.0:{}", host);
+                let socket: Result<TcpListener, io::Error> = TcpListener::bind(&hostname).await;
                 match socket {
                     Err(e) => error!("[TCP SERVE {server_type}]: Error binding to {host}: {e}"),
                     Ok(socket) => {
                         let (tx_processed, rx_processed) = mpsc::channel(32);
                         
-                        let tcp_sender_server = TCPServeServer::new(socket, format!("{} {}", server_type, hostname).as_str());
-                        let new_state = Arc::clone(&sender_servers);
+                        let tcp_sender_server: TCPServeServer = TCPServeServer::new(socket, format!("{} {}", server_type, hostname).as_str());
+                        let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> = Arc::clone(&sender_servers);
                         new_state.lock().await.push(tx_processed.clone());
-                        let state = Arc::new(Mutex::new(Shared::new()));
+                        let state: Arc<Mutex<Shared>> = Arc::new(Mutex::new(Shared::new()));
                         tokio::spawn(async move {
                             tcp_sender_server.watch_for_connections(rx_processed, &state).await;
                         });
@@ -338,15 +340,15 @@ impl SenderServerConfig {
         if let Some(serve_zmq) = self.serve_zmq {
             // Start the ZMQ sender servers for {server_type}
             for port in serve_zmq {
-                let server_address = format!("tcp://127.0.0.1:{}", &port);
-                let name = format!("ZMQ_SENDER_SERVER_{}_{}", server_type, &port);
-                let socket = publish(&Context::new()).bind(&server_address);
-                let new_state = Arc::clone(&sender_servers);
+                let server_address: String = format!("tcp://127.0.0.1:{}", &port);
+                let name: String = format!("ZMQ_SENDER_SERVER_{}_{}", server_type, &port);
+                let socket: Result<Publish, TmqError> = publish(&Context::new()).bind(&server_address);
+                let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> = Arc::clone(&sender_servers);
                 let (tx_processed, rx_processed) = mpsc::channel(32);
                 match socket {
                     Err(e) => error!("Error starting ZMQ {server_type} server on port {port}: {:?}", e),
                     Ok(socket) => {
-                        let zmq_sender_server = SenderServer::new(&server_address, &name, socket, rx_processed);
+                        let zmq_sender_server: SenderServer<Publish> = SenderServer::new(&server_address, &name, socket, rx_processed);
                         new_state.lock().await.push(tx_processed);
                         tokio::spawn(async move {
                             zmq_sender_server.send_message().await;
@@ -356,7 +358,7 @@ impl SenderServerConfig {
             }
         }
         
-        let monitor_state = Arc::clone(&sender_servers);
+        let monitor_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> = Arc::clone(&sender_servers);
         
         monitor_state.monitor(rx_processed, server_type).await;
     }
@@ -364,16 +366,16 @@ impl SenderServerConfig {
 
 #[async_trait]
 trait SenderServers {
-    async fn monitor(self, rx_processed: Receiver<String>, name: &str);
+    async fn monitor(self, rx_processed: Receiver<AcarsVdlm2Message>, name: &str);
     async fn start_tcp(self, socket_type: &str, host: &str);
 }
 
 #[async_trait]
-impl SenderServers for Arc<Mutex<Vec<Sender<String>>>> {
-    async fn monitor(self, mut rx_processed: Receiver<String>, name: &str) {
-        debug!("Starting the {name} Output Queue");
+impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
+    async fn monitor(self, mut rx_processed: Receiver<AcarsVdlm2Message>, name: &str) {
+        debug!("Starting the {} Output Queue", name);
         while let Some(message) = rx_processed.recv().await {
-            debug!("[CHANNEL SENDER {name}] Message received in the output queue. Sending to {name} clients");
+            debug!("[CHANNEL SENDER {name}] Message received in the output queue. Sending to {} clients", name);
             for sender_server in self.lock().await.iter() {
                 match sender_server.send(message.clone()).await {
                     Ok(_) => debug!("[CHANNEL SENDER {name}] Successfully sent the {name} message"),
@@ -385,7 +387,7 @@ impl SenderServers for Arc<Mutex<Vec<Sender<String>>>> {
     
     async fn start_tcp(self, socket_type: &str, host: &str) {
         // Start a TCP sender server for {server_type}
-        let socket = StubbornTcpStream::connect_with_options(host.to_string(), reconnect_options()).await;
+        let socket: Result<StubbornIo<TcpStream, String>, io::Error> = StubbornTcpStream::connect_with_options(host.to_string(), reconnect_options()).await;
         match socket {
             Err(e) => error!("[TCP SENDER {socket_type}]: Error connecting to {host}: {e}"),
             Ok(socket) => {
@@ -422,8 +424,8 @@ impl SocketListenerServer {
     }
     
     pub(crate) async fn run(self, channel: Sender<String>) -> Result<(), Box<dyn std::error::Error>> {
-        let build_ip_address = IpAddr::from_str("0.0.0.0");
-        let build_socket_address = match build_ip_address {
+        let build_ip_address: Result<IpAddr, AddrParseError> = IpAddr::from_str("0.0.0.0");
+        let build_socket_address: Result<SocketAddr, AddrParseError> = match build_ip_address {
             Ok(ip_address) => Ok(SocketAddr::new(ip_address, self.port)),
             Err(ip_parse_error) => Err(ip_parse_error)
         };
@@ -454,7 +456,7 @@ impl SocketListenerServer {
                                                           .process_reassembly(&self.proto_name, &channel, &self.socket_type.to_string()).await;
                                         } else {
                                             for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                                                let final_message = if count == 0 {
+                                                let final_message: String = if count == 0 {
                                                     // First case is the first element, which should only ever need a single closing bracket
                                                     trace!("[{} Receiver Server {}]Multiple messages received in a packet.", self.socket_type.to_string(), self.proto_name);
                                                     format!("{}}}", msg_by_brackets)
@@ -525,7 +527,7 @@ impl SocketListenerServer {
                                             } else {
                                                 // We have a message that was split by brackets if the length is greater than one
                                                 for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                                                    let final_message = if count == 0 {
+                                                    let final_message: String = if count == 0 {
                                                         // First case is the first element, which should only ever need a single closing bracket
                                                         trace!("[{} SERVER: {}] Multiple messages received in a packet.", self.socket_type.to_string(), self.proto_name);
                                                         format!("{}}}", msg_by_brackets)
