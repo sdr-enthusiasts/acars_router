@@ -1,6 +1,6 @@
 [package]
 name = "acars_connection_manager"
-version = "1.0.10"
+version = "0.1.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,5 +15,5 @@ futures = "0.3.23"
 async-trait = "0.1.57"
 zmq = "0.9.2"
 tmq = "0.3.2"
-acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.1.5" }
+acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.1.6" }
 acars_config = { path = "../acars_config" }

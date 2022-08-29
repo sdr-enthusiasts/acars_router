@@ -31,7 +31,7 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
     async fn process_reassembly(&self, proto_name: &str, channel: &Sender<String>, listener_type: &str) {
         match self {
             Some(reassembled_msg) => {
-                let parsed_msg: MessageResult<String> = reassembled_msg.to_string();
+                let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
                 match parsed_msg {
                     Err(parse_error) => error!("{}", parse_error),
                     Ok(msg) => {
@@ -69,7 +69,7 @@ impl PacketHandler {
         }
         
         let mut output_message: Option<AcarsVdlm2Message> = None;
-        let mut message_for_peer = String::new();
+        let mut message_for_peer: String = String::new();
         let mut old_time: Option<f64> = None; // Save the time of the first message for this peer
         
         // TODO: Handle message reassembly for out of sequence messages
@@ -110,7 +110,7 @@ impl PacketHandler {
                 // than the reassembly window. Therefore we use the old_time we grabbed from the queue above, or if it's the first
                 // message we get the current time.
                 
-                let message_queue_time = match old_time {
+                let message_queue_time: f64 = match old_time {
                     Some(t) => t,
                     None => match SystemTime::now().duration_since(UNIX_EPOCH) {
                         Ok(n) => n.as_secs_f64(),
@@ -126,7 +126,7 @@ impl PacketHandler {
     }
     
     pub async fn clean_queue(&self) {
-        let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+        let current_time: f64 = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(n) => n.as_secs_f64(),
             Err(_) => 0.0,
         };
@@ -138,7 +138,7 @@ impl PacketHandler {
         
         self.queue.lock().await.retain(|peer, old_messages| {
             let (time, _) = old_messages;
-            let time_diff = current_time - *time;
+            let time_diff: f64 = current_time - *time;
             if time_diff > self.reassembly_window {
                 debug!("[UDP SERVER {}] Peer {peer} has been idle for {time_diff} seconds, removing from queue", self.name);
                 false

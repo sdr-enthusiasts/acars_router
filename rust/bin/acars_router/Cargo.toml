@@ -1,6 +1,6 @@
 [package]
 name = "acars_router"
-version = "1.0.10"
+version = "1.0.11"
 edition = "2021"
 authors = ["Fred Clausen", "Mike Nye", "Alex Austin"]
 description = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers."
@@ -14,8 +14,8 @@ license = "MIT"
 log = "0.4.17"
 tokio = { version = "1.20.1", features = ["full", "tracing"] }
 chrono = "0.4.22"
-serde = { version = "1.0.143", features = ["derive"] }
-serde_json = "1.0.83"
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0.85"
 failure = "0.1.8"
 acars_config = { path = "../../libraries/acars_config" }
 acars_logging = { path = "../../libraries/acars_logging" }

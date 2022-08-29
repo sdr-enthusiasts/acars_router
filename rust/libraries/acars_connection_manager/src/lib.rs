@@ -23,6 +23,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::net::SocketAddr;
 use std::time::Duration;
+use acars_vdlm2_parser::AcarsVdlm2Message;
 use stubborn_io::ReconnectOptions;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
@@ -41,7 +42,7 @@ pub(crate) struct SenderServer<T> {
     pub(crate) host: String,
     pub(crate) proto_name: String,
     pub(crate) socket: T,
-    pub(crate) channel: Receiver<String>,
+    pub(crate) channel: Receiver<AcarsVdlm2Message>,
 }
 
 #[derive(Debug, Default)]
