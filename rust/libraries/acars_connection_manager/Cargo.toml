@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 stubborn-io = "0.3.1"
 log = "0.4.17"
-tokio = { version = "1.21.0", features = ["full", "tracing"] }
+tokio = { version = "1.21.1", features = ["full", "tracing"] }
 tokio-util = { version = "0.7.4", features = ["full"] }
 tokio-stream = "0.1.9"
 futures = "0.3.24"
