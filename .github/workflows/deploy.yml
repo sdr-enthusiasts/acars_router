@@ -180,7 +180,7 @@ jobs:
         id: release_version
         run: |
           # Get version from Cargo.toml
-          RELEASE_VERSION=$(cat ./rust/bin/acars_router/Cargo.toml | grep '\[package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
+          RELEASE_VERSION=$(cat ./Cargo.toml | grep '\[workspace.package\]' -A9999 | grep -m 1 'version = ' | tr -d " " | tr -d '"' | tr -d "'" | cut -d = -f 2)
           echo "::set-output name=RELEASE_VERSION::$RELEASE_VERSION"
 
       - name: Create binary release
