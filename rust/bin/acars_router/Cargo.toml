@@ -1,14 +1,15 @@
 [package]
 name = "acars_router"
-version = "1.0.11"
-edition = "2021"
-authors = ["Fred Clausen", "Mike Nye", "Alex Austin"]
-description = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers."
-documentation = "https://github.com/sdr-enthusiasts/acars_router"
-homepage = "https://github.com/sdr-enthusiasts/acars_router"
-repository = "https://github.com/sdr-enthusiasts/acars_router"
-readme = "README.md"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 log = "0.4.17"

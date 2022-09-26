@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acars_config"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "acars_logging",
  "clap",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "acars_connection_manager"
-version = "0.1.2"
+version = "1.0.11"
 dependencies = [
  "acars_config",
  "acars_vdlm2_parser",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "acars_logging"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "chrono",
  "env_logger",

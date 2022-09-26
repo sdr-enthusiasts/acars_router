@@ -5,3 +5,15 @@ members = [
     "rust/libraries/acars_logging",
     "rust/libraries/acars_connection_manager"
 ]
+
+[workspace.package]
+edition = "2021"
+version = "1.0.11"
+authors = ["Fred Clausen", "Mike Nye", "Alex Austin"]
+description = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers."
+documentation = "https://github.com/sdr-enthusiasts/acars_router"
+homepage = "https://github.com/sdr-enthusiasts/acars_router"
+repository = "https://github.com/sdr-enthusiasts/acars_router"
+readme = "README.md"
+license = "MIT"
+rust-version = "1.64"
