@@ -5,21 +5,22 @@
 // Full license information available in the project LICENSE file.
 //
 
-#[macro_use] extern crate log;
-extern crate failure;
-extern crate serde_json;
-extern crate serde;
-extern crate chrono;
+#[macro_use]
+extern crate log;
 extern crate acars_config;
-extern crate acars_logging;
 extern crate acars_connection_manager;
+extern crate acars_logging;
+extern crate chrono;
+extern crate failure;
+extern crate serde;
+extern crate serde_json;
 
-use std::error::Error;
-use std::process;
 use acars_config::clap::Parser;
 use acars_config::Input;
 use acars_connection_manager::service_init::start_processes;
 use acars_logging::SetupLogging;
+use std::error::Error;
+use std::process;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

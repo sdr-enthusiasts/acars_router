@@ -1,6 +1,6 @@
+extern crate chrono;
 extern crate env_logger;
 extern crate log;
-extern crate chrono;
 
 use chrono::Local;
 use env_logger::Builder;
@@ -20,7 +20,7 @@ impl SetupLogging for u8 {
             2..=u8::MAX => LevelFilter::Trace,
         }
     }
-    
+
     fn enable_logging(&self) {
         Builder::new()
             .format(|buf, record| {
@@ -40,7 +40,7 @@ impl SetupLogging for u8 {
 #[cfg(test)]
 mod test {
     use super::*;
-    
+
     #[test]
     fn test_set_logging_level() {
         let info_level: u8 = 0;

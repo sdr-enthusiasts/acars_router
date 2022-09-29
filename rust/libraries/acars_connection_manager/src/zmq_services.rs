@@ -7,13 +7,13 @@
 
 // NOTE: This is a listener. WE **SUB** to a *PUB* socket.
 
+use crate::SenderServer;
 use acars_vdlm2_parser::AcarsVdlm2Message;
+use futures::SinkExt;
 use futures::StreamExt;
+use tmq::publish::Publish;
 use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::{Receiver, Sender};
-use futures::SinkExt;
-use tmq::publish::Publish;
-use crate::SenderServer;
 
 pub struct ZMQListnerServer {
     pub host: String,
@@ -24,8 +24,10 @@ impl ZMQListnerServer {
     pub async fn run(self, channel: Sender<String>) -> Result<()> {
         debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
         let address = format!("tcp://{}", self.host);
-        let mut socket = subscribe(&Context::new()).connect(&address)?.subscribe(b"")?;
-        
+        let mut socket = subscribe(&Context::new())
+            .connect(&address)?
+            .subscribe(b"")?;
+
         while let Some(msg) = socket.next().await {
             let message = match msg {
                 Ok(message) => message,
@@ -34,21 +36,31 @@ impl ZMQListnerServer {
                     continue;
                 }
             };
-            
+
             let composed_message = message
                 .iter()
                 .map(|item| item.as_str().unwrap_or("invalid text"))
                 .collect::<Vec<&str>>()
                 .join(" ");
-            trace!("[ZMQ LISTENER SERVER {}] Received: {}", self.proto_name, composed_message);
+            trace!(
+                "[ZMQ LISTENER SERVER {}] Received: {}",
+                self.proto_name,
+                composed_message
+            );
             let stripped = composed_message
                 .strip_suffix("\r\n")
                 .or_else(|| composed_message.strip_suffix('\n'))
                 .unwrap_or(&composed_message);
-            
+
             match channel.send(stripped.to_string()).await {
-                Ok(_) => trace!("[ZMQ LISTENER SERVER {}] Message sent to channel",self.proto_name),
-                Err(e) => error!("[ZMQ LISTENER SERVER {}] Error sending message to channel: {}", self.proto_name, e),
+                Ok(_) => trace!(
+                    "[ZMQ LISTENER SERVER {}] Message sent to channel",
+                    self.proto_name
+                ),
+                Err(e) => error!(
+                    "[ZMQ LISTENER SERVER {}] Error sending message to channel: {}",
+                    self.proto_name, e
+                ),
             }
         }
         Ok(())
@@ -56,7 +68,12 @@ impl ZMQListnerServer {
 }
 
 impl SenderServer<Publish> {
-    pub(crate) fn new(server_address: &str, name: &str, socket: Publish, channel: Receiver<AcarsVdlm2Message>) -> Self {
+    pub(crate) fn new(
+        server_address: &str,
+        name: &str,
+        socket: Publish,
+        channel: Receiver<AcarsVdlm2Message>,
+    ) -> Self {
         Self {
             host: server_address.to_string(),
             proto_name: name.to_string(),
@@ -68,11 +85,14 @@ impl SenderServer<Publish> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 match message.to_string_newline() {
-                    Err(decode_error) => error!("[TCP SENDER]: Error parsing message to string: {}", decode_error),
+                    Err(decode_error) => error!(
+                        "[TCP SENDER]: Error parsing message to string: {}",
+                        decode_error
+                    ),
                     Ok(payload) => match self.socket.send(vec!["", &payload]).await {
                         Ok(_) => (),
-                        Err(e) => error!("[TCP SENDER]: Error sending message: {:?}", e)
-                    }
+                        Err(e) => error!("[TCP SENDER]: Error sending message: {:?}", e),
+                    },
                 }
             }
         });
