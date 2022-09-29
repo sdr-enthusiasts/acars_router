@@ -1,29 +1,29 @@
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
+extern crate acars_config;
+extern crate acars_vdlm2_parser;
+extern crate async_trait;
+extern crate futures;
 extern crate stubborn_io;
+extern crate tmq;
 pub extern crate tokio as tokio;
 extern crate tokio_stream;
 extern crate tokio_util;
-extern crate futures;
-extern crate async_trait;
-extern crate tmq;
 extern crate zmq;
-extern crate acars_vdlm2_parser;
-extern crate acars_config;
 
+pub mod message_handler;
 pub mod packet_handler;
 pub mod service_init;
 pub mod tcp_services;
 pub mod udp_services;
 pub mod zmq_services;
-pub mod message_handler;
 
-
+use acars_vdlm2_parser::AcarsVdlm2Message;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::net::SocketAddr;
 use std::time::Duration;
-use acars_vdlm2_parser::AcarsVdlm2Message;
 use stubborn_io::ReconnectOptions;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
@@ -55,20 +55,20 @@ pub(crate) struct SocketListenerServer {
     pub(crate) proto_name: String,
     pub(crate) port: u16,
     pub(crate) reassembly_window: f64,
-    pub(crate) socket_type: SocketType
+    pub(crate) socket_type: SocketType,
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum SocketType {
     Tcp,
-    Udp
+    Udp,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) enum ServerType {
     Acars,
-    Vdlm2
+    Vdlm2,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -87,7 +87,7 @@ pub(crate) struct OutputServerConfig {
     pub(crate) receive_tcp: Option<Vec<String>>,
     pub(crate) receive_zmq: Option<Vec<String>>,
     pub(crate) reassembly_window: f64,
-    pub(crate) output_server_type: ServerType
+    pub(crate) output_server_type: ServerType,
 }
 
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients
@@ -123,11 +123,11 @@ fn get_our_standard_reconnect_strategy() -> DurationIterator {
         Duration::from_secs(50),
         Duration::from_secs(60),
     ];
-    
+
     let repeat = std::iter::repeat(Duration::from_secs(60));
-    
+
     let forever_iterator = initial_attempts.into_iter().chain(repeat);
-    
+
     Box::new(forever_iterator)
 }
 
@@ -135,7 +135,7 @@ impl fmt::Display for ServerType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             ServerType::Acars => write!(f, "ACARS"),
-            ServerType::Vdlm2 => write!(f, "VDLM")
+            ServerType::Vdlm2 => write!(f, "VDLM"),
         }
     }
 }
@@ -144,7 +144,7 @@ impl fmt::Display for SocketType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             SocketType::Tcp => write!(f, "TCP"),
-            SocketType::Udp => write!(f, "UDP")
+            SocketType::Udp => write!(f, "UDP"),
         }
     }
 }

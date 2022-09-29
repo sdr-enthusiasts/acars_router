@@ -5,17 +5,17 @@
 // Full license information available in the project LICENSE file.
 //
 
+use acars_config::Input;
+use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::vec_deque::VecDeque;
 use std::env;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
-use std::collections::hash_map::DefaultHasher;
-use std::collections::vec_deque::VecDeque;
-use std::hash::{Hash, Hasher};
-use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
-use acars_config::Input;
 
 #[derive(Clone, Debug, Default)]
 pub struct MessageHandlerConfig {
@@ -55,8 +55,12 @@ impl MessageHandlerConfig {
             }
         }
     }
-    
-    pub(crate) async fn watch_message_queue(self, mut input_queue: Receiver<String>, output_queue: Sender<AcarsVdlm2Message>) {
+
+    pub(crate) async fn watch_message_queue(
+        self,
+        mut input_queue: Receiver<String>,
+        output_queue: Sender<AcarsVdlm2Message>,
+    ) {
         let dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>> =
             Arc::new(Mutex::new(VecDeque::with_capacity(100)));
         let total_messages_processed: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
@@ -65,66 +69,76 @@ impl MessageHandlerConfig {
         let queue_type_dedupe: String = self.queue_type.clone();
         let stats_every: u64 = self.stats_every * 60; // Value has to be in seconds. Input is in minutes.
         let version: &str = env!("CARGO_PKG_VERSION");
-        
+
         // Generate an async loop that sleeps for the requested stats print duration and then logs
         // Give it the context for the counters
         // The stats values to the console.
-        
+
         let stats_total_messages_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_processed);
-        let stats_total_messages_since_last_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_since_last);
-        
+        let stats_total_messages_since_last_context: Arc<Mutex<i32>> =
+            Arc::clone(&total_messages_since_last);
+
         tokio::spawn(async move {
             print_stats(
                 stats_total_messages_context,
                 stats_total_messages_since_last_context,
                 stats_every,
                 queue_type_stats.as_str(),
-            ).await;
+            )
+            .await;
         });
-        
+
         // Generate an async loop that sleeps for the requested dedupe window and then cleans the queue
         // Give it the context for the dedupe queue
         // The dedupe queue to be cleaned.
         if self.dedupe {
-            let dedupe_queue_context: Arc<Mutex<VecDeque<(u64,u64)>>> = Arc::clone(&dedupe_queue);
+            let dedupe_queue_context: Arc<Mutex<VecDeque<(u64, u64)>>> = Arc::clone(&dedupe_queue);
             let dedupe_window: u64 = self.dedupe_window;
-            
+
             tokio::spawn(async move {
                 clean_up_dedupe_queue(
                     dedupe_queue_context,
                     dedupe_window,
                     queue_type_dedupe.as_str(),
-                ).await;
+                )
+                .await;
             });
         }
-        
+
         while let Some(message_content) = input_queue.recv().await {
             // Grab the mutexes for the stats counter and increment the total messages processed by the message handler.
             let parse_message: MessageResult<AcarsVdlm2Message> = message_content.decode_message();
             let stats_total_loop_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_processed);
-            let stats_total_loop_since_last_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_since_last);
-            let dedupe_queue_loop: Arc<Mutex<VecDeque<(u64,u64)>>> = Arc::clone(&dedupe_queue);
+            let stats_total_loop_since_last_context: Arc<Mutex<i32>> =
+                Arc::clone(&total_messages_since_last);
+            let dedupe_queue_loop: Arc<Mutex<VecDeque<(u64, u64)>>> = Arc::clone(&dedupe_queue);
             *stats_total_loop_since_last_context.lock().await += 1;
             *stats_total_loop_context.lock().await += 1;
-            
-            trace!("[Message Handler {}] GOT: {:?}", self.queue_type, parse_message);
-            
+
+            trace!(
+                "[Message Handler {}] GOT: {:?}",
+                self.queue_type,
+                parse_message
+            );
+
             match parse_message {
-                Err(parse_error) => error!("[Message Handler {}] Failed to parse received message: {}\nReceived: {}", self.queue_type, parse_error, message_content),
+                Err(parse_error) => error!(
+                    "[Message Handler {}] Failed to parse received message: {}\nReceived: {}",
+                    self.queue_type, parse_error, message_content
+                ),
                 Ok(mut message) => {
-                    
                     let current_time: f64 = match SystemTime::now().duration_since(UNIX_EPOCH) {
                         Ok(n) => n.as_secs_f64(),
                         Err(_) => f64::default(),
                     };
-                    
+
                     let get_message_time: Option<f64> = message.get_time();
-                    
+
                     match get_message_time {
                         None => {
                             error!("[Message Handler {}] Message has no timestamp field. Skipping message.", self.queue_type);
                             continue;
-                        },
+                        }
                         Some(mut message_time) => {
                             if message_time > current_time {
                                 if (message_time - current_time) > self.skew_window as f64 {
@@ -139,19 +153,25 @@ impl MessageHandlerConfig {
                                 error!("[Message Handler {}] Message is {} seconds old. Time in message {}. Skipping message. {}", self.queue_type, current_time - message_time, message_time, self.skew_window);
                                 continue;
                             }
-                            
+
                             // Time to hash the message
                             let hash_message: MessageResult<u64> = hash_message(message.clone());
-                            
+
                             match hash_message {
-                                Err(hash_parsing_error) => error!("[Message Handler {}] Failed to create hash of message: {}",
-                                    self.queue_type, hash_parsing_error),
+                                Err(hash_parsing_error) => error!(
+                                    "[Message Handler {}] Failed to create hash of message: {}",
+                                    self.queue_type, hash_parsing_error
+                                ),
                                 Ok(hashed_value) => {
                                     if self.dedupe {
                                         let mut rejected: bool = false;
-                                        for (time, hashed_value_saved) in dedupe_queue_loop.lock().await.iter() {
+                                        for (time, hashed_value_saved) in
+                                            dedupe_queue_loop.lock().await.iter()
+                                        {
                                             let f64_time: f64 = *time as f64;
-                                            if *hashed_value_saved == hashed_value && current_time - f64_time < self.dedupe_window as f64
+                                            if *hashed_value_saved == hashed_value
+                                                && current_time - f64_time
+                                                    < self.dedupe_window as f64
                                             // Both the time and hash have to be equal to reject the message
                                             {
                                                 info!("[Message Handler {}] Message is a duplicate. Skipping message.", self.queue_type);
@@ -159,28 +179,49 @@ impl MessageHandlerConfig {
                                                 break;
                                             }
                                         }
-                                        
+
                                         if rejected {
                                             continue;
                                         } else {
-                                            dedupe_queue_loop.lock().await.push_back((message_time as u64, hashed_value));
+                                            dedupe_queue_loop
+                                                .lock()
+                                                .await
+                                                .push_back((message_time as u64, hashed_value));
                                         }
                                     }
-                                    
+
                                     if self.should_override_station_name {
-                                        trace!("[Message Handler {}] Overriding station name to {}", self.queue_type, self.station_name);
+                                        trace!(
+                                            "[Message Handler {}] Overriding station name to {}",
+                                            self.queue_type,
+                                            self.station_name
+                                        );
                                         message.set_station_name(&self.station_name);
                                     }
-                                    
+
                                     if self.add_proxy_id {
-                                        trace!("[Message Handler {}] Adding proxy_id to message", self.queue_type);
+                                        trace!(
+                                            "[Message Handler {}] Adding proxy_id to message",
+                                            self.queue_type
+                                        );
                                         message.set_proxy_details("acars_router", version);
                                     }
-                                    
-                                    debug!("[Message Handler {}] SENDING: {:?}", self.queue_type, message);
-                                    trace!("[Message Handler {}] Hashed value: {}", self.queue_type, hashed_value);
-                                    trace!("[Message Handler {}] Final message: {:?}", self.queue_type, message);
-                                    
+
+                                    debug!(
+                                        "[Message Handler {}] SENDING: {:?}",
+                                        self.queue_type, message
+                                    );
+                                    trace!(
+                                        "[Message Handler {}] Hashed value: {}",
+                                        self.queue_type,
+                                        hashed_value
+                                    );
+                                    trace!(
+                                        "[Message Handler {}] Final message: {:?}",
+                                        self.queue_type,
+                                        message
+                                    );
+
                                     match output_queue.send(message).await {
                                         Ok(_) => debug!("[Message Handler {}] Message sent to output queue", self.queue_type),
                                         Err(e) => error!("[Message Handler {}] Error sending message to output queue: {}", self.queue_type, e)
@@ -222,7 +263,11 @@ pub async fn print_stats(
     }
 }
 
-pub async fn clean_up_dedupe_queue(dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>>, dedupe_window: u64, queue_type: &str) {
+pub async fn clean_up_dedupe_queue(
+    dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>>,
+    dedupe_window: u64,
+    queue_type: &str,
+) {
     loop {
         sleep(Duration::from_secs(dedupe_window)).await;
         // Remove old messages from the dedupe_queue
@@ -232,14 +277,18 @@ pub async fn clean_up_dedupe_queue(dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>
                 Ok(n) => n.as_secs(),
                 Err(_) => 0,
             };
-            
+
             dedupe_queue.lock().await.retain(|message| {
                 let (timestamp, _) = message;
                 let diff = current_time - timestamp;
                 diff <= dedupe_window
             });
-            
-            debug!("[Message Handler {}] dedupe queue size after pruning {}", queue_type, dedupe_queue.lock().await.len());
+
+            debug!(
+                "[Message Handler {}] dedupe queue size after pruning {}",
+                queue_type,
+                dedupe_queue.lock().await.len()
+            );
         }
     }
 }

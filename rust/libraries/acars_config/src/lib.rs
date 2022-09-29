@@ -1,14 +1,15 @@
 pub extern crate clap as clap;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate acars_logging;
 
 pub mod sanity_checker;
 
-use clap::Parser;
 use acars_logging::SetupLogging;
+use clap::Parser;
 
 #[derive(Parser, Debug, Clone, Default)]
-#[clap(name = "ACARS Router", author, version, about, long_about = None)]
+#[command(name = "ACARS Router", author, version, about, long_about = None)]
 pub struct Input {
     // Output Options
     /// Set the log level. debug, trace, info are valid options.
@@ -25,7 +26,12 @@ pub struct Input {
     #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "1")]
     pub skew_window: u64,
     /// Set maximum UDP packet size, peer-to-peer.
-    #[clap(long, env = "AR_MAX_UDP_PACKET_SIZE", value_parser, default_value = "60000")]
+    #[clap(
+        long,
+        env = "AR_MAX_UDP_PACKET_SIZE",
+        value_parser,
+        default_value = "60000"
+    )]
     pub max_udp_packet_size: u64,
     // Message Modification
     /// Set to true to enable message modification
@@ -39,10 +45,15 @@ pub struct Input {
     #[clap(long, env = "AR_STATS_EVERY", value_parser, default_value = "5")]
     pub stats_every: u64,
     /// Attempt message reassembly on incomplete messages within the specified number of seconds
-    #[clap(long, env = "AR_REASSEMBLY_WINDOW", value_parser, default_value = "1.0")]
+    #[clap(
+        long,
+        env = "AR_REASSEMBLY_WINDOW",
+        value_parser,
+        default_value = "1.0"
+    )]
     pub reassembly_window: f64,
     // Input Options
-    
+
     // ACARS
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
@@ -56,7 +67,7 @@ pub struct Input {
     /// Semi-Colon separated list of arguments. io host:5550;host:5551;host:5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_zmq_acars: Option<Vec<String>>,
-    
+
     // VDLM2
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     #[clap(long, value_parser, value_delimiter = ';')]
@@ -128,7 +139,7 @@ impl Input {
         debug!("AR_MAX_UDP_PACKET_SIZE: {:?}", self.max_udp_packet_size);
         debug!("AR_REASSEMBLY_WINDOW: {:?}", self.reassembly_window);
     }
-    
+
     pub fn acars_configured(&self) -> bool {
         self.receive_tcp_acars.is_some()
             || self.listen_udp_acars.is_some()
@@ -139,7 +150,7 @@ impl Input {
             || self.serve_tcp_acars.is_some()
             || self.serve_zmq_acars.is_some()
     }
-    
+
     pub fn vdlm_configured(&self) -> bool {
         self.receive_tcp_vdlm2.is_some()
             || self.listen_udp_vdlm2.is_some()
