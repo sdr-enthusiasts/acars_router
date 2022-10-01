@@ -89,27 +89,19 @@ impl SenderServer<Publish> {
                         "[ZMQ SENDER]: Error parsing message to string: {}",
                         decode_error
                     ),
-                    Ok(payload) => {
-                        // For some Subscribers it appears that a "blank" topic causes it to never receive the message
-                        // So we will send the message twice...once with a generic topic of "acars" and another with a blank topic
-                        // This needs more investigation...
-                        // TODO: See if we need this hack at all AND if this hack breaks Subs who are monitoring the blank topic.
-
-                        match self.socket.send(vec!["acars", &payload]).await {
-                            Ok(_) => (),
-                            Err(e) => error!(
-                                "[ZMQ SENDER]: Error sending message on 'acars' topic: {:?}",
-                                e
-                            ),
-                        }
-
-                        match self.socket.send(vec!["", &payload]).await {
-                            Ok(_) => (),
-                            Err(e) => {
-                                error!("[ZMQ SENDER]: Error sending message on '' topic: {:?}", e)
-                            }
-                        }
-                    }
+                    // For some Subscribers it appears that a "blank" topic causes it to never receive the message
+                    // This needs more investigation...
+                    // Right now it seems that any Sub who listens to the blank topic gets all of the messages, even
+                    // if they aren't sub'd to the topic we're broadcasting on. This should fix the issue with moronic (hello node)
+                    // zmq implementations not getting the message if the topic is blank.
+                    // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
+                    Ok(payload) => match self.socket.send(vec!["acars", &payload]).await {
+                        Ok(_) => (),
+                        Err(e) => error!(
+                            "[ZMQ SENDER]: Error sending message on 'acars' topic: {:?}",
+                            e
+                        ),
+                    },
                 }
             }
         });
