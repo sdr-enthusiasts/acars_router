@@ -105,10 +105,9 @@ impl SenderServer<Publish> {
 
                         match self.socket.send(vec!["", &payload]).await {
                             Ok(_) => (),
-                            Err(e) => error!(
-                                "[ZMQ SENDER]: Error sending message on 'acars' topic: {:?}",
-                                e
-                            ),
+                            Err(e) => {
+                                error!("[ZMQ SENDER]: Error sending message on '' topic: {:?}", e)
+                            }
                         }
                     }
                 }
