@@ -86,12 +86,21 @@ impl SenderServer<Publish> {
             while let Some(message) = self.channel.recv().await {
                 match message.to_string_newline() {
                     Err(decode_error) => error!(
-                        "[TCP SENDER]: Error parsing message to string: {}",
+                        "[ZMQ SENDER]: Error parsing message to string: {}",
                         decode_error
                     ),
-                    Ok(payload) => match self.socket.send(vec!["", &payload]).await {
+                    // For some Subscribers it appears that a "blank" topic causes it to never receive the message
+                    // This needs more investigation...
+                    // Right now it seems that any Sub who listens to the blank topic gets all of the messages, even
+                    // if they aren't sub'd to the topic we're broadcasting on. This should fix the issue with moronic (hello node)
+                    // zmq implementations not getting the message if the topic is blank.
+                    // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
+                    Ok(payload) => match self.socket.send(vec!["acars", &payload]).await {
                         Ok(_) => (),
-                        Err(e) => error!("[TCP SENDER]: Error sending message: {:?}", e),
+                        Err(e) => error!(
+                            "[ZMQ SENDER]: Error sending message on 'acars' topic: {:?}",
+                            e
+                        ),
                     },
                 }
             }

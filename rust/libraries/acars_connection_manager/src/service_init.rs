@@ -354,7 +354,7 @@ impl SenderServerConfig {
 
         if let Some(send_udp) = self.send_udp {
             // Start the UDP sender servers for {server_type}
-
+            info!("Starting {} UDP Sender", server_type);
             match UdpSocket::bind("0.0.0.0:0".to_string()).await {
                 Err(e) => error!("[{}] Failed to start UDP sender server: {}", server_type, e),
                 Ok(socket) => {
@@ -383,6 +383,7 @@ impl SenderServerConfig {
                 let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
                 let s_type: String = server_type.to_string();
+                info!("Starting {} TCP Sender {} ", server_type, host);
                 tokio::spawn(async move { new_state.start_tcp(&s_type, &host).await });
             }
         }
@@ -392,6 +393,7 @@ impl SenderServerConfig {
             for host in serve_tcp {
                 let hostname: String = format!("0.0.0.0:{}", host);
                 let socket: Result<TcpListener, io::Error> = TcpListener::bind(&hostname).await;
+                info!("Starting {} TCP Server {} ", server_type, hostname);
                 match socket {
                     Err(e) => error!("[TCP SERVE {server_type}]: Error binding to {host}: {e}"),
                     Ok(socket) => {
@@ -418,13 +420,14 @@ impl SenderServerConfig {
         if let Some(serve_zmq) = self.serve_zmq {
             // Start the ZMQ sender servers for {server_type}
             for port in serve_zmq {
-                let server_address: String = format!("tcp://127.0.0.1:{}", &port);
+                let server_address: String = format!("tcp://0.0.0.0:{}", &port);
                 let name: String = format!("ZMQ_SENDER_SERVER_{}_{}", server_type, &port);
                 let socket: Result<Publish, TmqError> =
                     publish(&Context::new()).bind(&server_address);
                 let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
                 let (tx_processed, rx_processed) = mpsc::channel(32);
+                info!("Starting {}", name);
                 match socket {
                     Err(e) => error!(
                         "Error starting ZMQ {server_type} server on port {port}: {:?}",

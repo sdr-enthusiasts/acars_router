@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acars_config"
-version = "1.0.12"
+version = "1.0.13"
 dependencies = [
  "acars_logging",
  "clap",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "acars_connection_manager"
-version = "1.0.12"
+version = "1.0.13"
 dependencies = [
  "acars_config",
  "acars_vdlm2_parser",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "acars_logging"
-version = "1.0.12"
+version = "1.0.13"
 dependencies = [
  "chrono",
  "env_logger",
@@ -39,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "acars_router"
-version = "1.0.12"
+version = "1.0.13"
 dependencies = [
  "acars_config",
  "acars_connection_manager",
@@ -54,9 +54,10 @@ dependencies = [
 
 [[package]]
 name = "acars_vdlm2_parser"
-version = "0.1.11"
-source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#28fadf1206bf8f1c9961a528b7a9d9d83e5f1e3b"
+version = "0.1.13"
+source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#8c6d472601177af719083c4c2c53a55cbf26e52f"
 dependencies = [
+ "log",
  "serde",
  "serde_json",
 ]
