@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acars_config"
-version = "1.0.13"
+version = "1.0.14"
 dependencies = [
  "acars_logging",
  "clap",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "acars_connection_manager"
-version = "1.0.13"
+version = "1.0.14"
 dependencies = [
  "acars_config",
  "acars_vdlm2_parser",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "acars_logging"
-version = "1.0.13"
+version = "1.0.14"
 dependencies = [
  "chrono",
  "env_logger",
@@ -39,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "acars_router"
-version = "1.0.13"
+version = "1.0.14"
 dependencies = [
  "acars_config",
  "acars_connection_manager",
@@ -54,8 +54,8 @@ dependencies = [
 
 [[package]]
 name = "acars_vdlm2_parser"
-version = "0.1.13"
-source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#8c6d472601177af719083c4c2c53a55cbf26e52f"
+version = "0.1.14"
+source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#3aa1a213944b237004ba23f1df4e621d58e3218b"
 dependencies = [
  "log",
  "serde",
@@ -196,9 +196,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.2"
+version = "4.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31c9484ccdc4cb8e7b117cbd0eb150c7c0f04464854e4679aeb50ef03b32d003"
+checksum = "4ed45cc2c62a3eff523e718d8576ba762c83a3146151093283ac62ae11933a73"
 dependencies = [
  "atty",
  "bitflags",
@@ -211,9 +211,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.0.1"
+version = "4.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca689d7434ce44517a12a89456b2be4d1ea1cafcd8f581978c03d45f5a5c12a7"
+checksum = "db342ce9fda24fb191e2ed4e102055a4d381c1086a06630174cd8da8d5d917ce"
 dependencies = [
  "heck",
  "proc-macro-error",
