@@ -14,18 +14,25 @@ extern crate chrono;
 extern crate failure;
 extern crate serde;
 extern crate serde_json;
+extern crate acars_metrics;
 
 use acars_config::clap::Parser;
 use acars_config::Input;
 use acars_connection_manager::service_init::start_processes;
 use acars_logging::SetupLogging;
+use acars_metrics::SetupMetrics;
 use std::error::Error;
+use std::net::SocketAddr;
 use std::process;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Input = Input::parse();
     args.verbose.enable_logging();
+    match args.disable_metrics {
+        true => info!("Outputting of metrics has been disabled."),
+        false => args.metrics_address.parse::<SocketAddr>().enable_metrics()
+    }
     match args.check_config_option_sanity() {
         Ok(_) => {
             trace!("Config options are sane");

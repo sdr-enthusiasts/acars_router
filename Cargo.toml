@@ -4,6 +4,7 @@ members = [
     "rust/libraries/acars_config",
     "rust/libraries/acars_logging",
     "rust/libraries/acars_connection_manager",
+    "rust/libraries/acars_metrics"
 ]
 
 [workspace.package]

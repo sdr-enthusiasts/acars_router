@@ -2,6 +2,7 @@
 extern crate log;
 extern crate acars_config;
 extern crate acars_vdlm2_parser;
+extern crate acars_metrics;
 extern crate async_trait;
 extern crate futures;
 extern crate stubborn_io;
@@ -17,6 +18,7 @@ pub mod service_init;
 pub mod tcp_services;
 pub mod udp_services;
 pub mod zmq_services;
+mod metrics_handler;
 
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use std::collections::HashMap;
@@ -50,23 +52,25 @@ pub(crate) struct Shared {
     pub(crate) peers: HashMap<SocketAddr, Tx>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct SocketListenerServer {
-    pub(crate) proto_name: String,
+    pub(crate) proto_name: ServerType,
     pub(crate) port: u16,
     pub(crate) reassembly_window: f64,
     pub(crate) socket_type: SocketType,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub(crate) enum SocketType {
+#[derive(Debug, Clone, Copy, Default)]
+pub enum SocketType {
+    #[default]
     Tcp,
     Udp,
 }
 
-#[derive(Debug, Clone)]
-pub(crate) enum ServerType {
+#[derive(Debug, Clone, Copy, Default)]
+pub enum ServerType {
+    #[default]
     Acars,
     Vdlm2,
 }

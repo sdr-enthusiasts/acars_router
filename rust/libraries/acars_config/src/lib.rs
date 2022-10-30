@@ -15,6 +15,12 @@ pub struct Input {
     /// Set the log level. debug, trace, info are valid options.
     #[clap(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
+    /// Disable the prometheus metrics web-server from being started.
+    #[clap(long, env = "AR_DISABLE_METRICS")]
+    pub disable_metrics: bool,
+    /// Set the address and port to listen on for outputting prometheus metrics.
+    #[clap(long, env, value_parser, default_value = "0.0.0.0:9090")]
+    pub metrics_address: String,
     /// Enable message deduplication
     #[clap(long, env = "AR_ENABLE_DEDUPE", value_parser)]
     pub enable_dedupe: bool,

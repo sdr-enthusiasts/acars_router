@@ -21,3 +21,4 @@ failure = "0.1.8"
 acars_config = { path = "../../libraries/acars_config" }
 acars_logging = { path = "../../libraries/acars_logging" }
 acars_connection_manager = { path = "../../libraries/acars_connection_manager" }
+acars_metrics = { path = "../../libraries/acars_metrics" }

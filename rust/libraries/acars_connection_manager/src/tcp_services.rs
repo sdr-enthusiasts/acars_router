@@ -14,138 +14,39 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use stubborn_io::tokio::StubbornIo;
 use stubborn_io::StubbornTcpStream;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, Mutex, MutexGuard};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
+use acars_metrics::MessageDestination;
 
-use crate::packet_handler::{PacketHandler, ProcessAssembly};
-use crate::{reconnect_options, Rx, SenderServer, Shared};
+use crate::packet_handler::PacketHandler;
+use crate::{reconnect_options, Rx, SenderServer, ServerType, Shared, SocketType};
+use crate::message_handler::ProcessSocketListenerMessages;
 
-pub(crate) struct TCPListenerServer {
-    pub(crate) proto_name: String,
-    pub(crate) reassembly_window: f64,
-}
-
-impl TCPListenerServer {
-    pub(crate) fn new(proto_name: &str, reassembly_window: &f64) -> Self {
-        Self {
-            proto_name: proto_name.to_string(),
-            reassembly_window: *reassembly_window,
-        }
-    }
-
-    pub(crate) async fn run(
-        self,
-        listen_acars_udp_port: String,
-        channel: Sender<String>,
-    ) -> Result<(), io::Error> {
-        let listener: TcpListener =
-            TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
-        info!(
-            "[TCP Listener SERVER: {}]: Listening on: {}",
-            self.proto_name,
-            listener.local_addr()?
-        );
-
-        loop {
-            trace!(
-                "[TCP Listener SERVER: {}]: Waiting for connection",
-                self.proto_name
-            );
-            // Asynchronously wait for an inbound TcpStream.
-            let (stream, addr) = listener.accept().await?;
-            let new_channel = channel.clone();
-            let new_proto_name = format!("{}:{}", self.proto_name, addr);
-            info!(
-                "[TCP Listener SERVER: {}]:accepted connection from {}",
-                self.proto_name, addr
-            );
-            // Spawn our handler to be run asynchronously.
-            tokio::spawn(async move {
-                match process_tcp_sockets(
-                    stream,
-                    &new_proto_name,
-                    new_channel,
-                    addr,
-                    self.reassembly_window,
-                )
-                .await
-                {
-                    Ok(_) => debug!(
-                        "[TCP Listener SERVER: {}] connection closed",
-                        new_proto_name
-                    ),
-                    Err(e) => error!(
-                        "[TCP Listener SERVER: {}] connection error: {}",
-                        new_proto_name.clone(),
-                        e
-                    ),
-                };
-            });
-        }
-    }
-}
-
-async fn process_tcp_sockets(
+pub(crate) async fn process_tcp_sockets(
     stream: TcpStream,
-    proto_name: &str,
+    proto_name: ServerType,
+    logging_entity: &str,
     channel: Sender<String>,
     peer: SocketAddr,
     reassembly_window: f64,
 ) -> Result<(), Box<dyn Error>> {
-    let mut lines = Framed::new(stream, LinesCodec::new_with_max_length(8000));
+    let mut lines: Framed<TcpStream, LinesCodec> = Framed::new(stream, LinesCodec::new_with_max_length(8000));
 
-    let packet_handler = PacketHandler::new(proto_name, reassembly_window);
+    let packet_handler: PacketHandler = PacketHandler::new(logging_entity, reassembly_window);
 
     while let Some(Ok(line)) = lines.next().await {
-        let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
-
-        for msg_by_newline in split_messages_by_newline {
-            let split_messages_by_brackets: Vec<&str> =
-                msg_by_newline.split_terminator("}{").collect();
-            if split_messages_by_brackets.len().eq(&1) {
-                packet_handler
-                    .attempt_message_reassembly(split_messages_by_brackets[0].to_string(), peer)
-                    .await
-                    .process_reassembly(proto_name, &channel, "TCP")
-                    .await;
-            } else {
-                // We have a message that was split by brackets if the length is greater than one
-                for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                    let final_message = if count == 0 {
-                        // First case is the first element, which should only ever need a single closing bracket
-                        trace!(
-                            "[TCP Listener SERVER: {}] Multiple messages received in a packet.",
-                            proto_name
-                        );
-                        format!("{}}}", msg_by_brackets)
-                    } else if count == split_messages_by_brackets.len() - 1 {
-                        // This case is for the last element, which should only ever need a single opening bracket
-                        trace!(
-                            "[TCP Listener SERVER: {}] End of a multiple message packet",
-                            proto_name
-                        );
-                        format!("{{{}", msg_by_brackets)
-                    } else {
-                        // This case is for any middle elements, which need both an opening and closing bracket
-                        trace!(
-                            "[TCP Listener SERVER: {}] Middle of a multiple message packet",
-                            proto_name
-                        );
-                        format!("{{{}}}", msg_by_brackets)
-                    };
-                    packet_handler
-                        .attempt_message_reassembly(final_message, peer)
-                        .await
-                        .process_reassembly(proto_name, &channel, "TCP")
-                        .await;
-                }
-            }
-        }
+        
+        line.split_terminator('\n')
+            .collect::<Vec<&str>>()
+            .process_messages(&packet_handler, &peer, &channel,
+                              &logging_entity, SocketType::Tcp, proto_name)
+            .await;
+        
     }
 
     Ok(())
@@ -153,40 +54,40 @@ async fn process_tcp_sockets(
 
 pub struct TCPReceiverServer {
     pub host: String,
-    pub proto_name: String,
+    pub logging_identifier: String,
+    pub proto_name: ServerType,
     pub reassembly_window: f64,
 }
 
 impl TCPReceiverServer {
-    pub(crate) fn new(server_host: &str, proto_name: &str, reassembly_window: f64) -> Self {
+    pub(crate) fn new(server_host: &str, proto_name: ServerType, reassembly_window: f64) -> Self {
         Self {
             host: server_host.to_string(),
-            proto_name: proto_name.to_string(),
+            logging_identifier: format!("{}_TCP_RECEIVER_{}", proto_name, server_host),
+            proto_name,
             reassembly_window,
         }
     }
 
     pub async fn run(self, channel: Sender<String>) -> Result<(), Box<dyn Error>> {
-        trace!("[TCP Receiver Server {}] Starting", self.proto_name);
+        trace!("[TCP Receiver Server {}] Starting", self.logging_identifier);
         // create a SocketAddr from host
-        let addr = match self.host.parse::<SocketAddr>() {
+        let addr: SocketAddr = match self.host.parse::<SocketAddr>() {
             Ok(addr) => addr,
             Err(e) => {
-                error!(
-                    "[TCP Receiver Server {}] Error parsing host: {}",
-                    self.proto_name, e
-                );
+                error!("[TCP Receiver Server {}] Error parsing host: {}",
+                    self.logging_identifier, e);
                 return Ok(());
             }
         };
 
-        let stream = match StubbornTcpStream::connect_with_options(addr, reconnect_options()).await
+        let stream: StubbornIo<TcpStream, SocketAddr> = match StubbornTcpStream::connect_with_options(addr, reconnect_options()).await
         {
             Ok(stream) => stream,
             Err(e) => {
                 error!(
                     "[TCP Receiver Server {}] Error connecting to {}: {}",
-                    self.proto_name, self.host, e
+                    self.logging_identifier, self.host, e
                 );
                 Err(e)?
             }
@@ -194,74 +95,17 @@ impl TCPReceiverServer {
 
         // create a buffered reader and send the messages to the channel
 
-        let reader = tokio::io::BufReader::new(stream);
-        let mut lines = Framed::new(reader, LinesCodec::new());
-        let packet_handler = PacketHandler::new(&self.proto_name, self.reassembly_window);
+        let reader: BufReader<StubbornIo<TcpStream, SocketAddr>> = BufReader::new(stream);
+        let mut lines: Framed<BufReader<StubbornIo<TcpStream, SocketAddr>>, LinesCodec> = Framed::new(reader, LinesCodec::new());
+        let packet_handler: PacketHandler = PacketHandler::new(&self.logging_identifier, self.reassembly_window);
 
         while let Some(Ok(line)) = lines.next().await {
             // Clean up the line endings. This is probably unnecessary but it's here for safety.
-            let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
-
-            for msg_by_newline in split_messages_by_newline {
-                let split_messages_by_brackets: Vec<&str> =
-                    msg_by_newline.split_terminator("}{").collect();
-
-                for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                    let final_message: String;
-                    // FIXME: This feels very non-rust idomatic and is ugly
-
-                    // Our message had no brackets, so we can just send it
-                    if split_messages_by_brackets.len() == 1 {
-                        final_message = msg_by_brackets.to_string();
-                    }
-                    // We have a message that was split by brackets if the length is greater than one
-                    // First case is the first element, which should only ever need a single closing bracket
-                    else if count == 0 {
-                        trace!(
-                            "[TCP Receiver Server {}]Multiple messages received in a packet.",
-                            self.proto_name
-                        );
-                        final_message = format!("{}{}", "}", msg_by_brackets);
-                    } else if count == split_messages_by_brackets.len() - 1 {
-                        // This case is for the last element, which should only ever need a single opening bracket
-                        trace!(
-                            "[TCP Receiver Server {}] End of a multiple message packet",
-                            self.proto_name
-                        );
-                        final_message = format!("{}{}", "{", msg_by_brackets);
-                    } else {
-                        // This case is for any middle elements, which need both an opening and closing bracket
-                        trace!(
-                            "[TCP Receiver Server {}] Middle of a multiple message packet",
-                            self.proto_name
-                        );
-                        final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
-                    }
-                    match packet_handler
-                        .attempt_message_reassembly(final_message, addr)
-                        .await
-                    {
-                        Some(encoded_msg) => {
-                            let parse_msg = encoded_msg.to_string();
-                            match parse_msg {
-                                Err(parse_error) => error!("{}", parse_error),
-                                Ok(msg) => {
-                                    trace!(
-                                        "[TCP Receiver Server {}] Received message: {}",
-                                        self.proto_name,
-                                        msg
-                                    );
-                                    match channel.send(msg).await {
-                                        Ok(_) => trace!("[TCP SERVER {}] Message sent to channel", self.proto_name),
-                                        Err(e) => error!("[TCP Receiver Server {}]Error sending message to channel: {}", self.proto_name, e)
-                                    }
-                                }
-                            }
-                        }
-                        None => trace!("[TCP Receiver Server {}] Invalid Message", self.proto_name),
-                    }
-                }
-            }
+            
+            line.split_terminator('\n')
+                .collect::<Vec<&str>>()
+                .process_messages(&packet_handler, &addr, &channel, &self.logging_identifier,
+                                  SocketType::Tcp, self.proto_name).await;
         }
 
         Ok(())
@@ -292,7 +136,8 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
 
 pub struct TCPServeServer {
     pub socket: TcpListener,
-    pub proto_name: String,
+    pub logging_identifier: String,
+    pub proto_name: ServerType,
 }
 
 /// The state for each connected client.
@@ -321,9 +166,10 @@ impl Shared {
 
     /// Send a `LineCodec` encoded message to every peer, except
     /// for the sender.
-    async fn broadcast(&mut self, message: &str) {
+    async fn broadcast(&mut self, proto_name: ServerType, message: &str) {
         for peer in self.peers.iter_mut() {
             let _ = peer.1.send(message.into());
+            proto_name.inc_message_destination_type_metric(MessageDestination::ServeTcp);
         }
     }
 }
@@ -348,10 +194,11 @@ impl Peer {
 }
 
 impl TCPServeServer {
-    pub(crate) fn new(socket: TcpListener, proto_name: &str) -> Self {
+    pub(crate) fn new(socket: TcpListener, logging_identifier: &str, proto_name: ServerType) -> Self {
         Self {
             socket,
-            proto_name: proto_name.to_string(),
+            logging_identifier: logging_identifier.to_string(),
+            proto_name,
         }
     }
     pub(crate) async fn watch_for_connections(
@@ -360,9 +207,9 @@ impl TCPServeServer {
         state: &Arc<Mutex<Shared>>,
     ) {
         let new_state: Arc<Mutex<Shared>> = Arc::clone(state);
-        tokio::spawn(async move { handle_message(new_state, channel).await });
+        tokio::spawn(async move { handle_message(new_state, channel, self.proto_name).await });
         loop {
-            let new_proto: String = self.proto_name.to_string();
+            let new_proto: String = self.logging_identifier.to_string();
             match self.socket.accept().await {
                 Ok((stream, addr)) => {
                     // Clone a handle to the `Shared` state for the new connection.
@@ -388,15 +235,14 @@ impl TCPServeServer {
     }
 }
 
-async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<AcarsVdlm2Message>) {
+async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<AcarsVdlm2Message>, proto_name: ServerType) {
     loop {
         if let Some(received_message) = channel.recv().await {
-            // state.lock().await.broadcast(&format!("{}\n",received_message)).await;
             match received_message.to_string_newline() {
                 Err(message_parse_error) => {
                     error!("Failed to parse message to string: {}", message_parse_error)
                 }
-                Ok(message) => state.lock().await.broadcast(&message).await,
+                Ok(message) => state.lock().await.broadcast(proto_name, &message).await,
             }
         }
     }
