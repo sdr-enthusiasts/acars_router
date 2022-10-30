@@ -207,7 +207,7 @@ jobs:
       # Temporarily changed:
       # get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
       # ...to...
-      build_latest: false
+      build_latest: true
       build_version_specific: true
       get_version_method: file_in_container:file=/IMAGE_VERSION
       # This has been done to facilitate testing of the rust release
