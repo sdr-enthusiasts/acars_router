@@ -8,4 +8,4 @@ edition.workspace = true
 [dependencies]
 log = "0.4.17"
 env_logger = "0.9.1"
-chrono = "0.4.22"
+chrono = "0.4.23"
