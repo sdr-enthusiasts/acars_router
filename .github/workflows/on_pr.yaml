@@ -140,15 +140,11 @@ jobs:
           packages: "libzmq3-dev:armhf"
 
       - name: "Install OS dependencies: arm64"
-        uses: ryankurte/action-apt@v0.3.0
+        # uses: ryankurte/action-apt@v0.3.0
+        uses: fredclausen/ryankurte_action-apt/action.yml@main
         with:
           arch: arm64
-          packages: "krb5-multidev"
-
-      - name: "Install OS dependencies: arm64"
-        uses: ryankurte/action-apt@v0.3.0
-        with:
-          arch: arm64
+          dpkg_options: "--force-overwrite"
           packages: "libzmq3-dev:arm64"
 
       # i386 currently does not work...
