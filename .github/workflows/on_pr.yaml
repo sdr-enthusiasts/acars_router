@@ -141,7 +141,7 @@ jobs:
 
       - name: "Install OS dependencies: arm64"
         # uses: ryankurte/action-apt@v0.3.0
-        uses: fredclausen/ryankurte_action-apt/action.yml@main
+        uses: fredclausen/ryankurte_action-apt/action.yml@master
         with:
           arch: arm64
           dpkg_options: "--force-overwrite"
