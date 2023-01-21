@@ -209,6 +209,7 @@ jobs:
       # ...to...
       build_latest: true
       build_version_specific: true
+      build_platform_specific: false
       get_version_method: file_in_container:file=/IMAGE_VERSION
       # This has been done to facilitate testing of the rust release
       # See also the project's Dockerfile:38 for where /IMAGE_VERSION is created.
