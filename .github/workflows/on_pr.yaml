@@ -251,6 +251,8 @@ jobs:
       build_with_tmpfs: true
       build_nohealthcheck: false
       build_test: true
+      build_latest: false
+      build_version_specific: false
       push_enabled: true
       ghcr_repo_owner: ${{ github.repository_owner }}
       ghcr_repo: ${{ github.repository }}
