@@ -133,17 +133,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "Install OS dependencies: armhf"
-        uses: ryankurte/action-apt@v0.3.0
-        with:
-          arch: armhf
-          packages: "libzmq3-dev:armhf"
+      # - name: "Install OS dependencies: armhf"
+      #   uses: ryankurte/action-apt@v0.3.0
+      #   with:
+      #     arch: armhf
+      #     packages: "libzmq3-dev:armhf"
 
-      - name: "Install OS dependencies: arm64"
-        uses: ryankurte/action-apt@v0.3.0
-        with:
-          arch: arm64
-          packages: "libzmq3-dev:arm64"
+      # - name: "Install OS dependencies: arm64"
+      #   uses: ryankurte/action-apt@v0.3.0
+      #   with:
+      #     arch: arm64
+      #     packages: "libzmq3-dev:arm64"
 
       # i386 currently does not work...
       # - name: "Install OS dependencies: i386"
@@ -152,11 +152,11 @@ jobs:
       #     arch: i386
       #     packages: "libzmq3-dev:i386"
 
-      - name: "Install OS dependencies: arm64"
+      - name: "Install OS dependencies: arm64 arm7 amd64"
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libzmq3-dev
+            libzmq3-dev libzmq3-dev:armhf libzmq3-dev:i386
 
       - name: "Install rust targets/toolchains for cross build"
         run: |
