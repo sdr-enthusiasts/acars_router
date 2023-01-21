@@ -257,3 +257,5 @@ jobs:
       cache_enabled: true
       cache_path: bin/
       cache_key: ${{ github.run_id }}
+    secrets:
+      ghcr_token: ${{ secrets.GITHUB_TOKEN }}
