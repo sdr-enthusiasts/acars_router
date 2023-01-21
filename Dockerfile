@@ -23,27 +23,21 @@ RUN set -x && \
     KEPT_PACKAGES+=(libzmq5) && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    "${KEPT_PACKAGES[@]}" \
-    "${TEMP_PACKAGES[@]}"\
-    && \
+        "${KEPT_PACKAGES[@]}" \
+        "${TEMP_PACKAGES[@]}"\
+        && \
     # ensure binaries are executable
     chmod -v a+x \
-    /opt/acars_router.armv7 \
-    /opt/acars_router.arm64 \
-    /opt/acars_router.amd64 \
-    && \
-    # determine which binary to keep
-    if /opt/acars_router.amd64 --version > /dev/null 2>&1; then \
-    mv -v /opt/acars_router.amd64 /opt/acars_router; \
-    elif /opt/acars_router.arm64 --version > /dev/null 2>&1; then \
-    mv -v /opt/acars_router.arm64 /opt/acars_router; \
-    elif /opt/acars_router.armv7 --version > /dev/null 2>&1; then \
-    mv -v /opt/acars_router.armv7 /opt/acars_router; \
-    else \
-    >&2 echo "ERROR: Unsupported architecture"; \
-    exit 1; \
-    fi && \
-    rm -v /opt/acars_router.* && \
+        /opt/acars_router.armv7 \
+        /opt/acars_router.arm64 \
+        /opt/acars_router.amd64 \
+        && \
+    # remove foreign architecture binaries
+    /rename_current_arch_binary.sh && \
+    rm -v \
+        /opt/acars_router.* \
+        /remove_foreign_arch_binaries.sh \
+        && \
     # clean up
     apt-get remove -y "${TEMP_PACKAGES[@]}" && \
     apt-get autoremove -y && \
