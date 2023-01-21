@@ -48,17 +48,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "Install OS dependencies: armhf"
-        uses: ryankurte/action-apt@v0.3.0
-        with:
-          arch: armhf
-          packages: "libzmq3-dev:armhf"
+      # - name: "Install OS dependencies: armhf"
+      #   uses: ryankurte/action-apt@v0.3.0
+      #   with:
+      #     arch: armhf
+      #     packages: "libzmq3-dev:armhf"
 
-      - name: "Install OS dependencies: arm64"
-        uses: ryankurte/action-apt@v0.3.0
-        with:
-          arch: arm64
-          packages: "libzmq3-dev:arm64"
+      # - name: "Install OS dependencies: arm64"
+      #   uses: ryankurte/action-apt@v0.3.0
+      #   with:
+      #     arch: arm64
+      #     packages: "libzmq3-dev:arm64"
 
       # i386 currently does not work...
       # - name: "Install OS dependencies: i386"
@@ -67,11 +67,27 @@ jobs:
       #     arch: i386
       #     packages: "libzmq3-dev:i386"
 
-      - name: "Install OS dependencies: arm64"
+      - name: "Install OS dependencies: arm64 arm7 amd64"
         run: |
+          sudo sed -i'' -E 's/^(deb|deb-src) http:\/\/(azure.archive|security).ubuntu.com/\1 [arch=amd64,i386] http:\/\/\2.ubuntu.com/' /etc/apt/sources.list
+          sudo dpkg --add-architecture arm64
+          sudo dpkg --add-architecture armhf
+          DISTRO=$(lsb_release -cs)
+          echo "deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ $DISTRO main restricted universe" | sudo tee /etc/apt/sources.list.d/armhf.list
+          echo "deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ $DISTRO-updates main restricted universe" | sudo tee -a /etc/apt/sources.list.d/armhf.list
+          echo "deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ $DISTRO-backports main restricted universe "| sudo tee -a /etc/apt/sources.list.d/armhf.list
+          echo "deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ $DISTRO-security main restricted universe" | sudo tee -a /etc/apt/sources.list.d/armhf.list
+
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $DISTRO main restricted universe" | sudo tee /etc/apt/sources.list.d/arm64.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $DISTRO-updates main restricted universe" | sudo tee -a /etc/apt/sources.list.d/arm64.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $DISTRO-backports main restricted universe "| sudo tee -a /etc/apt/sources.list.d/arm64.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $DISTRO-security main restricted universe" | sudo tee -a /etc/apt/sources.list.d/arm64.list
+          echo "Installed apt sources:"
+          cat /etc/apt/sources.list.d/arm64.list
+          cat /etc/apt/sources.list.d/armhf.list
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libzmq3-dev
+          sudo apt-get install -o Dpkg::Options::="--force-overwrite" -y --no-install-recommends \
+            libzmq3-dev libzmq3-dev:armhf libzmq3-dev:arm64
 
       - name: "Install rust targets/toolchains for cross build"
         run: |
