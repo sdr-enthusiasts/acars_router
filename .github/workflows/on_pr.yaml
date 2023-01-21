@@ -172,7 +172,7 @@ jobs:
           cat /etc/apt/sources.list.d/arm64.list
           cat /etc/apt/sources.list.d/armhf.list
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          sudo apt-get install -o Dpkg::Options::="--force-overwrite" -y --no-install-recommends \
             libzmq3-dev libzmq3-dev:armhf libzmq3-dev:arm64
 
       - name: "Install rust targets/toolchains for cross build"
