@@ -155,7 +155,8 @@ jobs:
 
       - name: "Install OS dependencies: arm64 arm7 amd64"
         run: |
-          dpkg --add-architecture arm64 armhf
+          dpkg --add-architecture arm64
+          dpkg --add-architecture armhf
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libzmq3-dev libzmq3-dev:armhf libzmq3-dev:i386
