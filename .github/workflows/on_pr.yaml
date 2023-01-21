@@ -252,6 +252,8 @@ jobs:
       build_nohealthcheck: false
       build_test: true
       push_enabled: true
+      ghcr_repo_owner: ${{ github.repository_owner }}
+      ghcr_repo: ${{ github.repository }}
       cache_enabled: true
       cache_path: bin/
       cache_key: ${{ github.run_id }}
