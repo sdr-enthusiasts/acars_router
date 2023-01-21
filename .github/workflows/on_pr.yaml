@@ -251,6 +251,7 @@ jobs:
       build_with_tmpfs: true
       build_nohealthcheck: false
       build_test: true
+      push_enabled: true
       cache_enabled: true
       cache_path: bin/
       cache_key: ${{ github.run_id }}
