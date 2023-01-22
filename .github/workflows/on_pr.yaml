@@ -161,7 +161,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: acars_router.armv7
-          path: ./image_armv7/tmp/acars_router/target/release/acars_router/acars_router
+          path: ./image_armv7/acars_router
 
   binary_build_arm64:
     name: Build Binary - arm64
@@ -201,7 +201,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: acars_router.arm64
-          path: ./image_arm64/tmp/acars_router/target/release/acars_router/acars_router
+          path: ./image_arm64/acars_router
 
   binary_build_amd64:
     name: Build Binary - amd64
@@ -241,7 +241,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: acars_router.amd64
-          path: ./image_amd64/tmp/acars_router/target/release/acars_router/acars_router
+          path: ./image_amd64/acars_router
 
   consolidate_binaries:
     name: Consolidate & Cache Binaries
