@@ -256,7 +256,7 @@ jobs:
       build_version_specific: true
       build_nohealthcheck: false
       cache_enabled: true
-      cache_path: bin/
+      cache_path: ./bin/
       cache_key: ${{ github.run_id }}
     secrets:
       ghcr_token: ${{ secrets.GITHUB_TOKEN }}
