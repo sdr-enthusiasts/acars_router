@@ -123,10 +123,11 @@ jobs:
       # - name: Clean up between tests
       #   run: ./test_data/clean_up_after_test.sh vdlm2
 
-  binary_build:
-    name: Build Binaries
+  binary_build_armv7:
+    name: Build Binary - armv7
     runs-on: ubuntu-latest
     needs: test_rust_functionality
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3.1.0
@@ -151,91 +152,147 @@ jobs:
         with:
           context: .
           push: false
-          file: Dockerfile.local
+          file: Dockerfile.build_binary
           tags: acars_router:armv7
           platforms: linux/arm/v7
+          outputs: type=tar,dest=./image_armv7.tar
+
+      - name: Extract armv7 binary
+        run: |
+          mkdir ./bin_armv7 ./layers_armv7 ./image_armv7
+          tar xvf image_armv7.tar -C ./layers_armv7
+          find ./layers_armv7/ -name "*.tar" -exec tar xvf {} -C ./image_armv7/ \;
+
+      - name: Upload artifact armv7 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router.armv7
+          path: ./image_armv7/tmp/acars_router/target/release/acars_router
+
+  binary_build_arm64:
+    name: Build Binary - arm64
+    runs-on: ubuntu-latest
+    needs: test_rust_functionality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Run Docker on tmpfs
+        uses: JonasAlfredsson/docker-on-tmpfs@v1
+        with:
+          tmpfs_size: 5
+          swap_size: 4
+          swap_location: "/mnt/swapfile"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Build arm64
         uses: docker/build-push-action@v3
         with:
           context: .
           push: false
-          file: Dockerfile.local
+          file: Dockerfile.build_binary
           tags: acars_router:arm64
           platforms: linux/arm64
+          outputs: type=tar,dest=./image_arm64.tar
+
+      - name: Extract arm64 binary
+        run: |
+          mkdir ./bin_arm64 ./layers_arm64 ./image_arm64
+          tar xvf image_arm64.tar -C ./layers_arm64
+          find ./layers_arm64/ -name "*.tar" -exec tar xvf {} -C ./image_arm64/ \;
+
+      - name: Upload artifact arm64 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router.arm64
+          path: ./image_arm64/tmp/acars_router/target/release/acars_router
+
+  binary_build_amd64:
+    name: Build Binary - amd64
+    runs-on: ubuntu-latest
+    needs: test_rust_functionality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Run Docker on tmpfs
+        uses: JonasAlfredsson/docker-on-tmpfs@v1
+        with:
+          tmpfs_size: 5
+          swap_size: 4
+          swap_location: "/mnt/swapfile"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Build amd64
         uses: docker/build-push-action@v3
         with:
           context: .
           push: false
-          file: Dockerfile.local
+          file: Dockerfile.build_binary
           tags: acars_router:amd64
           platforms: linux/amd64
-
-      - name: Extract armv7 binary
-        run: |
-          mkdir ./bin_armv7 ./layers_armv7 ./image_armv7
-          docker image save -o ./image_armv7.tar acars_router:armv7
-          tar xvf image_armv7.tar -C ./layers_armv7
-          find ./layers_armv7/ -name "*.tar" -exec tar xvf {} -C ./image_armv7/ \;
-
-      - name: Extract arm64 binary
-        run: |
-          mkdir ./bin_arm64 ./layers_arm64 ./image_arm64
-          docker image save -o ./image_arm64.tar acars_router:arm64
-          tar xvf image_arm64.tar -C ./layers_arm64
-          find ./layers_arm64/ -name "*.tar" -exec tar xvf {} -C ./image_arm64/ \;
+          outputs: type=tar,dest=./image_amd64.tar
 
       - name: Extract amd64 binary
         run: |
           mkdir ./bin_amd64 ./layers_amd64 ./image_amd64
-          docker image save -o ./image_amd64.tar acars_router:amd64
           tar xvf image_amd64.tar -C ./layers_amd64
           find ./layers_amd64/ -name "*.tar" -exec tar xvf {} -C ./image_amd64/ \;
-
-      - name: Consolidate binaries
-        run: |
-          mkdir -p ./bin
-          cp -v ./image_amd64/opt/acars_router ./bin/acars_router.amd64
-          cp -v ./image_armv7/opt/acars_router ./bin/acars_router.armv7
-          cp -v ./image_arm64/opt/acars_router ./bin/acars_router.arm64
 
       - name: Upload artifact amd64 binary
         uses: actions/upload-artifact@v3
         with:
           name: acars_router.amd64
-          path: ./bin/acars_router.amd64
+          path: ./image_amd64/tmp/acars_router/target/release/acars_router
 
-      - name: Upload artifact armv7 binary
-        uses: actions/upload-artifact@v3
+  consolidate_binaries:
+    name: Consolidate & Cache Binaries
+    runs-on: ubuntu-latest
+    needs: [binary_build_amd64, binary_build_arm64, binary_build_armv7]
+    steps:
+
+      - run: mkdir -p ./bin
+
+      - uses: actions/download-artifact@master
+        with:
+          name: acars_router.amd64
+          path: ./bin/acars_router.amd64
+      
+      - uses: actions/download-artifact@master
         with:
           name: acars_router.armv7
           path: ./bin/acars_router.armv7
 
-      - name: Upload artifact arm64 binary
-        uses: actions/upload-artifact@v3
+      - uses: actions/download-artifact@master
         with:
           name: acars_router.arm64
           path: ./bin/acars_router.arm64
 
-      - name: Cache Cargo Build Output
+      - name: Cache Binaries
         uses: actions/cache@v3
         with:
           path: bin/
           key: ${{ github.run_id }}
 
-      # # Allows troubleshooting via SSH
-      # - name: Setup upterm session
-      #   uses: lhotari/action-upterm@v1
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     limit-access-to-users: mikenye
-
   test_docker_image_build:
     name: Test Docker Image Build
-    needs: [hadolint, binary_build, test_functionality]
+    needs: [hadolint, consolidate_binaries, test_functionality]
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
     with:
       get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
