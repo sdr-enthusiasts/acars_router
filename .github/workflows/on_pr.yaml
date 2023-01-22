@@ -141,6 +141,7 @@ jobs:
       - name: Build armv7
         uses: docker/build-push-action@v3
         with:
+          allow: security.insecure
           context: .
           push: true
           file: Dockerfile.local
