@@ -12,9 +12,9 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY ./rootfs /
-COPY ./bin/acars_router.armv7 /opt/acars_router.armv7
-COPY ./bin/acars_router.arm64 /opt/acars_router.arm64
-COPY ./bin/acars_router.amd64 /opt/acars_router.amd64
+COPY ./bin/acars_router.armv7/acars_router /opt/acars_router.armv7
+COPY ./bin/acars_router.arm64/acars_router /opt/acars_router.arm64
+COPY ./bin/acars_router.amd64/acars_router /opt/acars_router.amd64
 
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
@@ -23,21 +23,20 @@ RUN set -x && \
     KEPT_PACKAGES+=(libzmq5) && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        "${KEPT_PACKAGES[@]}" \
-        "${TEMP_PACKAGES[@]}"\
-        && \
+    "${KEPT_PACKAGES[@]}" \
+    "${TEMP_PACKAGES[@]}"\
+    && \
     # ensure binaries are executable
     chmod -v a+x \
-        /opt/acars_router.armv7 \
-        /opt/acars_router.arm64 \
-        /opt/acars_router.amd64 \
-        && \
+    /opt/acars_router.armv7 \
+    /opt/acars_router.arm64 \
+    /opt/acars_router.amd64 \
+    && \
     # remove foreign architecture binaries
     /rename_current_arch_binary.sh && \
-    rm -v \
-        /opt/acars_router.* \
-        /remove_foreign_arch_binaries.sh \
-        && \
+    rm -fv \
+    /opt/acars_router.* \
+    && \
     # clean up
     apt-get remove -y "${TEMP_PACKAGES[@]}" && \
     apt-get autoremove -y && \
