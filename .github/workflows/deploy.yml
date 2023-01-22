@@ -212,22 +212,15 @@ jobs:
           path: bin/
           key: ${{ github.run_id }}
 
-      - name: Check cache
-        if: steps.get_cache.outputs.cache-hit != 'true'
-        run: |
-          echo "::error title=${{ github.job }}: Could not get binaries from action cache"
-          exit 1
-
       - name: Prepare binary release tarballs
-        if: steps.get_cache.outputs.cache-hit == 'true'
         run: |
           ORIGDIR=$(pwd)
           # Make release tarballs
           mkdir -vp ./release
           pushd ./bin
-          tar cJvf "$ORIGDIR/release/acars_router.amd64.tar.xz" ./acars_router.amd64
-          tar cJvf "$ORIGDIR/release/acars_router.armv7.tar.xz" ./acars_router.armv7
-          tar cJvf "$ORIGDIR/release/acars_router.arm64.tar.xz" ./acars_router.arm64
+          tar cJvf "$ORIGDIR/release/acars_router.amd64.tar.xz" ./bin/acars_router.amd64
+          tar cJvf "$ORIGDIR/release/acars_router.armv7.tar.xz" ./bin/acars_router.armv7
+          tar cJvf "$ORIGDIR/release/acars_router.arm64.tar.xz" ./bin/acars_router.arm64
           popd
 
       - name: Get binary version from Cargo.toml
