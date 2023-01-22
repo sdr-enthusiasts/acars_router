@@ -42,10 +42,4 @@ RUN set -x && \
     apt-get autoremove -y && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/* && \
     # test
-    /opt/acars_router --version && \
-    # ====
-    # Temporarily added:
-    echo "test" > /IMAGE_VERSION
-# This has been done to facilitate testing of the rust release
-# See also the project's deploy.yml:210
-# ====
+    /opt/acars_router --version
