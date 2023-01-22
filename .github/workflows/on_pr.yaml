@@ -269,7 +269,9 @@ jobs:
       #     name: acars_router.arm64
       #     path: ./bin/acars_router.arm64
 
-      - run: ls -la ./
+      - run: |
+          ls -la ./acars_router.amd64
+          ls -ls ./acars_router
 
       - name: Cache Binaries
         uses: actions/cache@v3
@@ -286,5 +288,5 @@ jobs:
       build_with_tmpfs: true
       build_nohealthcheck: false
       cache_enabled: true
-      # cache_path: ./bin/
+      cache_path: ./
       cache_key: ${{ github.run_id }}
