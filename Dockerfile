@@ -14,7 +14,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY ./rootfs /
 # COPY ./bin/acars_router.armv7 /opt/acars_router.armv7
 # COPY ./bin/acars_router.arm64 /opt/acars_router.arm64
-COPY ./bin/acars_router.amd64 /opt/acars_router.amd64
+COPY /acars_router.amd64 /opt/acars_router.amd64
 
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \

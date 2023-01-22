@@ -254,12 +254,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: mkdir -p ./bin
-
       - uses: actions/download-artifact@master
         with:
           name: acars_router.amd64
-          path: ./bin/acars_router.amd64
 
       # - uses: actions/download-artifact@master
       #   with:
@@ -271,12 +268,11 @@ jobs:
       #     name: acars_router.arm64
       #     path: ./bin/acars_router.arm64
 
-      - run: ls -la ./bin
+      - run: ls -la /
 
       - name: Cache Binaries
         uses: actions/cache@v3
         with:
-          path: ./bin/
           key: ${{ github.run_id }}
 
   test_docker_image_build:
@@ -288,5 +284,5 @@ jobs:
       build_with_tmpfs: true
       build_nohealthcheck: false
       cache_enabled: true
-      cache_path: ./bin/
+      # cache_path: ./bin/
       cache_key: ${{ github.run_id }}
