@@ -191,7 +191,13 @@ jobs:
 
   release_binaries:
     name: Release Binaries
-    needs: [binary_build]
+    needs:
+      [
+        binary_build_amd64,
+        binary_build_arm64,
+        binary_build_armv7,
+        consolidate_binaries,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
