@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bash -x
+
+ls -la /opt/
 
 # determine which binary to keep
 if /opt/acars_router.amd64 --version > /dev/null 2>&1; then
