@@ -128,10 +128,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: test_rust_functionality
     steps:
+
       - name: Checkout
         uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
+
+      - name: Run Docker on tmpfs
+        if: ${{ needs.workflows_env.outputs.build_with_tmpfs == 'true' }}
+        uses: JonasAlfredsson/docker-on-tmpfs@v1
+        with:
+          tmpfs_size: 5
+          swap_size: 4
+          swap_location: "/mnt/swapfile"
+
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -141,7 +151,6 @@ jobs:
       - name: Build armv7
         uses: docker/build-push-action@v3
         with:
-          allow: security.insecure
           context: .
           push: true
           file: Dockerfile.local
