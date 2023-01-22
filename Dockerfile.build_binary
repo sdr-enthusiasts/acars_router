@@ -7,3 +7,6 @@ RUN set -x && \
 COPY . .
 
 RUN cargo build --release
+
+FROM scratch
+COPY --from=builder /tmp/acars_router/target/release/acars_router /tmp/acars_router/target/release/acars_router
