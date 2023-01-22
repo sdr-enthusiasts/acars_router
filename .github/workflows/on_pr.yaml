@@ -261,15 +261,15 @@ jobs:
           name: acars_router.amd64
           path: ./bin/acars_router.amd64
 
-      - uses: actions/download-artifact@master
-        with:
-          name: acars_router.armv7
-          path: ./bin/acars_router.armv7
+      # - uses: actions/download-artifact@master
+      #   with:
+      #     name: acars_router.armv7
+      #     path: ./bin/acars_router.armv7
 
-      - uses: actions/download-artifact@master
-        with:
-          name: acars_router.arm64
-          path: ./bin/acars_router.arm64
+      # - uses: actions/download-artifact@master
+      #   with:
+      #     name: acars_router.arm64
+      #     path: ./bin/acars_router.arm64
 
       - run: ls -la ./bin
 
