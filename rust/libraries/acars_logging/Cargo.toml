@@ -6,6 +6,6 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = "0.4.17"
-env_logger = "0.9.1"
+env_logger = "0.10.0"
 chrono = "0.4.22"
+log = "0.4.17"
