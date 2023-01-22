@@ -8,7 +8,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "1.0.16"
+version = "1.0.17"
 authors = ["Fred Clausen", "Mike Nye", "Alex Austin"]
 description = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers."
 documentation = "https://github.com/sdr-enthusiasts/acars_router"
@@ -16,4 +16,4 @@ homepage = "https://github.com/sdr-enthusiasts/acars_router"
 repository = "https://github.com/sdr-enthusiasts/acars_router"
 readme = "README.md"
 license = "MIT"
-rust-version = "1.64"
+rust-version = "1.66.1"
