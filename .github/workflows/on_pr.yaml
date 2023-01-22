@@ -126,7 +126,7 @@ jobs:
   binary_build_armv7:
     name: Build Binary - armv7
     runs-on: ubuntu-latest
-    needs: test_rust_functionality
+    # needs: test_rust_functionality
 
     steps:
       - name: Checkout
@@ -166,7 +166,7 @@ jobs:
   binary_build_arm64:
     name: Build Binary - arm64
     runs-on: ubuntu-latest
-    needs: test_rust_functionality
+    # needs: test_rust_functionality
 
     steps:
       - name: Checkout
@@ -206,7 +206,7 @@ jobs:
   binary_build_amd64:
     name: Build Binary - amd64
     runs-on: ubuntu-latest
-    needs: test_rust_functionality
+    # needs: test_rust_functionality
 
     steps:
       - name: Checkout
