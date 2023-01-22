@@ -200,7 +200,7 @@ jobs:
           name: acars_router.arm64
           path: ./bin/acars_router.arm64
 
-      - run: ls -la ./bin
+      - run: ls -la ./bin/*
 
       - name: Cache Binaries
         uses: actions/cache@v3

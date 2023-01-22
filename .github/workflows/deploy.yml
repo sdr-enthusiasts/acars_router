@@ -39,106 +39,155 @@ jobs:
           echo "Workflow dispatch reason: $INPUTS_REASON"
           echo "::notice title=${{ github.job }}: Workflow Dispatch Reason::${INPUTS_REASON}"
 
-  binary_build:
-    name: Build Binaries
+  binary_build_armv7:
+    name: Build Binary - armv7
     runs-on: ubuntu-latest
+    # needs: test_rust_functionality
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3.3.0
         with:
           fetch-depth: 0
 
-      - name: "Install OS dependencies: armhf"
-        uses: ryankurte/action-apt@v0.3.0
+      - name: Run Docker on tmpfs
+        uses: JonasAlfredsson/docker-on-tmpfs@v1
         with:
-          arch: armhf
-          packages: "libzmq3-dev:armhf"
+          tmpfs_size: 5
+          swap_size: 4
+          swap_location: "/mnt/swapfile"
 
-      - name: "Install OS dependencies: arm64"
-        uses: ryankurte/action-apt@v0.3.0
-        with:
-          arch: arm64
-          packages: "libzmq3-dev:arm64"
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
-      # i386 currently does not work...
-      # - name: "Install OS dependencies: i386"
-      #   uses: ryankurte/action-apt@v0.3.0
-      #   with:
-      #     arch: i386
-      #     packages: "libzmq3-dev:i386"
-
-      - name: "Install OS dependencies: arm64"
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libzmq3-dev
-
-      - name: "Install rust targets/toolchains for cross build"
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            g++-arm-linux-gnueabihf \
-            libc6-dev-armhf-cross \
-            g++-aarch64-linux-gnu \
-            libc6-dev-arm64-cross
-
-          rustup target add armv7-unknown-linux-gnueabihf
-          rustup toolchain install stable-armv7-unknown-linux-gnueabihf
-          rustup target add aarch64-unknown-linux-gnu
-          rustup toolchain install stable-aarch64-unknown-linux-gnu
-          rustup target add x86_64-unknown-linux-gnu
-          rustup toolchain install stable-x86_64-unknown-linux-gnu
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Build armv7
-        run: |
-          PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf RUSTFLAGS="-C linker=/usr/bin/arm-linux-gnueabihf-gcc" cargo build --release --target armv7-unknown-linux-gnueabihf
-
-      - name: Build arm64
-        run: |
-          PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu RUSTFLAGS="-C linker=/usr/bin/aarch64-linux-gnu-gcc" cargo build --release --target aarch64-unknown-linux-gnu
-
-      - name: Build amd64
-        run: |
-          cargo build --release
-
-      - name: Consolidate binaries
-        run: |
-          mkdir -p ./bin
-          cp -v ./target/release/acars_router ./bin/acars_router.amd64
-          cp -v ./target/armv7-unknown-linux-gnueabihf/release/acars_router ./bin/acars_router.armv7
-          cp -v ./target/aarch64-unknown-linux-gnu/release/acars_router ./bin/acars_router.arm64
-
-      - name: Upload artifact amd64 binary
-        uses: actions/upload-artifact@v3
+        uses: docker/build-push-action@v3
         with:
-          name: acars_router.amd64
-          path: ./bin/acars_router.amd64
+          context: .
+          push: false
+          file: Dockerfile.build_binary
+          tags: acars_router:armv7
+          platforms: linux/arm/v7
+          outputs: type=local,dest=./image_armv7/
 
       - name: Upload artifact armv7 binary
         uses: actions/upload-artifact@v3
         with:
           name: acars_router.armv7
-          path: ./bin/acars_router.armv7
+          path: ./image_armv7/acars_router
+
+  binary_build_arm64:
+    name: Build Binary - arm64
+    runs-on: ubuntu-latest
+    # needs: test_rust_functionality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.3.0
+        with:
+          fetch-depth: 0
+
+      - name: Run Docker on tmpfs
+        uses: JonasAlfredsson/docker-on-tmpfs@v1
+        with:
+          tmpfs_size: 5
+          swap_size: 4
+          swap_location: "/mnt/swapfile"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build arm64
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: false
+          file: Dockerfile.build_binary
+          tags: acars_router:arm64
+          platforms: linux/arm64
+          outputs: type=local,dest=./image_arm64/
 
       - name: Upload artifact arm64 binary
         uses: actions/upload-artifact@v3
         with:
           name: acars_router.arm64
+          path: ./image_arm64/acars_router
+
+  binary_build_amd64:
+    name: Build Binary - amd64
+    runs-on: ubuntu-latest
+    # needs: test_rust_functionality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.3.0
+        with:
+          fetch-depth: 0
+
+      - name: Run Docker on tmpfs
+        uses: JonasAlfredsson/docker-on-tmpfs@v1
+        with:
+          tmpfs_size: 5
+          swap_size: 4
+          swap_location: "/mnt/swapfile"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build amd64
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: false
+          file: Dockerfile.build_binary
+          tags: acars_router:amd64
+          platforms: linux/amd64
+          outputs: type=local,dest=./image_amd64/
+
+      - name: Upload artifact amd64 binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: acars_router.amd64
+          path: ./image_amd64/acars_router
+
+  consolidate_binaries:
+    name: Consolidate & Cache Binaries
+    runs-on: ubuntu-latest
+    needs: [binary_build_amd64, binary_build_arm64, binary_build_armv7]
+    steps:
+      - run: mkdir -p ./bin
+
+      - uses: actions/download-artifact@master
+        with:
+          name: acars_router.amd64
+          path: ./bin/acars_router.amd64
+
+      - uses: actions/download-artifact@master
+        with:
+          name: acars_router.armv7
+          path: ./bin/acars_router.armv7
+
+      - uses: actions/download-artifact@master
+        with:
+          name: acars_router.arm64
           path: ./bin/acars_router.arm64
 
-      - name: Cache Cargo Build Output
+      - run: ls -la ./bin/*
+
+      - name: Cache Binaries
         uses: actions/cache@v3
         with:
-          path: bin/
+          path: ./bin/
           key: ${{ github.run_id }}
-
-      # # Allows troubleshooting via SSH
-      # - name: Setup upterm session
-      #   uses: lhotari/action-upterm@v1
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     limit-access-to-users: mikenye
 
   release_binaries:
     name: Release Binaries
@@ -195,7 +244,7 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: [binary_build]
+    needs: [consolidate_binaries]
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
     with:
       push_enabled: true
@@ -203,16 +252,9 @@ jobs:
       ghcr_repo_owner: ${{ github.repository_owner }}
       ghcr_repo: ${{ github.repository }}
       build_with_tmpfs: true
-      # ====
-      # Temporarily changed:
-      # get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
-      # ...to...
+      get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
       build_latest: true
       build_version_specific: true
-      get_version_method: file_in_container:file=/IMAGE_VERSION
-      # This has been done to facilitate testing of the rust release
-      # See also the project's Dockerfile:38 for where /IMAGE_VERSION is created.
-      # ====
       build_nohealthcheck: false
       cache_enabled: true
       cache_path: bin/
