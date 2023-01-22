@@ -133,6 +133,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      - run: rm -rf /usr/share/doc
+
       - name: "Install OS dependencies: armhf"
         uses: ryankurte/action-apt@v0.3.0
         with:
