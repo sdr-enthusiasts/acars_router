@@ -24,8 +24,10 @@ use acars_vdlm2_parser::AcarsVdlm2Message;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+use std::iter::{Chain, Repeat};
 use std::net::SocketAddr;
 use std::time::Duration;
+use std::vec::IntoIter;
 use stubborn_io::ReconnectOptions;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
@@ -42,7 +44,8 @@ pub type DurationIterator = Box<dyn Iterator<Item = Duration> + Send + Sync>;
 #[derive(Debug)]
 pub(crate) struct SenderServer<T> {
     pub(crate) host: String,
-    pub(crate) proto_name: String,
+    pub(crate) proto_name: ServerType,
+    pub(crate) logging_identifier: String,
     pub(crate) socket: T,
     pub(crate) channel: Receiver<AcarsVdlm2Message>,
 }
@@ -105,7 +108,7 @@ pub fn reconnect_options() -> ReconnectOptions {
 }
 
 fn get_our_standard_reconnect_strategy() -> DurationIterator {
-    let initial_attempts = vec![
+    let initial_attempts: Vec<Duration> = vec![
         Duration::from_secs(5),
         Duration::from_secs(5),
         Duration::from_secs(5),
@@ -128,9 +131,9 @@ fn get_our_standard_reconnect_strategy() -> DurationIterator {
         Duration::from_secs(60),
     ];
 
-    let repeat = std::iter::repeat(Duration::from_secs(60));
+    let repeat: Repeat<Duration> = std::iter::repeat(Duration::from_secs(60));
 
-    let forever_iterator = initial_attempts.into_iter().chain(repeat);
+    let forever_iterator: Chain<IntoIter<Duration>, Repeat<Duration>> = initial_attempts.into_iter().chain(repeat);
 
     Box::new(forever_iterator)
 }

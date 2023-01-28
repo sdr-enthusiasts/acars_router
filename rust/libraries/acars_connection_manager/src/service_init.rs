@@ -24,7 +24,7 @@ use std::sync::Arc;
 use stubborn_io::tokio::StubbornIo;
 use stubborn_io::StubbornTcpStream;
 use tmq::publish::Publish;
-use tmq::{publish, Context, TmqError};
+use tmq::{publish, Context};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{mpsc, Mutex};
@@ -257,11 +257,12 @@ impl StartHostListeners for Vec<String> {
             tokio::spawn(async move {
                 let zmq_listener_server = ZMQListnerServer {
                     host: host.to_string(),
-                    proto_name: proto_name.to_string(),
+                    proto_name: decoder_type,
+                    logging_identifier: proto_name.to_string()
                 };
                 match zmq_listener_server.run(new_channel).await {
                     Ok(_) => debug!("{} connection closed", proto_name),
-                    Err(e) => error!("{} connection error: {:?}", proto_name.clone(), e),
+                    Err(e) => error!("{} connection error: {:?}", proto_name, e),
                 };
             });
         }
@@ -374,9 +375,8 @@ impl SenderServerConfig {
             for host in send_tcp {
                 let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
-                let s_type: String = server_type.to_string();
                 info!("Starting {} TCP Sender {} ", server_type, host);
-                tokio::spawn(async move { new_state.start_tcp(&s_type, &host).await });
+                tokio::spawn(async move { new_state.start_tcp(server_type, &host).await });
             }
         }
 
@@ -415,20 +415,18 @@ impl SenderServerConfig {
             for port in serve_zmq {
                 let server_address: String = format!("tcp://0.0.0.0:{}", &port);
                 let name: String = format!("ZMQ_SENDER_SERVER_{}_{}", server_type, &port);
-                let socket: Result<Publish, TmqError> =
-                    publish(&Context::new()).bind(&server_address);
                 let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
                 let (tx_processed, rx_processed) = mpsc::channel(32);
                 info!("Starting {}", name);
-                match socket {
+                match publish(&Context::new()).bind(&server_address) {
                     Err(e) => error!(
                         "Error starting ZMQ {server_type} server on port {port}: {:?}",
                         e
                     ),
                     Ok(socket) => {
                         let zmq_sender_server: SenderServer<Publish> =
-                            SenderServer::new(&server_address, &name, socket, rx_processed);
+                            SenderServer::new(&server_address, server_type, &name, socket, rx_processed);
                         new_state.lock().await.push(tx_processed);
                         tokio::spawn(async move {
                             zmq_sender_server.send_message().await;
@@ -447,7 +445,7 @@ impl SenderServerConfig {
 #[async_trait]
 trait SenderServers {
     async fn monitor(self, rx_processed: Receiver<AcarsVdlm2Message>, name: ServerType);
-    async fn start_tcp(self, socket_type: &str, host: &str);
+    async fn start_tcp(self, server_type: ServerType, host: &str);
 }
 
 #[async_trait]
@@ -465,24 +463,23 @@ impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
         }
     }
 
-    async fn start_tcp(self, socket_type: &str, host: &str) {
+    async fn start_tcp(self, server_type: ServerType, host: &str) {
         // Start a TCP sender server for {server_type}
         let socket: Result<StubbornIo<TcpStream, String>, io::Error> =
             StubbornTcpStream::connect_with_options(host.to_string(), reconnect_options()).await;
         match socket {
-            Err(e) => error!("[TCP SENDER {socket_type}]: Error connecting to {host}: {e}"),
+            Err(e) => error!("[TCP SENDER {server_type}]: Error connecting to {host}: {e}"),
             Ok(socket) => {
                 let (tx_processed, rx_processed) = mpsc::channel(32);
                 let tcp_sender_server = SenderServer {
                     host: host.to_string(),
-                    proto_name: socket_type.to_string(),
+                    proto_name: server_type,
+                    logging_identifier: server_type.to_string(),
                     socket,
                     channel: rx_processed,
                 };
                 self.lock().await.push(tx_processed);
-                tokio::spawn(async move {
-                    tcp_sender_server.send_message().await;
-                });
+                tcp_sender_server.send_message().await;
             }
         }
     }

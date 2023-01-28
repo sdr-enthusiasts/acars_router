@@ -117,17 +117,15 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 match message.to_bytes_newline() {
-                    Err(encode_error) => error!(
-                        "[TCP SENDER {}]: Error converting message: {}",
-                        self.proto_name, encode_error
-                    ),
-                    Ok(encoded_message) => match self.socket.write_all(&encoded_message).await {
-                        Ok(_) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
-                        Err(e) => error!(
-                            "[TCP SENDER {}]: Error sending message: {}",
-                            self.proto_name, e
-                        ),
-                    },
+                    Err(encode_error) => error!("[TCP SENDER {}]: Error converting message: {}", self.logging_identifier, encode_error),
+                    Ok(encoded_message) => {
+                        let Err(send_error) = self.socket.write_all(&encoded_message).await else {
+                            trace!("[TCP SENDER {}]: sent message", self.logging_identifier);
+                            self.proto_name.inc_message_destination_type_metric(MessageDestination::ServeTcp);
+                            return;
+                        };
+                        error!("[TCP SENDER {}]: Error sending message: {}", self.logging_identifier, send_error);
+                    }
                 }
             }
         });

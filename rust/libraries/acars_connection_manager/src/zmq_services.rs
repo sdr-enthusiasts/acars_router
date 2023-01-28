@@ -7,22 +7,24 @@
 
 // NOTE: This is a listener. WE **SUB** to a *PUB* socket.
 
-use crate::SenderServer;
+use crate::{SenderServer, ServerType};
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use futures::SinkExt;
 use futures::StreamExt;
 use tmq::publish::Publish;
 use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::{Receiver, Sender};
+use acars_metrics::{MessageDestination, MessageSource};
 
 pub struct ZMQListnerServer {
     pub host: String,
-    pub proto_name: String,
+    pub proto_name: ServerType,
+    pub logging_identifier: String
 }
 
 impl ZMQListnerServer {
     pub async fn run(self, channel: Sender<String>) -> Result<()> {
-        debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
+        debug!("[ZMQ LISTENER SERVER {}] Starting", self.logging_identifier);
         let address = format!("tcp://{}", self.host);
         let mut socket = subscribe(&Context::new())
             .connect(&address)?
@@ -32,7 +34,7 @@ impl ZMQListnerServer {
             let message = match msg {
                 Ok(message) => message,
                 Err(e) => {
-                    error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e);
+                    error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.logging_identifier, e);
                     continue;
                 }
             };
@@ -44,10 +46,10 @@ impl ZMQListnerServer {
                 .join(" ");
             trace!(
                 "[ZMQ LISTENER SERVER {}] Received: {}",
-                self.proto_name,
+                self.logging_identifier,
                 composed_message
             );
-            let stripped = composed_message
+            let stripped: &str = composed_message
                 .strip_suffix("\r\n")
                 .or_else(|| composed_message.strip_suffix('\n'))
                 .unwrap_or(&composed_message);
@@ -55,13 +57,14 @@ impl ZMQListnerServer {
             match channel.send(stripped.to_string()).await {
                 Ok(_) => trace!(
                     "[ZMQ LISTENER SERVER {}] Message sent to channel",
-                    self.proto_name
+                    self.logging_identifier
                 ),
                 Err(e) => error!(
                     "[ZMQ LISTENER SERVER {}] Error sending message to channel: {}",
-                    self.proto_name, e
+                    self.logging_identifier, e
                 ),
             }
+            self.proto_name.inc_message_source_type_metric(MessageSource::ReceiveZmq);
         }
         Ok(())
     }
@@ -70,13 +73,15 @@ impl ZMQListnerServer {
 impl SenderServer<Publish> {
     pub(crate) fn new(
         server_address: &str,
+        proto_name: ServerType,
         name: &str,
         socket: Publish,
         channel: Receiver<AcarsVdlm2Message>,
     ) -> Self {
         Self {
             host: server_address.to_string(),
-            proto_name: name.to_string(),
+            proto_name,
+            logging_identifier: name.to_string(),
             socket,
             channel,
         }
@@ -96,7 +101,7 @@ impl SenderServer<Publish> {
                     // zmq implementations not getting the message if the topic is blank.
                     // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
                     Ok(payload) => match self.socket.send(vec!["acars", &payload]).await {
-                        Ok(_) => (),
+                        Ok(_) => self.proto_name.inc_message_destination_type_metric(MessageDestination::ServeZmq),
                         Err(e) => error!(
                             "[ZMQ SENDER]: Error sending message on 'acars' topic: {:?}",
                             e

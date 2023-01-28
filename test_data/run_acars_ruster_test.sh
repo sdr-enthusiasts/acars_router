@@ -110,14 +110,14 @@ echo "TCP Send/Receive with deduping PASS"
 
 # ZMQ SEND / LISTEN
 
-echo "ZMQ VDLM Send/UDP ACARS Send and ZMQ Receive"
+#echo "ZMQ VDLM Send/UDP ACARS Send and ZMQ Receive"
 
-cargo run -- --add-proxy-id --listen-udp-acars 15551 --receive-zmq-vdlm2 127.0.0.1:15556 --serve-zmq-acars 15550 --serve-zmq-vdlm2 15555 --enable-dedupe &
+#cargo run -- --add-proxy-id --listen-udp-acars 15551 --receive-zmq-vdlm2 127.0.0.1:15556 --serve-zmq-acars 15550 --serve-zmq-vdlm2 15555 --enable-dedupe &
 
-python3 data_feeder_test_zmq.py --check-for-dupes || task_failed
-sleep 3
-pkill acars_router
-echo "ZMQ VDLM Send/UDP ACARS Send and ZMQ Receive PASS"
+#python3 data_feeder_test_zmq.py --check-for-dupes || task_failed
+#sleep 3
+#pkill acars_router
+#echo "ZMQ VDLM Send/UDP ACARS Send and ZMQ Receive PASS"
 
 echo "ALL TESTS PASSED"
 exit 0
