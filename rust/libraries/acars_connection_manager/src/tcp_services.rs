@@ -52,6 +52,7 @@ pub(crate) async fn process_tcp_sockets(
     Ok(())
 }
 
+#[derive(Debug, Clone)]
 pub struct TCPReceiverServer {
     pub host: String,
     pub logging_identifier: String,
@@ -132,6 +133,7 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
     }
 }
 
+#[derive(Debug)]
 pub struct TCPServeServer {
     pub socket: TcpListener,
     pub logging_identifier: String,
@@ -139,6 +141,7 @@ pub struct TCPServeServer {
 }
 
 /// The state for each connected client.
+#[derive(Debug)]
 struct Peer {
     /// The TCP socket wrapped with the `Lines` codec, defined below.
     ///

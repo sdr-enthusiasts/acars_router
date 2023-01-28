@@ -63,12 +63,18 @@ pub(crate) struct SocketListenerServer {
     pub(crate) socket_type: SocketType,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Default)]
 pub enum SocketType {
     #[default]
     Tcp,
     Udp,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum ReceiverType {
+    #[default]
+    Tcp,
+    Zmq
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -87,7 +93,7 @@ pub(crate) struct SenderServerConfig {
     pub(crate) max_udp_packet_size: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct OutputServerConfig {
     pub(crate) listen_udp: Option<Vec<u16>>,
     pub(crate) listen_tcp: Option<Vec<u16>>,
@@ -152,6 +158,15 @@ impl fmt::Display for SocketType {
         match self {
             SocketType::Tcp => write!(f, "TCP"),
             SocketType::Udp => write!(f, "UDP"),
+        }
+    }
+}
+
+impl fmt::Display for ReceiverType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ReceiverType::Tcp => write!(f, "TCP"),
+            ReceiverType::Zmq => write!(f, "ZMQ"),
         }
     }
 }

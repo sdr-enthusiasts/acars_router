@@ -10,15 +10,12 @@ use crate::packet_handler::PacketHandler;
 use crate::tcp_services::{process_tcp_sockets, TCPReceiverServer, TCPServeServer};
 use crate::udp_services::UDPSenderServer;
 use crate::zmq_services::ZMQListnerServer;
-use crate::{
-    reconnect_options, OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared,
-    SocketListenerServer, SocketType,
-};
+use crate::{reconnect_options, OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared, SocketListenerServer, SocketType, ReceiverType};
 use acars_config::Input;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use async_trait::async_trait;
 use std::io;
-use std::net::{AddrParseError, IpAddr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 use stubborn_io::tokio::StubbornIo;
@@ -32,114 +29,111 @@ use tokio::time::{sleep, Duration};
 
 pub async fn start_processes(args: Input) {
     args.print_values();
-
-    let message_handler_config_acars: MessageHandlerConfig =
-        MessageHandlerConfig::new(&args, ServerType::Acars);
-    let message_handler_config_vdlm: MessageHandlerConfig =
-        MessageHandlerConfig::new(&args, ServerType::Vdlm2);
-
-    // ACARS Servers
-    // Create the input channel all receivers will send their data to.
+    
     // NOTE: To keep this straight in my head, the "TX" is the RECEIVER server (and needs a channel to TRANSMIT data to)
     // The "RX" is the TRANSMIT server (and needs a channel to RECEIVE data from)
 
-    let (tx_receivers_acars, rx_receivers_acars) = mpsc::channel(32);
-    // Create the input channel processed messages will be sent to
-    let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
-    // VDLM
-    // Create the input channel all receivers will send their data to.
-    let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
-    // Create the input channel processed messages will be sent to
-    let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
-
-    // start the input servers
-    debug!("Starting input servers");
-    // start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
-    info!("Starting ACARS input servers");
-    let acars_input_config: OutputServerConfig = OutputServerConfig::new(
-        &args.listen_udp_acars,
-        &args.listen_tcp_acars,
-        &args.receive_tcp_acars,
-        &args.receive_zmq_acars,
-        &args.reassembly_window,
-        ServerType::Acars,
-    );
-    tokio::spawn(async move {
-        acars_input_config.start_listeners(tx_receivers_acars);
-    });
-
-    let vdlm_input_config: OutputServerConfig = OutputServerConfig::new(
-        &args.listen_udp_vdlm2,
-        &args.listen_tcp_vdlm2,
-        &args.receive_tcp_vdlm2,
-        &args.receive_zmq_vdlm2,
-        &args.reassembly_window,
-        ServerType::Vdlm2,
-    );
-    tokio::spawn(async move {
-        vdlm_input_config.start_listeners(tx_receivers_vdlm);
-    });
-
-    // start the output servers
-    debug!("Starting output servers");
-
-    info!("Starting ACARS Output Servers");
-    let acars_output_config: SenderServerConfig = SenderServerConfig::new(
-        &args.send_udp_acars,
-        &args.send_tcp_acars,
-        &args.serve_tcp_acars,
-        &args.serve_zmq_acars,
-        &args.max_udp_packet_size,
-    );
-
-    tokio::spawn(async move {
-        acars_output_config
-            .start_senders(rx_processed_acars, ServerType::Acars)
-            .await;
-    });
-
-    info!("Starting VDLM Output Servers");
-    let vdlm_output_config: SenderServerConfig = SenderServerConfig::new(
-        &args.send_udp_vdlm2,
-        &args.send_tcp_vdlm2,
-        &args.serve_tcp_vdlm2,
-        &args.serve_zmq_vdlm2,
-        &args.max_udp_packet_size,
-    );
-
-    tokio::spawn(async move {
-        vdlm_output_config
-            .start_senders(rx_processed_vdlm, ServerType::Vdlm2)
-            .await;
-    });
-
-    // Start the message handler tasks.
-    // Don't start the queue watcher UNLESS there is a valid input source AND output source for the message type
-
-    debug!("Starting the message handler tasks");
-
-    if args.acars_configured() {
-        tokio::spawn(async move {
-            message_handler_config_acars
-                .watch_message_queue(rx_receivers_acars, tx_processed_acars)
-                .await
-        });
-    } else {
-        info!("Not starting the ACARS message handler task. No input and/or output sources specified.");
+    // START ACARS
+    
+    match args.acars_configured() {
+        false => info!("Not starting the ACARS message handler task as there are no input and/or output sources specified."),
+        true => {
+            info!("ACARS configuration found, prepping to handle.");
+            debug!("Setting up ACARS message handler.");
+            debug!("Building configuration.");
+            let message_handler_config_acars: MessageHandlerConfig =
+                MessageHandlerConfig::new(&args, ServerType::Acars);
+            debug!("Creating ACARS message queues.");
+            // Ingress queue
+            let (tx_receivers_acars, rx_receivers_acars) = mpsc::channel(32);
+            // Egress queue
+            let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
+            
+            debug!("ACARS message handler configuration and queues done.");
+            
+            debug!("Building ACARS ingress configuration.");
+            let acars_input_config: OutputServerConfig = OutputServerConfig::configure_message_receiver(&args, ServerType::Acars);
+    
+            debug!("Building ACARS egress configuration.");
+            let acars_output_config: SenderServerConfig = SenderServerConfig::configure_message_sender(&args, ServerType::Acars);
+    
+            info!("Starting ACARS input servers.");
+    
+            tokio::spawn(async move {
+                acars_input_config.start_listeners(tx_receivers_acars);
+            });
+    
+            info!("Starting ACARS Output Servers.");
+    
+    
+            tokio::spawn(async move {
+                acars_output_config
+                    .start_senders(rx_processed_acars, ServerType::Acars)
+                    .await;
+            });
+    
+            tokio::spawn(async move {
+                message_handler_config_acars
+                    .watch_message_queue(rx_receivers_acars, tx_processed_acars)
+                    .await
+            });
+        }
     }
-
-    if args.vdlm_configured() {
-        tokio::spawn(async move {
-            message_handler_config_vdlm
-                .watch_message_queue(rx_receivers_vdlm, tx_processed_vdlm)
-                .await;
-        });
-    } else {
-        info!(
-            "Not starting the VDLM message handler task. No input and/or output sources specified."
-        );
+    
+    // END ACARS
+    
+    // START VDLM
+    
+    match args.vdlm_configured() {
+        false => info!("Not starting the VDLM message handler task as there are no input and/or output sources specified."),
+        true => {
+            info!("VDLM configuration found, prepping to handle.");
+            debug!("Setting up VDLM message handler.");
+            debug!("Building configuration.");
+            let message_handler_config_vdlm: MessageHandlerConfig =
+                MessageHandlerConfig::new(&args, ServerType::Vdlm2);
+            debug!("Creating VDLM message queues.");
+            // Ingress Queue
+            let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
+            // Egress Queue
+            let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
+    
+            debug!("VDLM message handler configuration and queues done.");
+    
+            debug!("Building VDLM ingress configuration.");
+            let vdlm_input_config: OutputServerConfig = OutputServerConfig::configure_message_receiver(&args, ServerType::Vdlm2);
+    
+            debug!("Building VDLM egress configuration.");
+            let vdlm_output_config: SenderServerConfig = SenderServerConfig::configure_message_sender(&args, ServerType::Vdlm2);
+    
+            info!("Starting VDLM Input Servers.");
+    
+            tokio::spawn(async move {
+                vdlm_input_config.start_listeners(tx_receivers_vdlm);
+            });
+    
+            info!("Starting VDLM Output Servers.");
+    
+            tokio::spawn(async move {
+                vdlm_output_config
+                    .start_senders(rx_processed_vdlm, ServerType::Vdlm2)
+                    .await;
+            });
+    
+            tokio::spawn(async move {
+                message_handler_config_vdlm
+                    .watch_message_queue(rx_receivers_vdlm, tx_processed_vdlm)
+                    .await;
+            });
+        }
     }
+    
 
+    // END VDLM
+    
+    
+
+    
     trace!("Starting the sleep loop");
 
     loop {
@@ -148,104 +142,138 @@ pub async fn start_processes(args: Input) {
 }
 
 impl OutputServerConfig {
-    fn new(
-        listen_udp: &Option<Vec<u16>>,
-        listen_tcp: &Option<Vec<u16>>,
-        receive_tcp: &Option<Vec<String>>,
-        receive_zmq: &Option<Vec<String>>,
-        reassembly_window: &f64,
-        output_server_type: ServerType,
-    ) -> Self {
-        Self {
-            listen_udp: listen_udp.clone(),
-            listen_tcp: listen_tcp.clone(),
-            receive_tcp: receive_tcp.clone(),
-            receive_zmq: receive_zmq.clone(),
-            reassembly_window: *reassembly_window,
-            output_server_type,
-        }
+    
+    fn configure_message_receiver(args: &Input, server_type: ServerType) -> Self {
+        let mut output_config: Self = Self {
+            reassembly_window: args.reassembly_window,
+            output_server_type: server_type,
+            ..Default::default()
+        };
+        match server_type {
+            ServerType::Acars => {
+                output_config.listen_udp = args.listen_udp_acars.clone();
+                output_config.listen_tcp = args.listen_tcp_acars.clone();
+                output_config.receive_tcp = args.receive_tcp_acars.clone();
+                output_config.receive_zmq = args.receive_zmq_acars.clone();
+                
+            }
+            ServerType::Vdlm2 => {
+                output_config.listen_udp = args.listen_udp_vdlm2.clone();
+                output_config.listen_tcp = args.listen_tcp_vdlm2.clone();
+                output_config.receive_tcp = args.receive_tcp_vdlm2.clone();
+                output_config.receive_zmq = args.receive_zmq_vdlm2.clone();
+            }
+        };
+        output_config
     }
 
     fn start_listeners(self, tx_receivers: Sender<String>) {
         // Start the UDP listener servers
 
         // Make sure we have at least one UDP port to listen on
-        if let Some(listen_udp) = self.listen_udp {
-            // Start the UDP listener servers for server_type
-            info!(
-                "Starting UDP listener servers for {}",
-                &self.output_server_type
-            );
-            listen_udp.udp_port_listener(
-                self.output_server_type,
-                tx_receivers.clone(),
-                &self.reassembly_window,
-            );
-        }
+        
+        trace!("Starting {} UDP listeners.", self.output_server_type);
+        // OutputServerConfig::listen(self.listen_udp, self.output_server_type, tx_receivers.clone(), self.reassembly_window, SocketType::Udp);
+        self.listen_to_ports(tx_receivers.clone(), SocketType::Udp);
 
         // Start the TCP listeners
 
-        if let Some(listen_tcp) = self.listen_tcp {
-            // Start the TCP listener servers for server_type
-            info!(
-                "Starting TCP listener servers for {}",
-                &self.output_server_type
-            );
-            listen_tcp.tcp_port_listener(
-                self.output_server_type,
-                tx_receivers.clone(),
-                &self.reassembly_window,
-            );
-        }
+        trace!("Starting {} TCP listeners.", self.output_server_type);
+    
+        // OutputServerConfig::listen(self.listen_tcp, self.output_server_type, tx_receivers.clone(), self.reassembly_window, SocketType::Tcp);
+        self.listen_to_ports(tx_receivers.clone(), SocketType::Tcp);
 
         // Start the ZMQ listeners
+        
+        self.receive_on_ports(tx_receivers.clone(), ReceiverType::Zmq);
 
-        if let Some(receive_zmq) = self.receive_zmq {
-            // Start the ZMQ listener servers for {server_type}
-            info!(
-                "Starting ZMQ Receiver servers for {}",
-                &self.output_server_type
-            );
-            receive_zmq.start_zmq(self.output_server_type, tx_receivers.clone());
+        // if let Some(receive_zmq) = self.receive_zmq {
+        //     // Start the ZMQ listener servers for {server_type}
+        //     info!(
+        //         "Starting ZMQ Receiver servers for {}",
+        //         &self.output_server_type
+        //     );
+        //     receive_zmq.start_zmq(self.output_server_type, tx_receivers.clone());
+        // }
+        
+        self.receive_on_ports(tx_receivers.clone(), ReceiverType::Tcp);
+    }
+    
+    fn listen_to_ports(&self, channel: Sender<String>, socket_type: SocketType) {
+        let Some(ports) = (match socket_type {
+            SocketType::Tcp => &self.listen_tcp,
+            SocketType::Udp => &self.listen_udp
+        }) else {
+            trace!("Nothing to do for {} {}.", self.output_server_type, socket_type);
+            return;
+        };
+        info!("Starting {} listener server(s) for {}", socket_type, self.output_server_type);
+        for port in ports {
+            let new_channel: Sender<String> = channel.clone();
+            let server: SocketListenerServer = SocketListenerServer::new(self.output_server_type, *port, self.reassembly_window, socket_type);
+            debug!("Starting {} {} server on {}", self.output_server_type, socket_type, port);
+            tokio::spawn( async move { server.run(new_channel).await });
         }
+    }
+    
+    fn receive_on_ports(&self, channel: Sender<String>, receiver_type: ReceiverType) {
+        let Some(hosts) = (match receiver_type {
+            ReceiverType::Tcp => &self.receive_tcp,
+            ReceiverType::Zmq => &self.receive_zmq
+        }) else {
+            trace!("Nothing to do for {} {}", self.output_server_type, receiver_type);
+            return;
+        };
+        info!("Starting {} receiver server(s) for {}", receiver_type, self.output_server_type);
+        for host in hosts {
+            let receiver_config: ReceiverConfig = match receiver_type {
+                ReceiverType::Tcp => ReceiverConfig::Tcp(TCPReceiverServer::new(host, self.output_server_type, self.reassembly_window)),
+                ReceiverType::Zmq => ReceiverConfig::Zmq(ZMQListnerServer::new(host, self.output_server_type))
+            };
+            receiver_config.run(channel.clone());
+        }
+    }
+}
 
-        if let Some(receive_tcp) = self.receive_tcp {
-            info!(
-                "Starting TCP Receiver servers for {}",
-                &self.output_server_type
-            );
-            receive_tcp.start_tcp_receivers(
-                self.output_server_type,
-                tx_receivers,
-                &self.reassembly_window,
-            );
+#[derive(Debug, Clone)]
+enum ReceiverConfig {
+    Tcp(TCPReceiverServer),
+    Zmq(ZMQListnerServer)
+}
+
+impl ReceiverConfig {
+    fn run(self, channel: Sender<String>) {
+        tokio::spawn( async move {
+            let logging_identifier: String = self.get_logging_identifier();
+            match self {
+                ReceiverConfig::Tcp(tcp_config) => {
+                    let Err(tcp_error) = tcp_config.run(channel).await else {
+                        debug!("{} connection closed", logging_identifier);
+                        return;
+                    };
+                    error!("{} connection error: {}", logging_identifier, tcp_error);
+                }
+                ReceiverConfig::Zmq(zmq_config) => {
+                    let Err(zmq_error) = zmq_config.run(channel).await else {
+                        debug!("{} connection closed", logging_identifier);
+                        return;
+                    };
+                    error!("{} connection error: {:?}", logging_identifier, zmq_error);
+                }
+            };
+        });
+    }
+    
+    fn get_logging_identifier(&self) -> String {
+        match self {
+            ReceiverConfig::Tcp(config) => config.logging_identifier.to_string(),
+            ReceiverConfig::Zmq(config) => config.logging_identifier.to_string(),
         }
     }
 }
 
 trait StartHostListeners {
     fn start_zmq(self, decoder_type: ServerType, channel: Sender<String>);
-    fn start_tcp_receivers(
-        self,
-        decoder_type: ServerType,
-        channel: Sender<String>,
-        reassembly_window: &f64,
-    );
-}
-
-trait StartPortListener {
-    fn tcp_port_listener(
-        self,
-        decoder_type: ServerType,
-        channel: Sender<String>,
-        reassembly_window: &f64,
-    );
-    fn udp_port_listener(
-        self,
-        decoder_type: ServerType,
-        channel: Sender<String>,
-        reassembly_window: &f64,
-    );
 }
 
 impl StartHostListeners for Vec<String> {
@@ -267,74 +295,32 @@ impl StartHostListeners for Vec<String> {
             });
         }
     }
-
-    fn start_tcp_receivers(
-        self,
-        decoder_type: ServerType,
-        channel: Sender<String>,
-        reassembly_window: &f64,
-    ) {
-        for host in self {
-            let new_channel: Sender<String> = channel.clone();
-            let proto_name: String = format!("{}_TCP_RECEIVER_{}", decoder_type, host);
-            let reassembly_window: f64 = *reassembly_window;
-            tokio::spawn(async move {
-                let tcp_receiver_server: TCPReceiverServer =
-                    TCPReceiverServer::new(&host, decoder_type, reassembly_window);
-                match tcp_receiver_server.run(new_channel).await {
-                    Ok(_) => debug!("{} connection closed", proto_name),
-                    Err(e) => error!("{} connection error: {}", proto_name, e),
-                }
-            });
-        }
-    }
 }
 
-impl StartPortListener for Vec<u16> {
-    fn tcp_port_listener(
-        self,
-        decoder_type: ServerType,
-        channel: Sender<String>,
-        reassembly_window: &f64,
-    ) {
-        for port in self {
-            let new_channel: Sender<String> = channel.clone();
-            let server: SocketListenerServer = SocketListenerServer::new(decoder_type, &port, reassembly_window, SocketType::Tcp);
-            debug!("Starting {decoder_type} TCP server on {port}");
-            tokio::spawn( async move { server.run(new_channel).await });
-        }
-    }
 
-    fn udp_port_listener(
-        self,
-        decoder_type: ServerType,
-        channel: Sender<String>,
-        reassembly_window: &f64,
-    ) {
-        for udp_port in self {
-            let new_channel: Sender<String> = channel.clone();
-            let server: SocketListenerServer = SocketListenerServer::new(decoder_type, &udp_port, reassembly_window, SocketType::Udp);
-            debug!("Starting {decoder_type} UDP server on {udp_port}");
-            tokio::spawn(async move {server.run(new_channel).await });
-        }
-    }
-}
 
 impl SenderServerConfig {
-    fn new(
-        send_udp: &Option<Vec<String>>,
-        send_tcp: &Option<Vec<String>>,
-        serve_tcp: &Option<Vec<u16>>,
-        serve_zmq: &Option<Vec<u16>>,
-        max_udp_packet_size: &u64,
-    ) -> Self {
-        Self {
-            send_udp: send_udp.clone(),
-            send_tcp: send_tcp.clone(),
-            serve_tcp: serve_tcp.clone(),
-            serve_zmq: serve_zmq.clone(),
-            max_udp_packet_size: *max_udp_packet_size as usize,
+    
+    fn configure_message_sender(args: &Input, server_type: ServerType) -> Self {
+        let mut sender_config: Self = Self {
+            max_udp_packet_size: args.max_udp_packet_size as usize,
+            ..Default::default()
+        };
+        match server_type {
+            ServerType::Acars => {
+                sender_config.send_udp = args.send_udp_acars.clone();
+                sender_config.send_tcp = args.send_tcp_acars.clone();
+                sender_config.serve_tcp = args.serve_tcp_acars.clone();
+                sender_config.serve_zmq = args.serve_zmq_acars.clone();
+            }
+            ServerType::Vdlm2 => {
+                sender_config.send_udp = args.send_udp_vdlm2.clone();
+                sender_config.send_tcp = args.send_tcp_vdlm2.clone();
+                sender_config.serve_tcp = args.serve_tcp_vdlm2.clone();
+                sender_config.serve_zmq = args.serve_zmq_vdlm2.clone();
+            }
         }
+        sender_config
     }
 
     async fn start_senders(self, rx_processed: Receiver<AcarsVdlm2Message>, server_type: ServerType) {
@@ -491,14 +477,14 @@ impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
 impl SocketListenerServer {
     pub(crate) fn new(
         proto_name: ServerType,
-        port: &u16,
-        reassembly_window: &f64,
+        port: u16,
+        reassembly_window: f64,
         socket_type: SocketType,
     ) -> Self {
         Self {
             proto_name,
-            port: *port,
-            reassembly_window: *reassembly_window,
+            port,
+            reassembly_window,
             socket_type,
         }
     }
@@ -507,102 +493,108 @@ impl SocketListenerServer {
         self,
         channel: Sender<String>,
     ) {
-        let build_ip_address: Result<IpAddr, AddrParseError> = IpAddr::from_str("0.0.0.0");
-        let build_socket_address: Result<SocketAddr, AddrParseError> = match build_ip_address {
-            Ok(ip_address) => Ok(SocketAddr::new(ip_address, self.port)),
-            Err(ip_parse_error) => {
-                error!("[{} Receiver Server] Error building socket address: {}",
-                    self.socket_type.to_string(), ip_parse_error);
-                Err(ip_parse_error)
-            }
-            
+        
+        let Some(socket_address) = build_ip_address(self.port, self.socket_type) else {
+            return;
         };
-        match build_socket_address {
-            Err(address_error) => error!("[{} Receiver Server] Error building socket address: {}",
-                    self.socket_type.to_string(), address_error),
-            Ok(socket_address) => {
-                let logging_identifier: String = format!("{}_{}", self.proto_name, socket_address.to_string());
-                match self.socket_type {
-                    SocketType::Tcp => {
-                        
-                        match TcpListener::bind(socket_address).await {
-                            Err(tcp_error) => error!("[{} SERVER: {}] Error listening on port: {}",
+    
+        
+        match self.socket_type {
+            SocketType::Tcp => self.start_tcp(socket_address, &channel).await,
+            SocketType::Udp => self.start_udp(socket_address, &channel).await
+        }
+    }
+    
+    async fn start_tcp(self, socket_address: SocketAddr, channel: &Sender<String>) {
+        let logging_identifier: String = format!("{}_{}", self.proto_name, socket_address.to_string());
+        match TcpListener::bind(socket_address).await {
+            Err(tcp_error) => error!("[{} SERVER: {}] Error listening on port: {}",
                                 self.socket_type, logging_identifier, tcp_error),
-                            Ok(listener) => {
-                                info!("[{} Listener SERVER: {}]: Listening on: {}", self.socket_type, self.proto_name, socket_address);
-                                loop {
-                                    trace!("[{} Listener SERVER: {}]: Waiting for connection", self.socket_type, self.proto_name);
-                                    // Asynchronously wait for an inbound TcpStream.
-                                    match listener.accept().await {
-                                        Err(accept_error) => error!("[{} Listener SERVER: {}]: Error accepting connection: {}", self.socket_type, self.proto_name, accept_error),
-                                        Ok((stream, addr)) => {
-                                            let new_channel: Sender<String> = channel.clone();
-                                            let new_proto_name: String = format!("{}:{}", self.proto_name, addr);
-                                            info!("[{} Listener SERVER: {}]:accepted connection from {}",
+            Ok(listener) => {
+                info!("[{} Listener SERVER: {}]: Listening on: {}", self.socket_type, self.proto_name, socket_address);
+                loop {
+                    trace!("[{} Listener SERVER: {}]: Waiting for connection", self.socket_type, self.proto_name);
+                    // Asynchronously wait for an inbound TcpStream.
+                    match listener.accept().await {
+                        Err(accept_error) => error!("[{} Listener SERVER: {}]: Error accepting connection: {}", self.socket_type, self.proto_name, accept_error),
+                        Ok((stream, addr)) => {
+                            let new_channel: Sender<String> = channel.clone();
+                            let new_proto_name: String = format!("{}:{}", self.proto_name, addr);
+                            info!("[{} Listener SERVER: {}]:accepted connection from {}",
                                                 self.socket_type, self.proto_name, addr);
-                                            // Spawn our handler to be run asynchronously.
-                                            tokio::spawn(async move {
-                                                match process_tcp_sockets(
-                                                    stream, self.proto_name, &new_proto_name,
-                                                    new_channel, addr, self.reassembly_window,
-                                                ).await {
-                                                    Ok(_) => debug!("[{} Listener SERVER: {}] connection closed",
+                            // Spawn our handler to be run asynchronously.
+                            tokio::spawn(async move {
+                                match process_tcp_sockets(
+                                    stream, self.proto_name, &new_proto_name,
+                                    new_channel, addr, self.reassembly_window,
+                                ).await {
+                                    Ok(_) => debug!("[{} Listener SERVER: {}] connection closed",
                                                         self.socket_type, new_proto_name),
-                                                    Err(e) => error!("[{} Listener SERVER: {}] connection error: {}",
+                                    Err(e) => error!("[{} Listener SERVER: {}] connection error: {}",
                                                         self.socket_type, new_proto_name.clone(), e)
-                                                }
-                                            });
-                                        }
-                                    }
                                 }
-                            }
+                            });
                         }
-                    }
-                    SocketType::Udp => {
-                        let mut buf: Vec<u8> = vec![0; 5000];
-                        let mut to_send: Option<(usize, SocketAddr)> = None;
-
-                        match UdpSocket::bind(socket_address).await {
-                            Err(socketing_binding_error) => error!("[{} SERVER: {}] Error listening on port: {}",
-                                self.socket_type, logging_identifier, socketing_binding_error),
-                            Ok(socket) => {
-                                info!("[{} SERVER: {}]: Listening on: {}",
-                                    self.socket_type, logging_identifier, socket_address);
-                                let packet_handler: PacketHandler =
-                                    PacketHandler::new(&logging_identifier, self.reassembly_window);
-                                
-                                loop {
-                                    if let Some((size, peer)) = to_send {
-                                        let msg_string: &str = match std::str::from_utf8(
-                                            buf[..size].as_ref(),
-                                        ) {
-                                            Ok(s) => s,
-                                            Err(_) => {
-                                                warn!("[{} SERVER: {}] Invalid message received from {}",
-                                                    self.socket_type, logging_identifier, peer);
-                                                continue;
-                                            }
-                                        };
-                                        
-                                        msg_string.split_terminator('\n')
-                                            .collect::<Vec<&str>>()
-                                            .process_messages(&packet_handler, &peer, &channel, &logging_identifier,
-                                                              self.socket_type, self.proto_name).await;
-                                    }
-                                    to_send = match socket.recv_from(&mut buf).await {
-                                        Ok(data) => Some(data),
-                                        Err(receive_error) => {
-                                            error!("[{} SERVER: {}] Error listening on port: {}",
-                                                self.socket_type, logging_identifier, receive_error);
-                                            None
-                                        }
-                                    };
-                                }
-                            }
-                        };
                     }
                 }
             }
         }
+    }
+    
+    async fn start_udp(self, socket_address: SocketAddr, channel: &Sender<String>) {
+        let logging_identifier: String = format!("{}_{}", self.proto_name, socket_address.to_string());
+        let mut buf: Vec<u8> = vec![0; 5000];
+        let mut to_send: Option<(usize, SocketAddr)> = None;
+    
+        match UdpSocket::bind(socket_address).await {
+            Err(socketing_binding_error) => error!("[{} SERVER: {}] Error listening on port: {}",
+                                self.socket_type, logging_identifier, socketing_binding_error),
+            Ok(socket) => {
+                info!("[{} SERVER: {}]: Listening on: {}",
+                                    self.socket_type, logging_identifier, socket_address);
+                let packet_handler: PacketHandler =
+                    PacketHandler::new(&logging_identifier, self.reassembly_window);
+            
+                loop {
+                    if let Some((size, peer)) = to_send {
+                        let msg_string: &str = match std::str::from_utf8(
+                            buf[..size].as_ref(),
+                        ) {
+                            Ok(s) => s,
+                            Err(_) => {
+                                warn!("[{} SERVER: {}] Invalid message received from {}",
+                                                    self.socket_type, logging_identifier, peer);
+                                continue;
+                            }
+                        };
+                    
+                        msg_string.split_terminator('\n')
+                                  .collect::<Vec<&str>>()
+                                  .process_messages(&packet_handler, &peer, &channel, &logging_identifier,
+                                                    self.socket_type, self.proto_name).await;
+                    }
+                    to_send = match socket.recv_from(&mut buf).await {
+                        Ok(data) => Some(data),
+                        Err(receive_error) => {
+                            error!("[{} SERVER: {}] Error listening on port: {}",
+                                                self.socket_type, logging_identifier, receive_error);
+                            None
+                        }
+                    };
+                }
+            }
+        };
+    }
+}
+
+fn build_ip_address(port: u16, socket_type: SocketType) -> Option<SocketAddr> {
+    match IpAddr::from_str("0.0.0.0") {
+        Ok(ip_address) => Some(SocketAddr::new(ip_address, port)),
+        Err(ip_parse_error) => {
+            error!("[{} Receiver Server] Error building socket address: {}",
+                    socket_type, ip_parse_error);
+            None
+        }
+        
     }
 }

@@ -15,6 +15,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
 use crate::SocketType;
 
+#[derive(Debug, Clone)]
 pub struct PacketHandler {
     name: String,
     // Hashmap key is peer, stores a tuple of time and message

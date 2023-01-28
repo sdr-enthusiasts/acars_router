@@ -16,6 +16,7 @@ use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::{Receiver, Sender};
 use acars_metrics::{MessageDestination, MessageSource};
 
+#[derive(Debug, Clone)]
 pub struct ZMQListnerServer {
     pub host: String,
     pub proto_name: ServerType,
@@ -23,6 +24,14 @@ pub struct ZMQListnerServer {
 }
 
 impl ZMQListnerServer {
+    
+    pub(crate) fn new(host: &str, proto_name: ServerType, ) -> Self {
+        Self {
+            host: host.to_string(),
+            proto_name,
+            logging_identifier: format!("{}_ZMQ_RECEIVER_{}", proto_name, host),
+        }
+    }
     pub async fn run(self, channel: Sender<String>) -> Result<()> {
         debug!("[ZMQ LISTENER SERVER {}] Starting", self.logging_identifier);
         let address = format!("tcp://{}", self.host);
