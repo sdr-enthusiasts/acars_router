@@ -23,7 +23,7 @@ use stubborn_io::StubbornTcpStream;
 use tmq::publish::Publish;
 use tmq::{publish, Context};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{UnboundedSender, UnboundedReceiver};
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{sleep, Duration};
 
@@ -45,9 +45,9 @@ pub async fn start_processes(args: Input) {
                 MessageHandlerConfig::new(&args, ServerType::Acars);
             debug!("Creating ACARS message queues.");
             // Ingress queue
-            let (tx_receivers_acars, rx_receivers_acars) = mpsc::channel(32);
+            let (tx_receivers_acars, rx_receivers_acars) = mpsc::unbounded_channel();
             // Egress queue
-            let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
+            let (tx_processed_acars, rx_processed_acars) = mpsc::unbounded_channel();
             
             debug!("ACARS message handler configuration and queues done.");
             
@@ -94,9 +94,9 @@ pub async fn start_processes(args: Input) {
                 MessageHandlerConfig::new(&args, ServerType::Vdlm2);
             debug!("Creating VDLM message queues.");
             // Ingress Queue
-            let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
+            let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::unbounded_channel();
             // Egress Queue
-            let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
+            let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::unbounded_channel();
     
             debug!("VDLM message handler configuration and queues done.");
     
@@ -167,7 +167,7 @@ impl OutputServerConfig {
         output_config
     }
 
-    fn start_listeners(self, tx_receivers: Sender<String>) {
+    fn start_listeners(self, tx_receivers: UnboundedSender<String>) {
         // Start the UDP listener servers
 
         // Make sure we have at least one UDP port to listen on
@@ -199,7 +199,7 @@ impl OutputServerConfig {
         self.receive_on_ports(tx_receivers.clone(), ReceiverType::Tcp);
     }
     
-    fn listen_to_ports(&self, channel: Sender<String>, socket_type: SocketType) {
+    fn listen_to_ports(&self, channel: UnboundedSender<String>, socket_type: SocketType) {
         let Some(ports) = (match socket_type {
             SocketType::Tcp => &self.listen_tcp,
             SocketType::Udp => &self.listen_udp
@@ -209,14 +209,14 @@ impl OutputServerConfig {
         };
         info!("Starting {} listener server(s) for {}", socket_type, self.output_server_type);
         for port in ports {
-            let new_channel: Sender<String> = channel.clone();
+            let new_channel: UnboundedSender<String> = channel.clone();
             let server: SocketListenerServer = SocketListenerServer::new(self.output_server_type, *port, self.reassembly_window, socket_type);
             debug!("Starting {} {} server on {}", self.output_server_type, socket_type, port);
             tokio::spawn( async move { server.run(new_channel).await });
         }
     }
     
-    fn receive_on_ports(&self, channel: Sender<String>, receiver_type: ReceiverType) {
+    fn receive_on_ports(&self, channel: UnboundedSender<String>, receiver_type: ReceiverType) {
         let Some(hosts) = (match receiver_type {
             ReceiverType::Tcp => &self.receive_tcp,
             ReceiverType::Zmq => &self.receive_zmq
@@ -242,7 +242,7 @@ enum ReceiverConfig {
 }
 
 impl ReceiverConfig {
-    fn run(self, channel: Sender<String>) {
+    fn run(self, channel: UnboundedSender<String>) {
         tokio::spawn( async move {
             let logging_identifier: String = self.get_logging_identifier();
             match self {
@@ -273,13 +273,13 @@ impl ReceiverConfig {
 }
 
 trait StartHostListeners {
-    fn start_zmq(self, decoder_type: ServerType, channel: Sender<String>);
+    fn start_zmq(self, decoder_type: ServerType, channel: UnboundedSender<String>);
 }
 
 impl StartHostListeners for Vec<String> {
-    fn start_zmq(self, decoder_type: ServerType, channel: Sender<String>) {
+    fn start_zmq(self, decoder_type: ServerType, channel: UnboundedSender<String>) {
         for host in self {
-            let new_channel: Sender<String> = channel.clone();
+            let new_channel: UnboundedSender<String> = channel.clone();
             let proto_name: String = format!("{}_ZMQ_RECEIVER_{}", decoder_type, host);
 
             tokio::spawn(async move {
@@ -323,12 +323,12 @@ impl SenderServerConfig {
         sender_config
     }
 
-    async fn start_senders(self, rx_processed: Receiver<AcarsVdlm2Message>, server_type: ServerType) {
+    async fn start_senders(self, rx_processed: UnboundedReceiver<AcarsVdlm2Message>, server_type: ServerType) {
         // Flow is check and see if there are any configured outputs for the queue
         // If so, start it up and save the transmit channel to the list of sender servers.
         // Then start watchers for the input queue
 
-        let sender_servers: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
+        let sender_servers: Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> =
             Arc::new(Mutex::new(Vec::new()));
 
         if let Some(send_udp) = self.send_udp {
@@ -337,7 +337,7 @@ impl SenderServerConfig {
             match UdpSocket::bind("0.0.0.0:0".to_string()).await {
                 Err(e) => error!("[{}] Failed to start UDP sender server: {}", server_type, e),
                 Ok(socket) => {
-                    let (tx_processed, rx_processed) = mpsc::channel(32);
+                    let (tx_processed, rx_processed) = mpsc::unbounded_channel();
                     let udp_sender_server: UDPSenderServer = UDPSenderServer::new(
                         &send_udp,
                         server_type,
@@ -346,7 +346,7 @@ impl SenderServerConfig {
                         rx_processed,
                     );
 
-                    let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
+                    let new_state: Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> =
                         Arc::clone(&sender_servers);
                     new_state.lock().await.push(tx_processed.clone());
 
@@ -359,7 +359,7 @@ impl SenderServerConfig {
 
         if let Some(send_tcp) = self.send_tcp {
             for host in send_tcp {
-                let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
+                let new_state: Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
                 info!("Starting {} TCP Sender {} ", server_type, host);
                 tokio::spawn(async move { new_state.start_tcp(server_type, &host).await });
@@ -375,14 +375,13 @@ impl SenderServerConfig {
                 match socket {
                     Err(e) => error!("[TCP SERVE {server_type}]: Error binding to {host}: {e}"),
                     Ok(socket) => {
-                        let (tx_processed, rx_processed) = mpsc::channel(32);
-
+                        let (tx_processed, rx_processed) = mpsc::unbounded_channel();
                         let tcp_sender_server: TCPServeServer = TCPServeServer::new(
                             socket,
                             format!("{} {}", server_type, hostname).as_str(),
                             server_type
                         );
-                        let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
+                        let new_state: Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> =
                             Arc::clone(&sender_servers);
                         new_state.lock().await.push(tx_processed.clone());
                         let state: Arc<Mutex<Shared>> = Arc::new(Mutex::new(Shared::new()));
@@ -401,9 +400,9 @@ impl SenderServerConfig {
             for port in serve_zmq {
                 let server_address: String = format!("tcp://0.0.0.0:{}", &port);
                 let name: String = format!("ZMQ_SENDER_SERVER_{}_{}", server_type, &port);
-                let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
+                let new_state: Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
-                let (tx_processed, rx_processed) = mpsc::channel(32);
+                let (tx_processed, rx_processed) = mpsc::unbounded_channel();
                 info!("Starting {}", name);
                 match publish(&Context::new()).bind(&server_address) {
                     Err(e) => error!(
@@ -422,7 +421,7 @@ impl SenderServerConfig {
             }
         }
 
-        let monitor_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> = Arc::clone(&sender_servers);
+        let monitor_state: Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> = Arc::clone(&sender_servers);
 
         monitor_state.monitor(rx_processed, server_type).await;
     }
@@ -430,18 +429,18 @@ impl SenderServerConfig {
 
 #[async_trait]
 trait SenderServers {
-    async fn monitor(self, rx_processed: Receiver<AcarsVdlm2Message>, name: ServerType);
+    async fn monitor(self, rx_processed: UnboundedReceiver<AcarsVdlm2Message>, name: ServerType);
     async fn start_tcp(self, server_type: ServerType, host: &str);
 }
 
 #[async_trait]
-impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
-    async fn monitor(self, mut rx_processed: Receiver<AcarsVdlm2Message>, name: ServerType) {
+impl SenderServers for Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> {
+    async fn monitor(self, mut rx_processed: UnboundedReceiver<AcarsVdlm2Message>, name: ServerType) {
         debug!("Starting the {} Output Queue", name);
         while let Some(message) = rx_processed.recv().await {
             debug!("[CHANNEL SENDER {name}] Message received in the output queue. Sending to {} clients", name);
             for sender_server in self.lock().await.iter() {
-                match sender_server.send(message.clone()).await {
+                match sender_server.send(message.clone()) {
                     Ok(_) => debug!("[CHANNEL SENDER {name}] Successfully sent the {name} message"),
                     Err(e) => error!("[CHANNEL SENDER {name}]: Error sending message: {}", e),
                 }
@@ -456,7 +455,7 @@ impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
         match socket {
             Err(e) => error!("[TCP SENDER {server_type}]: Error connecting to {host}: {e}"),
             Ok(socket) => {
-                let (tx_processed, rx_processed) = mpsc::channel(32);
+                let (tx_processed, rx_processed) = mpsc::unbounded_channel();
                 let tcp_sender_server = SenderServer {
                     host: host.to_string(),
                     proto_name: server_type,
@@ -491,7 +490,7 @@ impl SocketListenerServer {
 
     pub(crate) async fn run(
         self,
-        channel: Sender<String>,
+        channel: UnboundedSender<String>,
     ) {
         
         let Some(socket_address) = build_ip_address(self.port, self.socket_type) else {
@@ -505,7 +504,7 @@ impl SocketListenerServer {
         }
     }
     
-    async fn start_tcp(self, socket_address: SocketAddr, channel: &Sender<String>) {
+    async fn start_tcp(self, socket_address: SocketAddr, channel: &UnboundedSender<String>) {
         let logging_identifier: String = format!("{}_{}", self.proto_name, socket_address.to_string());
         match TcpListener::bind(socket_address).await {
             Err(tcp_error) => error!("[{} SERVER: {}] Error listening on port: {}",
@@ -518,7 +517,7 @@ impl SocketListenerServer {
                     match listener.accept().await {
                         Err(accept_error) => error!("[{} Listener SERVER: {}]: Error accepting connection: {}", self.socket_type, self.proto_name, accept_error),
                         Ok((stream, addr)) => {
-                            let new_channel: Sender<String> = channel.clone();
+                            let new_channel: UnboundedSender<String> = channel.clone();
                             let new_proto_name: String = format!("{}:{}", self.proto_name, addr);
                             info!("[{} Listener SERVER: {}]:accepted connection from {}",
                                                 self.socket_type, self.proto_name, addr);
@@ -541,7 +540,7 @@ impl SocketListenerServer {
         }
     }
     
-    async fn start_udp(self, socket_address: SocketAddr, channel: &Sender<String>) {
+    async fn start_udp(self, socket_address: SocketAddr, channel: &UnboundedSender<String>) {
         let logging_identifier: String = format!("{}_{}", self.proto_name, socket_address.to_string());
         let mut buf: Vec<u8> = vec![0; 5000];
         let mut to_send: Option<(usize, SocketAddr)> = None;

@@ -10,7 +10,7 @@
 use std::io;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use tokio::net::UdpSocket;
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::{sleep, Duration};
 use acars_metrics::MessageDestination;
 use crate::ServerType;
@@ -23,7 +23,7 @@ pub(crate) struct UDPSenderServer {
     pub(crate) logging_identifier: String,
     pub(crate) socket: UdpSocket,
     pub(crate) max_udp_packet_size: usize,
-    pub(crate) channel: Receiver<AcarsVdlm2Message>,
+    pub(crate) channel: UnboundedReceiver<AcarsVdlm2Message>,
 }
 
 impl UDPSenderServer {
@@ -32,7 +32,7 @@ impl UDPSenderServer {
         server_type: ServerType,
         socket: UdpSocket,
         max_udp_packet_size: &usize,
-        rx_processed: Receiver<AcarsVdlm2Message>,
+        rx_processed: UnboundedReceiver<AcarsVdlm2Message>,
     ) -> Self {
         let logging_identifier: String = match socket.local_addr() {
             Ok(local_addr) => format!("{}_UDP_SEND_{}", server_type, local_addr),

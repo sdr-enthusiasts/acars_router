@@ -29,14 +29,13 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use std::vec::IntoIter;
 use stubborn_io::ReconnectOptions;
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 /// Shorthand for the transmit half of the message channel.
-pub type Tx = mpsc::UnboundedSender<String>;
+pub type Tx = UnboundedSender<String>;
 
 /// Shorthand for the receive half of the message channel.
-pub type Rx = mpsc::UnboundedReceiver<String>;
+pub type Rx = UnboundedReceiver<String>;
 
 pub type DurationIterator = Box<dyn Iterator<Item = Duration> + Send + Sync>;
 
@@ -47,7 +46,7 @@ pub(crate) struct SenderServer<T> {
     pub(crate) proto_name: ServerType,
     pub(crate) logging_identifier: String,
     pub(crate) socket: T,
-    pub(crate) channel: Receiver<AcarsVdlm2Message>,
+    pub(crate) channel: UnboundedReceiver<AcarsVdlm2Message>,
 }
 
 #[derive(Debug, Default)]

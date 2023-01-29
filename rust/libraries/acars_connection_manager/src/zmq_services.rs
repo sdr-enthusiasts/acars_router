@@ -13,7 +13,7 @@ use futures::SinkExt;
 use futures::StreamExt;
 use tmq::publish::Publish;
 use tmq::{subscribe, Context, Result};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use acars_metrics::{MessageDestination, MessageSource};
 
 #[derive(Debug, Clone)]
@@ -32,7 +32,7 @@ impl ZMQListnerServer {
             logging_identifier: format!("{}_ZMQ_RECEIVER_{}", proto_name, host),
         }
     }
-    pub async fn run(self, channel: Sender<String>) -> Result<()> {
+    pub async fn run(self, channel: UnboundedSender<String>) -> Result<()> {
         debug!("[ZMQ LISTENER SERVER {}] Starting", self.logging_identifier);
         let address = format!("tcp://{}", self.host);
         let mut socket = subscribe(&Context::new())
@@ -63,7 +63,7 @@ impl ZMQListnerServer {
                 .or_else(|| composed_message.strip_suffix('\n'))
                 .unwrap_or(&composed_message);
 
-            match channel.send(stripped.to_string()).await {
+            match channel.send(stripped.to_string()) {
                 Ok(_) => trace!(
                     "[ZMQ LISTENER SERVER {}] Message sent to channel",
                     self.logging_identifier
@@ -85,7 +85,7 @@ impl SenderServer<Publish> {
         proto_name: ServerType,
         name: &str,
         socket: Publish,
-        channel: Receiver<AcarsVdlm2Message>,
+        channel: UnboundedReceiver<AcarsVdlm2Message>,
     ) -> Self {
         Self {
             host: server_address.to_string(),

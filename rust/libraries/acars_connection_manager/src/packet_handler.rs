@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
 use crate::SocketType;
 
@@ -28,7 +28,7 @@ pub trait ProcessAssembly {
     async fn process_reassembly(
         &self,
         proto_name: &str,
-        channel: &Sender<String>,
+        channel: &UnboundedSender<String>,
         listener_type: SocketType,
     );
 }
@@ -38,29 +38,28 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
     async fn process_reassembly(
         &self,
         proto_name: &str,
-        channel: &Sender<String>,
+        channel: &UnboundedSender<String>,
         listener_type: SocketType,
     ) {
-        match self {
-            Some(reassembled_msg) => {
-                let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
-                match parsed_msg {
-                    Err(parse_error) => error!("{}", parse_error),
-                    Ok(msg) => {
-                        trace!("[{} Listener SERVER: {}] Received message: {:?}",
-                            listener_type, proto_name, msg);
-                        match channel.send(msg).await {
-                            Ok(_) => debug!("[{} Listener SERVER: {}] Message sent to channel",
-                                listener_type, proto_name),
-                            Err(e) => error!("[{} Listener SERVER: {}] sending message to channel: {}",
-                                listener_type, proto_name, e),
-                        };
-                    }
-                }
+        let Some(reassembled_msg) = self else {
+            trace!("[{} Listener SERVER: {}] Invalid Message",
+                listener_type, proto_name);
+            return;
+        };
+        let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
+        match parsed_msg {
+            Err(parse_error) => error!("{}", parse_error),
+            Ok(msg) => {
+                trace!("[{} Listener SERVER: {}] Received message: {:?}",
+                    listener_type, proto_name, msg);
+                let Err(send_error) = channel.send(msg) else {
+                    debug!("[{} Listener SERVER: {}] Message sent to channel",
+                        listener_type, proto_name);
+                    return;
+                };
+                error!("[{} Listener SERVER: {}] sending message to channel: {}",
+                    listener_type, proto_name, send_error);
             }
-            None => trace!(
-                "[{} Listener SERVER: {}] Invalid Message",
-                listener_type, proto_name),
         }
     }
 }

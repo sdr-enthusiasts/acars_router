@@ -16,8 +16,7 @@ use stubborn_io::tokio::StubbornIo;
 use stubborn_io::StubbornTcpStream;
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc::Receiver;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::{mpsc, Mutex, MutexGuard};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
@@ -31,7 +30,7 @@ pub(crate) async fn process_tcp_sockets(
     stream: TcpStream,
     proto_name: ServerType,
     logging_entity: &str,
-    channel: Sender<String>,
+    channel: UnboundedSender<String>,
     peer: SocketAddr,
     reassembly_window: f64,
 ) -> Result<(), Box<dyn Error>> {
@@ -70,7 +69,7 @@ impl TCPReceiverServer {
         }
     }
 
-    pub async fn run(self, channel: Sender<String>) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, channel: UnboundedSender<String>) -> Result<(), Box<dyn Error>> {
         trace!("[TCP Receiver Server {}] Starting", self.logging_identifier);
         // create a SocketAddr from host
         let addr: SocketAddr = match self.host.parse::<SocketAddr>() {
@@ -204,7 +203,7 @@ impl TCPServeServer {
     }
     pub(crate) async fn watch_for_connections(
         self,
-        channel: Receiver<AcarsVdlm2Message>,
+        channel: UnboundedReceiver<AcarsVdlm2Message>,
         state: &Arc<Mutex<Shared>>,
     ) {
         let new_state: Arc<Mutex<Shared>> = Arc::clone(state);
@@ -236,7 +235,7 @@ impl TCPServeServer {
     }
 }
 
-async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<AcarsVdlm2Message>, proto_name: ServerType) {
+async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: UnboundedReceiver<AcarsVdlm2Message>, proto_name: ServerType) {
     loop {
         if let Some(received_message) = channel.recv().await {
             match received_message.to_string_newline() {

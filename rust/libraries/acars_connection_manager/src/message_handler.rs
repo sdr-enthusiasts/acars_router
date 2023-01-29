@@ -15,7 +15,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 use acars_metrics::{MessageRejectionReasons, MessageSource};
@@ -63,8 +63,8 @@ impl MessageHandlerConfig {
 
     pub(crate) async fn watch_message_queue(
         self,
-        mut input_queue: Receiver<String>,
-        output_queue: Sender<AcarsVdlm2Message>,
+        mut input_queue: UnboundedReceiver<String>,
+        output_queue: UnboundedSender<AcarsVdlm2Message>,
     ) {
         let dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>> =
             Arc::new(Mutex::new(VecDeque::with_capacity(100)));
@@ -217,7 +217,7 @@ impl MessageHandlerConfig {
                                     trace!("[Message Handler {}] Final message: {:?}",
                                         self.queue_type, message);
 
-                                    match output_queue.send(message).await {
+                                    match output_queue.send(message) {
                                         Ok(_) => debug!("[Message Handler {}] Message sent to output queue", self.queue_type),
                                         Err(e) => error!("[Message Handler {}] Error sending message to output queue: {}", self.queue_type, e)
                                     }
@@ -310,7 +310,7 @@ impl HashReceivedMessage for AcarsVdlm2Message {
 
 #[async_trait]
 pub(crate) trait ProcessSocketListenerMessages {
-    async fn process_messages(self, packet_handler: &PacketHandler, peer: &SocketAddr, channel: &Sender<String>, logging_identifier: &str, socket_type: SocketType, proto_name: ServerType);
+    async fn process_messages(self, packet_handler: &PacketHandler, peer: &SocketAddr, channel: &UnboundedSender<String>, logging_identifier: &str, socket_type: SocketType, proto_name: ServerType);
 }
 
 #[async_trait]
@@ -318,7 +318,7 @@ impl ProcessSocketListenerMessages for Vec<&str> {
     async fn process_messages(self,
                               packet_handler: &PacketHandler,
                               peer: &SocketAddr,
-                              channel: &Sender<String>,
+                              channel: &UnboundedSender<String>,
                               logging_identifier: &str,
                               socket_type: SocketType,
                               proto_name: ServerType) {
