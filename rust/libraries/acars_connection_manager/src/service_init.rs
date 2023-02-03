@@ -7,10 +7,10 @@
 
 use crate::message_handler::{MessageHandlerConfig, ProcessSocketListenerMessages};
 use crate::packet_handler::PacketHandler;
-use crate::tcp_services::{process_tcp_sockets, TCPReceiverServer, TCPServeServer};
+use crate::tcp_services::{process_tcp_sockets, TcpConnectionManager, TCPReceiverServer, TCPServeServer};
 use crate::udp_services::UDPSenderServer;
 use crate::zmq_services::ZMQListnerServer;
-use crate::{reconnect_options, OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared, SocketListenerServer, SocketType, ReceiverType};
+use crate::{OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared, SocketListenerServer, SocketType, ReceiverType};
 use acars_config::Input;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use async_trait::async_trait;
@@ -18,11 +18,9 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
-use stubborn_io::tokio::StubbornIo;
-use stubborn_io::StubbornTcpStream;
 use tmq::publish::Publish;
 use tmq::{publish, Context};
-use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc::{UnboundedSender, UnboundedReceiver};
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{sleep, Duration};
@@ -173,28 +171,19 @@ impl OutputServerConfig {
         // Make sure we have at least one UDP port to listen on
         
         trace!("Starting {} UDP listeners.", self.output_server_type);
-        // OutputServerConfig::listen(self.listen_udp, self.output_server_type, tx_receivers.clone(), self.reassembly_window, SocketType::Udp);
         self.listen_to_ports(tx_receivers.clone(), SocketType::Udp);
 
         // Start the TCP listeners
 
         trace!("Starting {} TCP listeners.", self.output_server_type);
-    
-        // OutputServerConfig::listen(self.listen_tcp, self.output_server_type, tx_receivers.clone(), self.reassembly_window, SocketType::Tcp);
+
         self.listen_to_ports(tx_receivers.clone(), SocketType::Tcp);
 
         // Start the ZMQ listeners
         
         self.receive_on_ports(tx_receivers.clone(), ReceiverType::Zmq);
 
-        // if let Some(receive_zmq) = self.receive_zmq {
-        //     // Start the ZMQ listener servers for {server_type}
-        //     info!(
-        //         "Starting ZMQ Receiver servers for {}",
-        //         &self.output_server_type
-        //     );
-        //     receive_zmq.start_zmq(self.output_server_type, tx_receivers.clone());
-        // }
+        // Start the TCP Receiver
         
         self.receive_on_ports(tx_receivers.clone(), ReceiverType::Tcp);
     }
@@ -450,23 +439,22 @@ impl SenderServers for Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> {
 
     async fn start_tcp(self, server_type: ServerType, host: &str) {
         // Start a TCP sender server for {server_type}
-        let socket: Result<StubbornIo<TcpStream, String>, io::Error> =
-            StubbornTcpStream::connect_with_options(host.to_string(), reconnect_options()).await;
-        match socket {
-            Err(e) => error!("[TCP SENDER {server_type}]: Error connecting to {host}: {e}"),
-            Ok(socket) => {
-                let (tx_processed, rx_processed) = mpsc::unbounded_channel();
-                let tcp_sender_server = SenderServer {
-                    host: host.to_string(),
-                    proto_name: server_type,
-                    logging_identifier: server_type.to_string(),
-                    socket,
-                    channel: rx_processed,
-                };
-                self.lock().await.push(tx_processed);
-                tcp_sender_server.send_message().await;
-            }
-        }
+        let tcp_connection_manager: TcpConnectionManager = TcpConnectionManager::new();
+        let Some(socket) = tcp_connection_manager.new_connection(host, None).await else {
+            return;
+        };
+        let (tx_processed, rx_processed) = mpsc::unbounded_channel();
+        let tcp_sender_server = SenderServer {
+            host: host.to_string(),
+            proto_name: server_type,
+            logging_identifier: server_type.to_string(),
+            socket,
+            channel: rx_processed,
+        };
+        self.lock().await.push(tx_processed);
+        tokio::spawn(async move {
+            tcp_sender_server.send_message().await;
+        });
     }
 }
 

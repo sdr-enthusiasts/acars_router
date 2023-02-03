@@ -11,13 +11,16 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
+use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use stubborn_io::tokio::StubbornIo;
 use stubborn_io::StubbornTcpStream;
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::{mpsc, Mutex, MutexGuard};
+use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
 use acars_metrics::MessageDestination;
@@ -112,7 +115,7 @@ impl TCPReceiverServer {
     }
 }
 
-impl SenderServer<StubbornIo<TcpStream, String>> {
+impl SenderServer<TcpStream> {
     pub async fn send_message(mut self) {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
@@ -296,4 +299,163 @@ async fn process(
         state.peers.remove(&addr);
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TcpConnectionManager {
+    pub retry_pattern: Vec<Duration>,
+    pub retry_forever_delay: Option<Duration>
+}
+
+impl TcpConnectionManager {
+    
+    pub fn new() -> Self {
+        Self {
+            retry_pattern: TcpConnectionManager::build_default_reconnection_loop(),
+            retry_forever_delay: None
+        }
+    }
+    
+    pub fn new_with_options(retry_pattern: Vec<Duration>, retry_forever_delay: Option<Duration>) -> Self {
+        Self {
+            retry_pattern,
+            retry_forever_delay,
+        }
+    }
+    
+    pub async fn new_connection(self, host: &str, specific_timeout: Option<Duration>) -> Option<TcpStream> {
+        let Ok(socket_address) = SocketAddr::from_str(host) else {
+            error!("Failed to get a valid socket address from {host}");
+            return None;
+        };
+        match std::net::TcpStream::connect(socket_address) {
+            Ok(std_stream) => {
+                info!("Successfully connected, configuring stream.");
+                let Some(tokio_stream) = configure_stream(std_stream, specific_timeout) else {
+                    return None;
+                };
+                Some(tokio_stream)
+            }
+            Err(stream_error) => {
+                error!("Connecting the stream failed: {stream_error}");
+                
+                let mut connected = None;
+                
+                for (i, sleep_duration) in self.retry_pattern.iter().enumerate() {
+                    let attempt: usize = i + 1;
+                    info!("Performing reconnect attempt {attempt}/{} in {} seconds.",
+                        self.retry_pattern.len(), sleep_duration.as_secs());
+                    sleep(*sleep_duration).await;
+                    info!("Attempting to reconnect now.");
+                    match std::net::TcpStream::connect(socket_address) {
+                        Ok(reconnected_stream) => {
+                            info!("Successfully reconnected, configuring stream.");
+                            let Some(tokio_stream) = configure_stream(reconnected_stream, specific_timeout) else {
+                                return None;
+                            };
+                            connected = Some(tokio_stream);
+                            break;
+                        }
+                        Err(connect_error) => {
+                            error!("Reconnect attempt {attempt}/{} failed: {connect_error}",
+                                self.retry_pattern.len());
+                        }
+                    }
+                }
+                
+                match connected {
+                    Some(connection) => Some(connection),
+                    None => {
+                        match self.retry_forever_delay {
+                            None => {
+                                error!("Exhausted all connection attempts, bailing out.");
+                                return None;
+                            }
+                            Some(retry_delay) => {
+                                info!("Falling back to retry forever setting.");
+                                info!("Will attempt every {} seconds until successful or program exits.", retry_delay.as_secs());
+                                while connected.is_none() {
+                                    let mut attempts: usize = 0;
+                                    sleep(retry_delay).await;
+                                    attempts += 1;
+                                    info!("Attempt {attempts} to reconnect.");
+                                    match std::net::TcpStream::connect(socket_address) {
+                                        Ok(reconnected_stream) => {
+                                            info!("Successfully reconnected, configuring stream.");
+                                            let Some(tokio_stream) = configure_stream(reconnected_stream, specific_timeout) else {
+                                                return None;
+                                            };
+                                            connected = Some(tokio_stream);
+                                            break;
+                                        }
+                                        Err(connect_error) => {
+                                            error!("Reconnect attempt {attempts} failed: {connect_error}");
+                                        }
+                                    }
+                                }
+                                connected
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    fn build_default_reconnection_loop() -> Vec<Duration> {
+        let mut reconnections: Vec<Duration> = Vec::new();
+        let mut reconnections_10s: Vec<Duration> = Vec::new();
+        let mut reconnections_15s: Vec<Duration> = Vec::new();
+        let mut reconnections_30s: Vec<Duration> = Vec::new();
+        let mut reconnections_60s: Vec<Duration> = Vec::new();
+        reconnections.push(Duration::from_secs(5));
+        reconnections_10s.push(Duration::from_secs(10));
+        reconnections_15s.push(Duration::from_secs(15));
+        reconnections_30s.push(Duration::from_secs(30));
+        reconnections_60s.push(Duration::from_secs(60));
+        // 5 * 12 = 60
+        reconnections.repeat(12);
+        // 10 * 60 = 60
+        reconnections_10s.repeat(6);
+        // 15 * 4 = 60
+        reconnections_15s.repeat(4);
+        // 30 * 4 = 120
+        reconnections_30s.repeat(4);
+        // 60 * 5 = 300
+        reconnections_60s.repeat(5);
+        reconnections.append(&mut reconnections_10s);
+        reconnections.append(&mut reconnections_15s);
+        reconnections.append(&mut reconnections_30s);
+        reconnections.append(&mut reconnections_60s);
+        reconnections
+    }
+}
+
+fn configure_stream(std_stream: std::net::TcpStream, specific_timeout: Option<Duration>) -> Option<TcpStream> {
+    let timeout_value: Duration = match specific_timeout {
+        None => Duration::from_secs(10),
+        Some(timeout_duration) => timeout_duration,
+    };
+    
+    let Ok(_) = std_stream.set_nonblocking(true) else {
+        error!("Failed to make stream non-blocking for use with async.");
+        return None;
+    };
+    
+    let Ok(_) = std_stream.set_write_timeout(Some(timeout_value)) else {
+        error!("Failed to set write timeout.");
+        return None;
+    };
+    
+    let Ok(_) = std_stream.set_read_timeout(Some(timeout_value)) else {
+        error!("failed to set read timeout.");
+        return None;
+    };
+    
+    let Ok(tokio_stream) = TcpStream::from_std(std_stream) else {
+        error!("Failed to convert to an async stream.");
+        return None;
+    };
+    
+    Some(tokio_stream)
 }
