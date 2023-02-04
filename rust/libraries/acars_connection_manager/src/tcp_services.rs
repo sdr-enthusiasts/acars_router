@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use stubborn_io::tokio::StubbornIo;
@@ -324,11 +323,7 @@ impl TcpConnectionManager {
     }
     
     pub async fn new_connection(self, host: &str, specific_timeout: Option<Duration>) -> Option<TcpStream> {
-        let Ok(socket_address) = SocketAddr::from_str(host) else {
-            error!("Failed to get a valid socket address from {host}");
-            return None;
-        };
-        match std::net::TcpStream::connect(socket_address) {
+        match std::net::TcpStream::connect(host) {
             Ok(std_stream) => {
                 info!("Successfully connected, configuring stream.");
                 let Some(tokio_stream) = configure_stream(std_stream, specific_timeout) else {
@@ -347,7 +342,7 @@ impl TcpConnectionManager {
                         self.retry_pattern.len(), sleep_duration.as_secs());
                     sleep(*sleep_duration).await;
                     info!("Attempting to reconnect now.");
-                    match std::net::TcpStream::connect(socket_address) {
+                    match std::net::TcpStream::connect(host) {
                         Ok(reconnected_stream) => {
                             info!("Successfully reconnected, configuring stream.");
                             let Some(tokio_stream) = configure_stream(reconnected_stream, specific_timeout) else {
@@ -379,7 +374,7 @@ impl TcpConnectionManager {
                                     sleep(retry_delay).await;
                                     attempts += 1;
                                     info!("Attempt {attempts} to reconnect.");
-                                    match std::net::TcpStream::connect(socket_address) {
+                                    match std::net::TcpStream::connect(host) {
                                         Ok(reconnected_stream) => {
                                             info!("Successfully reconnected, configuring stream.");
                                             let Some(tokio_stream) = configure_stream(reconnected_stream, specific_timeout) else {
