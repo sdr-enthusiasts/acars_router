@@ -439,19 +439,24 @@ impl SenderServers for Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> {
 
     async fn start_tcp(self, server_type: ServerType, host: &str) {
         // Start a TCP sender server for {server_type}
+        let logging_identifier: String = format!("{}_{}", server_type, host);
+        info!("[TCP SENDER {logging_identifier}]: Building configuration.");
         let tcp_connection_manager: TcpConnectionManager = TcpConnectionManager::new();
-        let Some(socket) = tcp_connection_manager.new_connection(host, None).await else {
+        let Some(socket) = tcp_connection_manager.new_connection(host, None, &logging_identifier).await else {
+            error!("[TCP SENDER {logging_identifier}]: Unable to connect to host.");
             return;
         };
         let (tx_processed, rx_processed) = mpsc::unbounded_channel();
         let tcp_sender_server = SenderServer {
             host: host.to_string(),
             proto_name: server_type,
-            logging_identifier: server_type.to_string(),
+            logging_identifier: logging_identifier.to_string(),
             socket,
             channel: rx_processed,
         };
+        debug!("[TCP SENDER {}]: Configuration built, attaching to output queue.", tcp_sender_server.logging_identifier);
         self.lock().await.push(tx_processed);
+        debug!("[TCP SENDER {}]: Attached to output queue, spawning off connection handler.", tcp_sender_server.logging_identifier);
         tokio::spawn(async move {
             tcp_sender_server.send_message().await;
         });
