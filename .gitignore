@@ -173,3 +173,4 @@ test_data/*.patched
 
 /target
 .idea
+Cargo.lock
