@@ -15,5 +15,5 @@ futures = "0.3.26"
 async-trait = "0.1.64"
 zmq = "0.10.0"
 tmq = "0.3.2"
-acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.0" }
+acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
 acars_config = { path = "../acars_config" }
