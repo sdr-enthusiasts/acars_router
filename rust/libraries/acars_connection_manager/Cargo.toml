@@ -8,12 +8,12 @@ edition.workspace = true
 [dependencies]
 stubborn-io = "0.3.2"
 log = "0.4.17"
-tokio = { version = "1.25.0", features = ["full", "tracing"] }
-tokio-util = { version = "0.7.4", features = ["full"] }
-tokio-stream = "0.1.11"
+tokio = { version = "1.26.0", features = ["full", "tracing"] }
+tokio-util = { version = "0.7.7", features = ["full"] }
+tokio-stream = "0.1.12"
 futures = "0.3.26"
 async-trait = "0.1.64"
 zmq = "0.10.0"
 tmq = "0.3.2"
-acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.0" }
+acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
 acars_config = { path = "../acars_config" }
