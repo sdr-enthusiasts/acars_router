@@ -61,29 +61,45 @@ impl ServerType {
         }
     }
     
-    pub(crate) fn inc_message_destination_type_metric(self, message_destination: MessageDestination) {
-        match (self, message_destination) {
-            (ServerType::Vdlm2, MessageDestination::SendUdp) => MESSAGES_OUT.vdlm2.send_udp.inc(),
-            (ServerType::Vdlm2, MessageDestination::SendTcp) => MESSAGES_OUT.vdlm2.send_tcp.inc(),
-            (ServerType::Vdlm2, MessageDestination::ServeTcp) => MESSAGES_OUT.vdlm2.serve_tcp.inc(),
-            (ServerType::Vdlm2, MessageDestination::ServeZmq) => MESSAGES_OUT.vdlm2.serve_zmq.inc(),
-            (ServerType::Acars, MessageDestination::SendUdp) => MESSAGES_OUT.acars.send_udp.inc(),
-            (ServerType::Acars, MessageDestination::SendTcp) => MESSAGES_OUT.acars.send_tcp.inc(),
-            (ServerType::Acars, MessageDestination::ServeTcp) => MESSAGES_OUT.acars.serve_tcp.inc(),
-            (ServerType::Acars, MessageDestination::ServeZmq) => MESSAGES_OUT.acars.serve_zmq.inc()
+    pub(crate) fn inc_message_destination_type_metric(self, message_destination: MessageDestination, send_successful: bool) {
+        match (self, message_destination, send_successful) {
+            (ServerType::Vdlm2, MessageDestination::SendUdp, true) => MESSAGES_OUT.vdlm2.send_udp.sent.inc(),
+            (ServerType::Vdlm2, MessageDestination::SendTcp, true) => MESSAGES_OUT.vdlm2.send_tcp.sent.inc(),
+            (ServerType::Vdlm2, MessageDestination::ServeTcp, true) => MESSAGES_OUT.vdlm2.serve_tcp.sent.inc(),
+            (ServerType::Vdlm2, MessageDestination::ServeZmq, true) => MESSAGES_OUT.vdlm2.serve_zmq.sent.inc(),
+            (ServerType::Vdlm2, MessageDestination::SendUdp, false) => MESSAGES_OUT.vdlm2.send_udp.failed.inc(),
+            (ServerType::Vdlm2, MessageDestination::SendTcp, false) => MESSAGES_OUT.vdlm2.send_tcp.failed.inc(),
+            (ServerType::Vdlm2, MessageDestination::ServeTcp, false) => MESSAGES_OUT.vdlm2.serve_tcp.failed.inc(),
+            (ServerType::Vdlm2, MessageDestination::ServeZmq, false) => MESSAGES_OUT.vdlm2.serve_zmq.failed.inc(),
+            (ServerType::Acars, MessageDestination::SendUdp, true) => MESSAGES_OUT.acars.send_udp.sent.inc(),
+            (ServerType::Acars, MessageDestination::SendTcp, true) => MESSAGES_OUT.acars.send_tcp.sent.inc(),
+            (ServerType::Acars, MessageDestination::ServeTcp, true) => MESSAGES_OUT.acars.serve_tcp.sent.inc(),
+            (ServerType::Acars, MessageDestination::ServeZmq, true) => MESSAGES_OUT.acars.serve_zmq.sent.inc(),
+            (ServerType::Acars, MessageDestination::SendUdp, false) => MESSAGES_OUT.acars.send_udp.failed.inc(),
+            (ServerType::Acars, MessageDestination::SendTcp, false) => MESSAGES_OUT.acars.send_tcp.failed.inc(),
+            (ServerType::Acars, MessageDestination::ServeTcp, false) => MESSAGES_OUT.acars.serve_tcp.failed.inc(),
+            (ServerType::Acars, MessageDestination::ServeZmq, false) => MESSAGES_OUT.acars.serve_zmq.failed.inc(),
         }
     }
     
-    pub(crate) fn get_message_destination_metric(self, message_destination: MessageDestination) -> u64 {
-        match (self, message_destination) {
-            (ServerType::Vdlm2, MessageDestination::SendUdp) => MESSAGES_OUT.vdlm2.send_udp.get(),
-            (ServerType::Vdlm2, MessageDestination::SendTcp) => MESSAGES_OUT.vdlm2.send_tcp.get(),
-            (ServerType::Vdlm2, MessageDestination::ServeTcp) => MESSAGES_OUT.vdlm2.serve_tcp.get(),
-            (ServerType::Vdlm2, MessageDestination::ServeZmq) => MESSAGES_OUT.vdlm2.serve_zmq.get(),
-            (ServerType::Acars, MessageDestination::SendUdp) => MESSAGES_OUT.acars.send_udp.get(),
-            (ServerType::Acars, MessageDestination::SendTcp) => MESSAGES_OUT.acars.send_tcp.get(),
-            (ServerType::Acars, MessageDestination::ServeTcp) => MESSAGES_OUT.acars.serve_tcp.get(),
-            (ServerType::Acars, MessageDestination::ServeZmq) => MESSAGES_OUT.acars.serve_zmq.get()
+    pub(crate) fn get_message_destination_metric(self, message_destination: MessageDestination, send_successful: bool) -> u64 {
+        match (self, message_destination, send_successful) {
+            (ServerType::Vdlm2, MessageDestination::SendUdp, true) => MESSAGES_OUT.vdlm2.send_udp.sent.get(),
+            (ServerType::Vdlm2, MessageDestination::SendTcp, true) => MESSAGES_OUT.vdlm2.send_tcp.sent.get(),
+            (ServerType::Vdlm2, MessageDestination::ServeTcp, true) => MESSAGES_OUT.vdlm2.serve_tcp.sent.get(),
+            (ServerType::Vdlm2, MessageDestination::ServeZmq, true) => MESSAGES_OUT.vdlm2.serve_zmq.sent.get(),
+            (ServerType::Vdlm2, MessageDestination::SendUdp, false) => MESSAGES_OUT.vdlm2.send_udp.failed.get(),
+            (ServerType::Vdlm2, MessageDestination::SendTcp, false) => MESSAGES_OUT.vdlm2.send_tcp.failed.get(),
+            (ServerType::Vdlm2, MessageDestination::ServeTcp, false) => MESSAGES_OUT.vdlm2.serve_tcp.failed.get(),
+            (ServerType::Vdlm2, MessageDestination::ServeZmq, false) => MESSAGES_OUT.vdlm2.serve_zmq.failed.get(),
+            (ServerType::Acars, MessageDestination::SendUdp, true) => MESSAGES_OUT.acars.send_udp.sent.get(),
+            (ServerType::Acars, MessageDestination::SendTcp, true) => MESSAGES_OUT.acars.send_tcp.sent.get(),
+            (ServerType::Acars, MessageDestination::ServeTcp, true) => MESSAGES_OUT.acars.serve_tcp.sent.get(),
+            (ServerType::Acars, MessageDestination::ServeZmq, true) => MESSAGES_OUT.acars.serve_zmq.sent.get(),
+            (ServerType::Acars, MessageDestination::SendUdp, false) => MESSAGES_OUT.acars.send_udp.failed.get(),
+            (ServerType::Acars, MessageDestination::SendTcp, false) => MESSAGES_OUT.acars.send_tcp.failed.get(),
+            (ServerType::Acars, MessageDestination::ServeTcp, false) => MESSAGES_OUT.acars.serve_tcp.failed.get(),
+            (ServerType::Acars, MessageDestination::ServeZmq, false) => MESSAGES_OUT.acars.serve_zmq.failed.get(),
         }
     }
     

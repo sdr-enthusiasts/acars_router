@@ -99,22 +99,22 @@ impl SenderServer<Publish> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 match message.to_string_newline() {
-                    Err(decode_error) => error!(
-                        "[ZMQ SENDER]: Error parsing message to string: {}",
-                        decode_error
-                    ),
+                    Err(decode_error) =>
+                        error!("[ZMQ SENDER {}] Error parsing message to string: {}",
+                            self.logging_identifier, decode_error),
                     // For some Subscribers it appears that a "blank" topic causes it to never receive the message
                     // This needs more investigation...
                     // Right now it seems that any Sub who listens to the blank topic gets all of the messages, even
                     // if they aren't sub'd to the topic we're broadcasting on. This should fix the issue with moronic (hello node)
                     // zmq implementations not getting the message if the topic is blank.
                     // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
-                    Ok(payload) => match self.socket.send(vec!["acars", &payload]).await {
-                        Ok(_) => self.proto_name.inc_message_destination_type_metric(MessageDestination::ServeZmq),
-                        Err(e) => error!(
-                            "[ZMQ SENDER]: Error sending message on 'acars' topic: {:?}",
-                            e
-                        ),
+                    Ok(payload) => {
+                        let Err(zmq_send_error) = self.socket.send(vec![&self.proto_name.to_string(), &payload]).await else {
+                            self.proto_name.inc_message_destination_type_metric(MessageDestination::ServeZmq, true);
+                            return;
+                        };
+                        error!("[ZMQ SENDER {}] Error sending message on '{}' topic: {zmq_send_error}", self.logging_identifier, self.proto_name);
+                        self.proto_name.inc_message_destination_type_metric(MessageDestination::ServeZmq, false);
                     },
                 }
             }

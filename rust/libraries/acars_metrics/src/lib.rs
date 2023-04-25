@@ -54,6 +54,10 @@ make_static_metric! {
             send_tcp,
             serve_tcp,
             serve_zmq
+        },
+        "status" => {
+            sent,
+            failed
         }
     }
     
@@ -112,7 +116,7 @@ lazy_static! {
     pub static ref MESSAGES_BY_DESTINATION_TYPE: IntCounterVec = register_int_counter_vec!(
         "ar_message_out_type",
         "Count of messages in and out by source, destination and message type",
-        &["message_type", "destination"]
+        &["message_type", "destination", "status"]
     ).expect("Failed to define metric MESSAGES_BY_DESTINATION_TYPE");
     pub static ref MESSAGES_OUT: MessageDestinationCounter = MessageDestinationCounter::from(&MESSAGES_BY_DESTINATION_TYPE);
     pub static ref REJECTED_MESSAGES_BY_REASON_TYPE: IntCounterVec = register_int_counter_vec!(

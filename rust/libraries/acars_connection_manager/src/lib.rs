@@ -83,6 +83,14 @@ pub enum ServerType {
     Vdlm2,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub enum MessageStatus {
+    #[default]
+    Completed,
+    PartFail,
+    Failed
+}
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct SenderServerConfig {
     pub(crate) send_udp: Option<Vec<String>>,
@@ -166,6 +174,16 @@ impl fmt::Display for ReceiverType {
         match self {
             ReceiverType::Tcp => write!(f, "TCP"),
             ReceiverType::Zmq => write!(f, "ZMQ"),
+        }
+    }
+}
+
+impl fmt::Display for MessageStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            MessageStatus::Completed => write!(f, "Completed"),
+            MessageStatus::PartFail => write!(f, "Part Failed"),
+            MessageStatus::Failed => write!(f, "Failed"),
         }
     }
 }

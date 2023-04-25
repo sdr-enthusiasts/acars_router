@@ -362,7 +362,9 @@ impl SenderServerConfig {
                 let new_state: Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
                 info!("Starting {} TCP Sender {} ", server_type, host);
-                tokio::spawn(async move { new_state.start_tcp(server_type, &host).await });
+                tokio::spawn(async move {
+                    new_state.start_tcp(server_type, &host).await;
+                });
             }
         }
 
@@ -373,7 +375,7 @@ impl SenderServerConfig {
                 let socket: Result<TcpListener, io::Error> = TcpListener::bind(&hostname).await;
                 info!("Starting {} TCP Server {} ", server_type, hostname);
                 match socket {
-                    Err(e) => error!("[TCP SERVE {server_type}]: Error binding to {host}: {e}"),
+                    Err(e) => error!("[TCP SERVE {server_type}] Error binding to {host}: {e}"),
                     Ok(socket) => {
                         let (tx_processed, rx_processed) = mpsc::unbounded_channel();
                         let tcp_sender_server: TCPServeServer = TCPServeServer::new(
@@ -442,7 +444,7 @@ impl SenderServers for Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> {
             for sender_server in self.lock().await.iter() {
                 match sender_server.send(message.clone()) {
                     Ok(_) => debug!("[CHANNEL SENDER {name}] Successfully sent the {name} message"),
-                    Err(e) => error!("[CHANNEL SENDER {name}]: Error sending message: {}", e),
+                    Err(e) => error!("[CHANNEL SENDER {name}] Error sending message: {}", e),
                 }
             }
         }
@@ -453,7 +455,7 @@ impl SenderServers for Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> {
         let socket: Result<StubbornIo<TcpStream, String>, io::Error> =
             StubbornTcpStream::connect_with_options(host.to_string(), reconnect_options()).await;
         match socket {
-            Err(e) => error!("[TCP SENDER {server_type}]: Error connecting to {host}: {e}"),
+            Err(e) => error!("[TCP SENDER {server_type}] Error connecting to {host}: {e}"),
             Ok(socket) => {
                 let (tx_processed, rx_processed) = mpsc::unbounded_channel();
                 let tcp_sender_server = SenderServer {
@@ -464,7 +466,9 @@ impl SenderServers for Arc<Mutex<Vec<UnboundedSender<AcarsVdlm2Message>>>> {
                     channel: rx_processed,
                 };
                 self.lock().await.push(tx_processed);
-                tcp_sender_server.send_message().await;
+                tokio::spawn(async move {
+                    tcp_sender_server.send_message().await;
+                });
             }
         }
     }
@@ -510,16 +514,16 @@ impl SocketListenerServer {
             Err(tcp_error) => error!("[{} SERVER: {}] Error listening on port: {}",
                                 self.socket_type, logging_identifier, tcp_error),
             Ok(listener) => {
-                info!("[{} Listener SERVER: {}]: Listening on: {}", self.socket_type, self.proto_name, socket_address);
+                info!("[{} Listener SERVER: {}] Listening on: {}", self.socket_type, self.proto_name, socket_address);
                 loop {
-                    trace!("[{} Listener SERVER: {}]: Waiting for connection", self.socket_type, self.proto_name);
+                    trace!("[{} Listener SERVER: {}] Waiting for connection", self.socket_type, self.proto_name);
                     // Asynchronously wait for an inbound TcpStream.
                     match listener.accept().await {
-                        Err(accept_error) => error!("[{} Listener SERVER: {}]: Error accepting connection: {}", self.socket_type, self.proto_name, accept_error),
+                        Err(accept_error) => error!("[{} Listener SERVER: {}] Error accepting connection: {}", self.socket_type, self.proto_name, accept_error),
                         Ok((stream, addr)) => {
                             let new_channel: UnboundedSender<String> = channel.clone();
                             let new_proto_name: String = format!("{}:{}", self.proto_name, addr);
-                            info!("[{} Listener SERVER: {}]:accepted connection from {}",
+                            info!("[{} Listener SERVER: {}] Accepted connection from {}",
                                                 self.socket_type, self.proto_name, addr);
                             // Spawn our handler to be run asynchronously.
                             tokio::spawn(async move {
@@ -527,9 +531,9 @@ impl SocketListenerServer {
                                     stream, self.proto_name, &new_proto_name,
                                     new_channel, addr, self.reassembly_window,
                                 ).await {
-                                    Ok(_) => debug!("[{} Listener SERVER: {}] connection closed",
+                                    Ok(_) => debug!("[{} Listener SERVER: {}] Connection closed",
                                                         self.socket_type, new_proto_name),
-                                    Err(e) => error!("[{} Listener SERVER: {}] connection error: {}",
+                                    Err(e) => error!("[{} Listener SERVER: {}] Connection error: {}",
                                                         self.socket_type, new_proto_name.clone(), e)
                                 }
                             });
@@ -549,8 +553,8 @@ impl SocketListenerServer {
             Err(socketing_binding_error) => error!("[{} SERVER: {}] Error listening on port: {}",
                                 self.socket_type, logging_identifier, socketing_binding_error),
             Ok(socket) => {
-                info!("[{} SERVER: {}]: Listening on: {}",
-                                    self.socket_type, logging_identifier, socket_address);
+                info!("[{} SERVER: {}] Listening on: {}",
+                    self.socket_type, logging_identifier, socket_address);
                 let packet_handler: PacketHandler =
                     PacketHandler::new(&logging_identifier, self.reassembly_window);
             
@@ -562,7 +566,7 @@ impl SocketListenerServer {
                             Ok(s) => s,
                             Err(_) => {
                                 warn!("[{} SERVER: {}] Invalid message received from {}",
-                                                    self.socket_type, logging_identifier, peer);
+                                    self.socket_type, logging_identifier, peer);
                                 continue;
                             }
                         };
@@ -576,7 +580,7 @@ impl SocketListenerServer {
                         Ok(data) => Some(data),
                         Err(receive_error) => {
                             error!("[{} SERVER: {}] Error listening on port: {}",
-                                                self.socket_type, logging_identifier, receive_error);
+                                self.socket_type, logging_identifier, receive_error);
                             None
                         }
                     };

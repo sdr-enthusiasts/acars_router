@@ -10,14 +10,17 @@ use futures::SinkExt;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
+use std::io::Cursor;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use stubborn_io::tokio::StubbornIo;
 use stubborn_io::StubbornTcpStream;
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::{mpsc, Mutex, MutexGuard};
+use tokio::time::timeout;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
 use acars_metrics::MessageDestination;
@@ -117,14 +120,38 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 match message.to_bytes_newline() {
-                    Err(encode_error) => error!("[TCP SENDER {}]: Error converting message: {}", self.logging_identifier, encode_error),
+                    Err(encode_error) =>
+                        error!("[TCP SENDER {}] Error converting message: {}",
+                            self.logging_identifier, encode_error),
                     Ok(encoded_message) => {
-                        let Err(send_error) = self.socket.write_all(&encoded_message).await else {
-                            trace!("[TCP SENDER {}]: sent message", self.logging_identifier);
-                            self.proto_name.inc_message_destination_type_metric(MessageDestination::ServeTcp);
+                        // let Err(send_error) = self.socket.write_all(&encoded_message).await else {
+                        //     trace!("[TCP SENDER {}] Sent message", self.logging_identifier);
+                        //     self.proto_name.inc_message_destination_type_metric(MessageDestination::ServeTcp);
+                        //     return;
+                        // };
+                        // error!("[TCP SENDER {}] Error sending message: {}", self.logging_identifier, send_error);
+                        let mut write_buffer: Cursor<Vec<u8>> = Cursor::new(encoded_message);
+                        let Ok(send_message) = timeout(
+                            Duration::from_secs(1),
+                            self.socket.write_all_buf(&mut write_buffer)
+                        ).await else {
+                            error!("[TCP SENDER {}] Failed to send message after 1 second.",
+                                self.logging_identifier);
+                            self.proto_name.inc_message_destination_type_metric(MessageDestination::ServeTcp, false);
                             return;
                         };
-                        error!("[TCP SENDER {}]: Error sending message: {}", self.logging_identifier, send_error);
+                        
+                        let Err(send_error) = send_message else {
+                            trace!("[TCP SENDER {}] sent message",
+                                self.logging_identifier);
+                            self.proto_name
+                                .inc_message_destination_type_metric(MessageDestination::ServeTcp, true);
+                            return;
+                        };
+                        self.proto_name
+                            .inc_message_destination_type_metric(MessageDestination::ServeTcp, false);
+                        error!("[TCP SENDER {}] Error sending message: {}",
+                            self.logging_identifier, send_error);
                     }
                 }
             }
@@ -169,7 +196,7 @@ impl Shared {
     async fn broadcast(&mut self, proto_name: ServerType, message: &str) {
         for peer in self.peers.iter_mut() {
             let _ = peer.1.send(message.into());
-            proto_name.inc_message_destination_type_metric(MessageDestination::ServeTcp);
+            proto_name.inc_message_destination_type_metric(MessageDestination::ServeTcp, true);
         }
     }
 }
@@ -207,7 +234,9 @@ impl TCPServeServer {
         state: &Arc<Mutex<Shared>>,
     ) {
         let new_state: Arc<Mutex<Shared>> = Arc::clone(state);
-        tokio::spawn(async move { handle_message(new_state, channel, self.proto_name).await });
+        tokio::spawn(async move {
+            handle_message(new_state, channel, self.proto_name).await
+        });
         loop {
             let new_proto: String = self.logging_identifier.to_string();
             match self.socket.accept().await {
@@ -217,17 +246,17 @@ impl TCPServeServer {
 
                     // Spawn our handler to be run asynchronously.
                     tokio::spawn(async move {
-                        info!("[TCP SERVER {new_proto}] accepted connection");
+                        info!("[TCP SERVER {new_proto}] Accepted connection");
                         if let Err(e) = process(&state, stream, addr).await {
                             info!(
-                                "[TCP SERVER {new_proto}] an error occurred; error = {:?}",
+                                "[TCP SERVER {new_proto}] An error occurred; error = {:?}",
                                 e
                             );
                         }
                     });
                 }
                 Err(e) => {
-                    error!("[TCP SERVER {new_proto}]: Error accepting connection: {e}");
+                    error!("[TCP SERVER {new_proto}] Error accepting connection: {e}");
                     continue;
                 }
             };
@@ -239,9 +268,7 @@ async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: UnboundedReceive
     loop {
         if let Some(received_message) = channel.recv().await {
             match received_message.to_string_newline() {
-                Err(message_parse_error) => {
-                    error!("Failed to parse message to string: {}", message_parse_error)
-                }
+                Err(message_parse_error) => error!("Failed to parse message to string: {}", message_parse_error),
                 Ok(message) => state.lock().await.broadcast(proto_name, &message).await,
             }
         }
@@ -258,8 +285,8 @@ async fn process(
     let lines: Framed<TcpStream, LinesCodec> = Framed::new(stream, LinesCodec::new());
     let mut peer: Peer = match Peer::new(state.clone(), lines).await {
         Ok(peer) => peer,
-        Err(e) => {
-            error!("[TCP SERVER {addr}]: Error creating peer: {}", e);
+        Err(peer_error) => {
+            error!("[TCP SERVER {addr}] Error creating peer: {}", peer_error);
             return Ok(());
         }
     };
@@ -268,21 +295,17 @@ async fn process(
             // A message was received from a peer. Send it to the current user.
             Some(msg) = peer.rx.recv() => {
                 match peer.lines.send(&msg).await {
-                    Ok(_) => {
-                        debug!("[TCP SERVER {addr}]: Sent message");
-                    }
-                    Err(e) => {
-                        error!("[TCP SERVER {addr}]: Error sending message: {}", e);
-                    }
+                    Ok(_) => debug!("[TCP SERVER {addr}] Sent message"),
+                    Err(send_error) => error!("[TCP SERVER {addr}] Error sending message: {}", send_error),
                 };
             }
             result = peer.lines.next() => match result {
                 // We received a message on this socket. Why? Dunno. Do nothing.
                 Some(Ok(_)) => (),
                 // An error occurred.
-                Some(Err(e)) => {
+                Some(Err(socket_receive_error)) => {
                     error!(
-                        "[TCP SERVER {addr}]: [YOU SHOULD NEVER SEE THIS!] an error occurred while processing messages; error = {:?}", e
+                        "[TCP SERVER {addr}] [YOU SHOULD NEVER SEE THIS!] An error occurred while processing messages; Error = {:?}", socket_receive_error
                     );
                 }
                 // The stream has been exhausted.
@@ -291,7 +314,7 @@ async fn process(
         }
     }
     {
-        info!("[TCP SERVER {addr}]: Client disconnected");
+        info!("[TCP SERVER {addr}] Client disconnected");
         let mut state: MutexGuard<Shared> = state.lock().await;
         state.peers.remove(&addr);
         Ok(())
