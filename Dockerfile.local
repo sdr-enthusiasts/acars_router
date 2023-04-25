@@ -1,4 +1,4 @@
-FROM rust:1.66.1-bullseye as builder
+FROM rust:1.68.2-bullseye as builder
 WORKDIR /tmp/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
