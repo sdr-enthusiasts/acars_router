@@ -218,9 +218,9 @@ jobs:
           # Make release tarballs
           mkdir -vp ./release
           pushd ./bin
-          tar cJvf "$ORIGDIR/release/acars_router.amd64.tar.xz" ./bin/acars_router.amd64
-          tar cJvf "$ORIGDIR/release/acars_router.armv7.tar.xz" ./bin/acars_router.armv7
-          tar cJvf "$ORIGDIR/release/acars_router.arm64.tar.xz" ./bin/acars_router.arm64
+          tar cJvf "$ORIGDIR/release/acars_router.amd64.tar.xz" ./acars_router.amd64
+          tar cJvf "$ORIGDIR/release/acars_router.armv7.tar.xz" ./acars_router.armv7
+          tar cJvf "$ORIGDIR/release/acars_router.arm64.tar.xz" ./acars_router.arm64
           popd
 
       - name: Get binary version from Cargo.toml
