@@ -8,4 +8,4 @@ edition.workspace = true
 [dependencies]
 clap = { version = "4.3.0", features = ["derive", "env"] }
 log = "0.4.17"
-acars_logging = { path = "../acars_logging" }
+sdre-rust-logging = { git = "https://github.com/sdr-enthusiasts/sdre-rust-logging.git" }

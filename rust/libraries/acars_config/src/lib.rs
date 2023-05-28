@@ -1,12 +1,12 @@
 pub extern crate clap as clap;
 #[macro_use]
 extern crate log;
-extern crate acars_logging;
+extern crate sdre_rust_logging;
 
 pub mod sanity_checker;
 
-use acars_logging::SetupLogging;
 use clap::Parser;
+use sdre_rust_logging::SetupLogging;
 
 #[derive(Parser, Debug, Clone, Default)]
 #[command(name = "ACARS Router", author, version, about, long_about = None)]

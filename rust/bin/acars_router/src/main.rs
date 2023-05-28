@@ -9,16 +9,16 @@
 extern crate log;
 extern crate acars_config;
 extern crate acars_connection_manager;
-extern crate acars_logging;
 extern crate chrono;
 extern crate failure;
+extern crate sdre_rust_logging;
 extern crate serde;
 extern crate serde_json;
 
 use acars_config::clap::Parser;
 use acars_config::Input;
 use acars_connection_manager::service_init::start_processes;
-use acars_logging::SetupLogging;
+use sdre_rust_logging::SetupLogging;
 use std::error::Error;
 use std::process;
 
