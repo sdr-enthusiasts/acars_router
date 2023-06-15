@@ -30,7 +30,7 @@ repos:
         exclude: ^(Dockerfile*)
 
   - repo: https://github.com/codespell-project/codespell.git
-    rev: "v2.2.4" # Use the sha / tag you want to point at
+    rev: "v2.2.5" # Use the sha / tag you want to point at
     hooks:
       - id: codespell
         types: [text]
