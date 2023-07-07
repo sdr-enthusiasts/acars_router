@@ -14,6 +14,6 @@ tokio-stream = "0.1.14"
 futures = "0.3.28"
 async-trait = "0.1.68"
 zmq = "0.10.0"
-tmq = "0.3.2"
+tmq = "0.4.0"
 acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
 acars_config = { path = "../acars_config" }
