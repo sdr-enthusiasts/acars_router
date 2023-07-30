@@ -7,6 +7,11 @@ on:
       reason:
         required: true
         description: "Reason for running this workflow"
+      use_test_image:
+        required: false
+        type: boolean
+        description: "Use base image testpr"
+        default: false
   push:
     branches:
       - main
@@ -24,7 +29,7 @@ on:
 
 jobs:
   workflow-dispatch:
-    name: Workflow Dispatch
+    name: Triggered via Workflow Dispatch?
     # only run this step if workflow dispatch triggered
     # log the reason the workflow dispatch was triggered
     if: |
@@ -35,9 +40,10 @@ jobs:
       - name: Log dispatch reason
         env:
           INPUTS_REASON: ${{ github.event.inputs.reason }}
+          INPUTS_USE_TEST_IMAGE: ${{ github.event.inputs.use_test_image }}
         run: |
           echo "Workflow dispatch reason: $INPUTS_REASON"
-          echo "::notice title=${{ github.job }}: Workflow Dispatch Reason::${INPUTS_REASON}"
+          echo "Use test image: $INPUTS_USE_TEST_IMAGE"
 
   binary_build_armv7:
     name: Build Binary - armv7
@@ -252,11 +258,16 @@ jobs:
       ghcr_repo: ${{ github.repository }}
       build_with_tmpfs: true
       get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
-      build_latest: true
-      build_version_specific: true
-      build_nohealthcheck: false
       cache_enabled: true
       cache_path: ./bin/
       cache_key: ${{ github.run_id }}
+      # set build_latest to true if github.event.inputs.use_test_image is false
+      build_latest: ${{ github.event.inputs.use_test_image == 'false' }}
+      build_baseimage_test: ${{ github.event.inputs.use_test_image == 'true' }}
+      # only build the entire stack if we are not using the test image
+      build_version_specific: ${{ github.event.inputs.use_test_image == 'false' }}
+      build_platform_specific: ${{ github.event.inputs.use_test_image == 'false' }}
+      build_nohealthcheck: false
+      build_baseimage_url: :base/:base-test-pr
     secrets:
       ghcr_token: ${{ secrets.GITHUB_TOKEN }}
