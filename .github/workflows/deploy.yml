@@ -262,11 +262,11 @@ jobs:
       cache_path: ./bin/
       cache_key: ${{ github.run_id }}
       # set build_latest to true if github.event.inputs.use_test_image is false
-      build_latest: ${{ github.event.inputs.use_test_image == 'false' }}
+      build_latest: ${{ github.event.inputs.use_test_image == 'false' || github.event.inputs.use_test_image == '' }}
       build_baseimage_test: ${{ github.event.inputs.use_test_image == 'true' }}
       # only build the entire stack if we are not using the test image
-      build_version_specific: ${{ github.event.inputs.use_test_image == 'false' }}
-      build_platform_specific: ${{ github.event.inputs.use_test_image == 'false' }}
+      build_version_specific: ${{ github.event.inputs.use_test_image == 'false' || github.event.inputs.use_test_image == '' }}
+      build_platform_specific: ${{ github.event.inputs.use_test_image == 'false' || github.event.inputs.use_test_image == '' }}
       build_nohealthcheck: false
       build_baseimage_url: :base/:base-test-pr
     secrets:

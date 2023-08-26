@@ -15,7 +15,7 @@ rust-version.workspace = true
 log = "0.4.19"
 tokio = { version = "1.29.1", features = ["full", "tracing"] }
 chrono = "0.4.26"
-serde = { version = "1.0.177", features = ["derive"] }
+serde = { version = "1.0.182", features = ["derive"] }
 serde_json = "1.0.104"
 failure = "0.1.8"
 acars_config = { path = "../../libraries/acars_config" }
