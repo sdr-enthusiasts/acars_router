@@ -40,7 +40,7 @@ repos:
     hooks:
       - id: shellcheck
   - repo: https://github.com/sirosen/check-jsonschema
-    rev: 0.26.2
+    rev: 0.26.3
     hooks:
       - id: check-github-actions
       - id: check-github-workflows
