@@ -14,9 +14,9 @@ rust-version.workspace = true
 [dependencies]
 log = "0.4.20"
 tokio = { version = "1.32.0", features = ["full", "tracing"] }
-chrono = "0.4.26"
+chrono = "0.4.31"
 serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.105"
+serde_json = "1.0.107"
 failure = "0.1.8"
 acars_config = { path = "../../libraries/acars_config" }
 sdre-rust-logging = { git = "https://github.com/sdr-enthusiasts/sdre-rust-logging.git" }
