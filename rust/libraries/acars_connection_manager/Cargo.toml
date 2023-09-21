@@ -9,7 +9,7 @@ edition.workspace = true
 stubborn-io = "0.3.2"
 log = "0.4.20"
 tokio = { version = "1.32.0", features = ["full", "tracing"] }
-tokio-util = { version = "0.7.8", features = ["full"] }
+tokio-util = { version = "0.7.9", features = ["full"] }
 tokio-stream = "0.1.14"
 futures = "0.3.28"
 async-trait = "0.1.73"
