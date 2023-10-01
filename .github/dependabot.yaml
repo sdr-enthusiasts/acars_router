@@ -7,15 +7,21 @@ updates:
     directory: "/"
     schedule:
       interval: daily
+    assignees:
+      - "fredclausen"
 
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
+    assignees:
+      - "fredclausen"
 
   # Maintain pip packages for acars_router
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
       interval: "daily"
+    assignees:
+      - "fredclausen"
