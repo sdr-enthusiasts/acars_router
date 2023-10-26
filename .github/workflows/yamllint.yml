@@ -8,6 +8,7 @@ on:
       # only run when yaml files are updated
     paths:
       - "**.yml"
+      - "**.yaml"
 
 jobs:
   yamllint:
