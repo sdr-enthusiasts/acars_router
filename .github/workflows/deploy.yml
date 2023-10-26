@@ -16,16 +16,11 @@ on:
     branches:
       - main
 
-    # Don't trigger if it's just a documentation update
-    paths-ignore:
-      - "**.md"
-      - "**.MD"
-      - "**.yml"
-      - "**.yaml"
-      - "LICENSE"
-      - ".gitattributes"
-      - ".gitignore"
-      - ".dockerignore"
+    paths:
+      - "rust/**"
+      - "Dockerfile"
+      - "Dockerfile.build_binary"
+      - "rootfs/**"
 
 jobs:
   workflow-dispatch:
