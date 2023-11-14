@@ -4,6 +4,8 @@ members = [
     "rust/libraries/acars_config",
     "rust/libraries/acars_connection_manager",
 ]
+resolver = "2"
+
 
 [workspace.package]
 edition = "2021"
