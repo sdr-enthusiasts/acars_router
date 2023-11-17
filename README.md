@@ -58,6 +58,7 @@ services:
       - AR_SEND_UDP_VDLM2=acarshub:5555
       - AR_RECV_ZMQ_VDLM2=dumpvdl2:45555
       - AR_OVERRIDE_STATION_NAME=${FEEDER_NAME}
+      - AR_STATS_VERBOSE=false
     tmpfs:
       - /run:exec,size=64M
       - /var/log

@@ -44,6 +44,9 @@ pub struct Input {
     /// Print statistics every N minutes
     #[clap(long, env = "AR_STATS_EVERY", value_parser, default_value = "5")]
     pub stats_every: u64,
+    /// Chatty logging of stats
+    #[clap(long, env = "AR_STATS_VERBOSE", value_parser)]
+    pub stats_verbose: bool,
     /// Attempt message reassembly on incomplete messages within the specified number of seconds
     #[clap(
         long,

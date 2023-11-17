@@ -32,6 +32,7 @@ pub struct MessageHandlerConfig {
     pub should_override_station_name: bool,
     pub station_name: String,
     pub stats_every: u64,
+    pub stats_verbose: bool,
 }
 
 impl MessageHandlerConfig {
@@ -46,6 +47,7 @@ impl MessageHandlerConfig {
                 should_override_station_name: args.override_station_name.is_some(),
                 station_name: station_name.to_string(),
                 stats_every: args.stats_every,
+                stats_verbose: args.stats_verbose,
             }
         } else {
             Self {
@@ -57,6 +59,7 @@ impl MessageHandlerConfig {
                 should_override_station_name: false,
                 station_name: Default::default(),
                 stats_every: args.stats_every,
+                stats_verbose: args.stats_verbose,
             }
         }
     }
