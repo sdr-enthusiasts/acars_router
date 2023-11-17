@@ -336,7 +336,12 @@ pub async fn print_stats(
         // now print the frequencies, and show each as a percentage of the total_all_time
 
         if let Some(f) = &frequencies {
-            for freq in f.lock().await.iter_mut() {
+            // sort the frequencies by count
+            if let Some(f) = &frequencies {
+                f.lock().await.sort_by(|a, b| b.count.cmp(&a.count));
+            }
+
+            for freq in f.lock().await.iter() {
                 let percentage: f64 = (freq.count as f64 / total_all_time_locked as f64) * 100.0;
                 output.push_str(
                     format!(
