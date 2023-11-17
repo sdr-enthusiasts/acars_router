@@ -17,6 +17,11 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 
+pub struct FrequencyCount {
+    freq: String,
+    count: u32,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct MessageHandlerConfig {
     pub add_proxy_id: bool,
@@ -27,6 +32,7 @@ pub struct MessageHandlerConfig {
     pub should_override_station_name: bool,
     pub station_name: String,
     pub stats_every: u64,
+    pub stats_verbose: bool,
 }
 
 impl MessageHandlerConfig {
@@ -41,6 +47,7 @@ impl MessageHandlerConfig {
                 should_override_station_name: args.override_station_name.is_some(),
                 station_name: station_name.to_string(),
                 stats_every: args.stats_every,
+                stats_verbose: args.stats_verbose,
             }
         } else {
             Self {
@@ -52,6 +59,7 @@ impl MessageHandlerConfig {
                 should_override_station_name: false,
                 station_name: Default::default(),
                 stats_every: args.stats_every,
+                stats_verbose: args.stats_verbose,
             }
         }
     }
@@ -65,6 +73,8 @@ impl MessageHandlerConfig {
             Arc::new(Mutex::new(VecDeque::with_capacity(100)));
         let total_messages_processed: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
         let total_messages_since_last: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
+        let all_frequencies_logged: Arc<Mutex<Vec<FrequencyCount>>> =
+            Arc::new(Mutex::new(Vec::new()));
         let queue_type_stats: String = self.queue_type.clone();
         let queue_type_dedupe: String = self.queue_type.clone();
         let stats_every: u64 = self.stats_every * 60; // Value has to be in seconds. Input is in minutes.
@@ -77,11 +87,18 @@ impl MessageHandlerConfig {
         let stats_total_messages_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_processed);
         let stats_total_messages_since_last_context: Arc<Mutex<i32>> =
             Arc::clone(&total_messages_since_last);
+        let stats_frequency_context: Option<Arc<Mutex<Vec<FrequencyCount>>>> = if self.stats_verbose
+        {
+            Some(Arc::clone(&all_frequencies_logged))
+        } else {
+            None
+        };
 
         tokio::spawn(async move {
             print_stats(
                 stats_total_messages_context,
                 stats_total_messages_since_last_context,
+                stats_frequency_context,
                 stats_every,
                 queue_type_stats.as_str(),
             )
@@ -131,6 +148,56 @@ impl MessageHandlerConfig {
                         Ok(n) => n.as_secs_f64(),
                         Err(_) => f64::default(),
                     };
+
+                    // See if the frequency is in the list of frequencies we've seen
+                    // If not, add it to the list and log it
+                    // match the message type
+
+                    match &message {
+                        AcarsVdlm2Message::Vdlm2Message(m) => {
+                            // get the freq from Vdlm2Message::Vdlm2Body
+                            let frequency: String = m.vdl2.freq.to_string();
+                            // check and see if we have the frequency in all_frequencies_logged. If so, increment the count.
+                            // if not, add it
+                            let mut found: bool = false;
+                            for freq in all_frequencies_logged.lock().await.iter_mut() {
+                                if freq.freq == frequency {
+                                    freq.count += 1;
+                                    found = true;
+                                    break;
+                                }
+                            }
+
+                            if !found {
+                                let new_frequency: FrequencyCount = FrequencyCount {
+                                    freq: frequency,
+                                    count: 1,
+                                };
+                                all_frequencies_logged.lock().await.push(new_frequency);
+                            }
+                        }
+                        AcarsVdlm2Message::AcarsMessage(m) => {
+                            // get the freq from AcarsMessage::AcarsBody
+                            let frequency: String = m.freq.to_string();
+
+                            let mut found: bool = false;
+                            for freq in all_frequencies_logged.lock().await.iter_mut() {
+                                if freq.freq == frequency {
+                                    freq.count += 1;
+                                    found = true;
+                                    break;
+                                }
+                            }
+
+                            if !found {
+                                let new_frequency: FrequencyCount = FrequencyCount {
+                                    freq: frequency,
+                                    count: 1,
+                                };
+                                all_frequencies_logged.lock().await.push(new_frequency);
+                            }
+                        }
+                    }
 
                     let get_message_time: Option<f64> = message.get_time();
 
@@ -251,15 +318,42 @@ impl MessageHandlerConfig {
 pub async fn print_stats(
     total_all_time: Arc<Mutex<i32>>,
     total_since_last: Arc<Mutex<i32>>,
+    frequencies: Option<Arc<Mutex<Vec<FrequencyCount>>>>,
     stats_every: u64,
     queue_type: &str,
 ) {
     let stats_minutes = stats_every / 60;
     loop {
         sleep(Duration::from_secs(stats_every)).await;
-        info!("{} in the last {} minute(s):\nTotal messages processed: {}\nTotal messages processed since last update: {}",
-            queue_type, stats_minutes, total_all_time.lock().await, total_since_last.lock().await);
+        let total_all_time_locked = *total_all_time.lock().await;
+        let mut output: String = String::new();
+        output.push_str(&format!(
+            "{} in the last {} minute(s):\nTotal messages processed: {}\nTotal messages processed since last update: {}\n",
+            queue_type, stats_minutes, total_all_time_locked, total_since_last.lock().await
+        ));
         *total_since_last.lock().await = 0;
+
+        // now print the frequencies, and show each as a percentage of the total_all_time
+
+        if let Some(f) = &frequencies {
+            // sort the frequencies by count
+            if let Some(f) = &frequencies {
+                f.lock().await.sort_by(|a, b| b.count.cmp(&a.count));
+            }
+
+            for freq in f.lock().await.iter() {
+                let percentage: f64 = (freq.count as f64 / total_all_time_locked as f64) * 100.0;
+                output.push_str(
+                    format!(
+                        "{} {}: {}/{} ({:.2}%)\n",
+                        queue_type, freq.freq, freq.count, total_all_time_locked, percentage
+                    )
+                    .as_str(),
+                );
+            }
+        }
+
+        println!("{}", output);
     }
 }
 
