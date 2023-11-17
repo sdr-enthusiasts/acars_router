@@ -87,7 +87,7 @@ impl MessageHandlerConfig {
         let stats_total_messages_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_processed);
         let stats_total_messages_since_last_context: Arc<Mutex<i32>> =
             Arc::clone(&total_messages_since_last);
-        let stats_frequency_context: Option(Arc<Mutex<Vec<FrequencyCount>>>) = if self.stats_verbose
+        let stats_frequency_context: Option<Arc<Mutex<Vec<FrequencyCount>>>> = if self.stats_verbose
         {
             Some(Arc::clone(&all_frequencies_logged))
         } else {
@@ -318,7 +318,7 @@ impl MessageHandlerConfig {
 pub async fn print_stats(
     total_all_time: Arc<Mutex<i32>>,
     total_since_last: Arc<Mutex<i32>>,
-    frequencies: Option(Arc<Mutex<Vec<FrequencyCount>>>),
+    frequencies: Option<Arc<Mutex<Vec<FrequencyCount>>>>,
     stats_every: u64,
     queue_type: &str,
 ) {
@@ -335,21 +335,16 @@ pub async fn print_stats(
 
         // now print the frequencies, and show each as a percentage of the total_all_time
 
-        match frequencies {
-            None => {}
-            Some(frequencies) => {
-                // now print the frequencies, and show each as a percentage of the total_all_time
-                for freq in frequencies.lock().await.iter_mut() {
-                    let percentage: f64 =
-                        (freq.count as f64 / total_all_time_locked as f64) * 100.0;
-                    output.push_str(
-                        format!(
-                            "{} {}: {}/{} ({:.2}%)\n",
-                            queue_type, freq.freq, freq.count, total_all_time_locked, percentage
-                        )
-                        .as_str(),
-                    );
-                }
+        if let Some(f) = &frequencies {
+            for freq in f.lock().await.iter_mut() {
+                let percentage: f64 = (freq.count as f64 / total_all_time_locked as f64) * 100.0;
+                output.push_str(
+                    format!(
+                        "{} {}: {}/{} ({:.2}%)\n",
+                        queue_type, freq.freq, freq.count, total_all_time_locked, percentage
+                    )
+                    .as_str(),
+                );
             }
         }
 
