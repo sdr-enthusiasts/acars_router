@@ -333,7 +333,13 @@ pub async fn print_stats(
 
         for freq in frequencies.lock().await.iter_mut() {
             let percentage: f64 = (freq.count as f64 / total_all_time_locked as f64) * 100.0;
-            output.push_str(format!("{} {}: {}/{} ({:.2}%)\n", queue_type, freq.freq, freq.count, total_all_time_locked, percentage));
+            output.push_str(
+                format!(
+                    "{} {}: {}/{} ({:.2}%)\n",
+                    queue_type, freq.freq, freq.count, total_all_time_locked, percentage
+                )
+                .as_str(),
+            );
         }
 
         println!("{}", output);
