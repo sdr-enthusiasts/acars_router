@@ -322,16 +322,21 @@ pub async fn print_stats(
     loop {
         sleep(Duration::from_secs(stats_every)).await;
         let total_all_time_locked = *total_all_time.lock().await;
-        info!("{} in the last {} minute(s):\nTotal messages processed: {}\nTotal messages processed since last update: {}",
-            queue_type, stats_minutes, total_all_time_locked, total_since_last.lock().await);
+        let mut output: String = String::new();
+        output.push_str(&format!(
+            "{} in the last {} minute(s):\nTotal messages processed: {}\nTotal messages processed since last update: {}\n",
+            queue_type, stats_minutes, total_all_time_locked, total_since_last.lock().await
+        ));
         *total_since_last.lock().await = 0;
 
         // now print the frequencies, and show each as a percentage of the total_all_time
 
         for freq in frequencies.lock().await.iter_mut() {
             let percentage: f64 = (freq.count as f64 / total_all_time_locked as f64) * 100.0;
-            info!("{}: {} ({:.2}%)", freq.freq, freq.count, percentage);
+            output.push_str(format!("{} {}: {}/{} ({:.2}%)\n", queue_type, freq.freq, freq.count, total_all_time_locked, percentage));
         }
+
+        println!("{}", output);
     }
 }
 
