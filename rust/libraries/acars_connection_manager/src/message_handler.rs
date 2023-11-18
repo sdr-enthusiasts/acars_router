@@ -397,7 +397,7 @@ pub async fn print_stats(
             freqs_locked = Some(freqs);
         }
 
-        println!(
+        info!(
             "{}",
             print_formatted_stats(
                 total_all_time_locked,
