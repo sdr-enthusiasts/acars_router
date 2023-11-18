@@ -475,7 +475,8 @@ impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
     async fn start_tcp(self, socket_type: &str, host: &str) {
         // Start a TCP sender server for {server_type}
         let socket: Result<StubbornIo<TcpStream, String>, io::Error> =
-            StubbornTcpStream::connect_with_options(host.to_string(), reconnect_options()).await;
+            StubbornTcpStream::connect_with_options(host.to_string(), reconnect_options(host))
+                .await;
         match socket {
             Err(e) => error!("[TCP SENDER {socket_type}]: Error connecting to {host}: {e}"),
             Ok(socket) => {
@@ -537,7 +538,7 @@ impl SocketListenerServer {
                         let open_stream: io::Result<StubbornIo<TcpStream, SocketAddr>> =
                             StubbornTcpStream::connect_with_options(
                                 socket_address,
-                                reconnect_options(),
+                                reconnect_options(&self.proto_name),
                             )
                             .await;
                         match open_stream {

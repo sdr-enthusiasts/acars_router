@@ -94,10 +94,11 @@ pub(crate) struct OutputServerConfig {
 // to attempt to reconnect
 // See: https://docs.rs/stubborn-io/latest/src/stubborn_io/config.rs.html#93
 
-pub fn reconnect_options() -> ReconnectOptions {
+pub fn reconnect_options(host: &str) -> ReconnectOptions {
     ReconnectOptions::new()
         .with_exit_if_first_connect_fails(false)
         .with_retries_generator(get_our_standard_reconnect_strategy)
+        .with_connection_name(host)
 }
 
 fn get_our_standard_reconnect_strategy() -> DurationIterator {

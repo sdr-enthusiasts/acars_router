@@ -180,7 +180,11 @@ impl TCPReceiverServer {
             }
         };
 
-        let stream = match StubbornTcpStream::connect_with_options(addr, reconnect_options()).await
+        let stream = match StubbornTcpStream::connect_with_options(
+            addr,
+            reconnect_options(&self.proto_name),
+        )
+        .await
         {
             Ok(stream) => stream,
             Err(e) => {
