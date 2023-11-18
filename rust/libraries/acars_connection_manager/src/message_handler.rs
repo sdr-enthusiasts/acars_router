@@ -330,12 +330,15 @@ pub fn print_formatted_stats(
         ));
 
     if has_counted_freqs && frequencies.is_some() {
+        output.push_str(
+            format!("{} Frequencies logged since container start:\n", queue_type).as_str(),
+        );
         if let Some(freqs) = frequencies {
             for freq in freqs.iter() {
                 let percentage: f64 = (freq.count as f64 / total_all_time as f64) * 100.0;
                 output.push_str(
                     format!(
-                        "\n{} {}: {}/{} ({:.2}%)\n",
+                        "\n{} {}: {}/{} ({:.2}%)",
                         queue_type, freq.freq, freq.count, total_all_time, percentage
                     )
                     .as_str(),
@@ -511,7 +514,7 @@ mod tests {
 
         assert_eq!(
             output_with_extra_stats,
-            "TEST in the last 1 minute(s):\nTotal messages processed: 100\nTotal messages processed since last update: 100\n\nTEST 134.525: 70/100 (70.00%)\n\nTEST 131.550: 20/100 (20.00%)\n\nTEST 131.525: 10/100 (10.00%)\n"
+            "TEST in the last 1 minute(s):\nTotal messages processed: 100\nTotal messages processed since last update: 100\nTEST Frequencies logged since container start:\n\nTEST 134.525: 70/100 (70.00%)\nTEST 131.550: 20/100 (20.00%)\nTEST 131.525: 10/100 (10.00%)"
         );
 
         let output_without_extra_stats = print_formatted_stats(
