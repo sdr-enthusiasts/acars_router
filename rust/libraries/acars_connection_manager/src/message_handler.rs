@@ -315,6 +315,40 @@ impl MessageHandlerConfig {
     }
 }
 
+pub fn print_formatted_stats(
+    total_all_time: i32,
+    total_since_last: i32,
+    frequencies: Option<Vec<FrequencyCount>>,
+    stats_minutes: u64,
+    queue_type: &str,
+    has_counted_freqs: bool,
+) -> String {
+    let mut output: String = String::new();
+    output.push_str(&format!(
+            "{} in the last {} minute(s):\nTotal messages processed: {}\nTotal messages processed since last update: {}\n",
+            queue_type, stats_minutes, total_all_time, total_since_last
+        ));
+
+    if has_counted_freqs && frequencies.is_some() {
+        if let Some(freqs) = frequencies {
+            for freq in freqs.iter() {
+                let percentage: f64 = (freq.count as f64 / total_all_time as f64) * 100.0;
+                output.push_str(
+                    format!(
+                        "\n{} {}: {}/{} ({:.2}%)\n",
+                        queue_type, freq.freq, freq.count, total_all_time, percentage
+                    )
+                    .as_str(),
+                );
+            }
+        }
+    } else if frequencies.is_some() {
+        output.push_str(format!("{} No frequencies logged.\n", queue_type).as_str());
+    }
+
+    output
+}
+
 pub async fn print_stats(
     total_all_time: Arc<Mutex<i32>>,
     total_since_last: Arc<Mutex<i32>>,
@@ -323,14 +357,12 @@ pub async fn print_stats(
     queue_type: &str,
 ) {
     let stats_minutes = stats_every / 60;
+    let mut has_counted_freqs = false;
     loop {
         sleep(Duration::from_secs(stats_every)).await;
         let total_all_time_locked = *total_all_time.lock().await;
-        let mut output: String = String::new();
-        output.push_str(&format!(
-            "{} in the last {} minute(s):\nTotal messages processed: {}\nTotal messages processed since last update: {}\n",
-            queue_type, stats_minutes, total_all_time_locked, total_since_last.lock().await
-        ));
+        let total_since_last_locked = *total_since_last.lock().await;
+
         *total_since_last.lock().await = 0;
 
         // now print the frequencies, and show each as a percentage of the total_all_time
@@ -341,19 +373,38 @@ pub async fn print_stats(
                 f.lock().await.sort_by(|a, b| b.count.cmp(&a.count));
             }
 
-            for freq in f.lock().await.iter() {
-                let percentage: f64 = (freq.count as f64 / total_all_time_locked as f64) * 100.0;
-                output.push_str(
-                    format!(
-                        "{} {}: {}/{} ({:.2}%)\n",
-                        queue_type, freq.freq, freq.count, total_all_time_locked, percentage
-                    )
-                    .as_str(),
-                );
+            if !has_counted_freqs && f.lock().await.len() > 0 {
+                has_counted_freqs = true;
             }
         }
 
-        println!("{}", output);
+        let mut freqs_locked = None;
+
+        // TODO: This thing is ugly and bad
+        if let Some(f) = &frequencies {
+            // copy the contents of the frequencies vector into a new vector
+            let mut freqs: Vec<FrequencyCount> = Vec::new();
+            for freq in f.lock().await.iter() {
+                freqs.push(FrequencyCount {
+                    freq: freq.freq.clone(),
+                    count: freq.count,
+                });
+            }
+
+            freqs_locked = Some(freqs);
+        }
+
+        println!(
+            "{}",
+            print_formatted_stats(
+                total_all_time_locked,
+                total_since_last_locked,
+                freqs_locked,
+                stats_minutes,
+                queue_type,
+                has_counted_freqs
+            )
+        );
     }
 }
 
@@ -409,5 +460,72 @@ fn hash_message(mut message: AcarsVdlm2Message) -> MessageResult<u64> {
             let hashed_value = hasher.finish();
             Ok(hashed_value)
         }
+    }
+}
+
+// create a test for print_stats
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_print_stats() {
+        let total_all_time: i32 = 100;
+        let total_since_last: i32 = 100;
+        let mut frequencies: Vec<FrequencyCount> = Vec::new();
+        let stats_every: u64 = 1;
+        let queue_type: &str = "TEST";
+
+        // fill the frequencies with some data
+
+        let freq_three: FrequencyCount = FrequencyCount {
+            freq: "134.525".to_string(),
+            count: 70,
+        };
+
+        frequencies.push(freq_three);
+
+        let freq_one: FrequencyCount = FrequencyCount {
+            freq: "131.550".to_string(),
+            count: 20,
+        };
+
+        frequencies.push(freq_one);
+
+        let freq_two: FrequencyCount = FrequencyCount {
+            freq: "131.525".to_string(),
+            count: 10,
+        };
+
+        frequencies.push(freq_two);
+
+        let output_with_extra_stats = print_formatted_stats(
+            total_all_time,
+            total_since_last,
+            Some(frequencies),
+            stats_every,
+            queue_type,
+            true,
+        );
+
+        assert_eq!(
+            output_with_extra_stats,
+            "TEST in the last 1 minute(s):\nTotal messages processed: 100\nTotal messages processed since last update: 100\n\nTEST 134.525: 70/100 (70.00%)\n\nTEST 131.550: 20/100 (20.00%)\n\nTEST 131.525: 10/100 (10.00%)\n"
+        );
+
+        let output_without_extra_stats = print_formatted_stats(
+            total_all_time,
+            total_since_last,
+            None,
+            stats_every,
+            queue_type,
+            false,
+        );
+
+        assert_eq!(
+            output_without_extra_stats,
+            "TEST in the last 1 minute(s):\nTotal messages processed: 100\nTotal messages processed since last update: 100\n"
+        );
     }
 }
