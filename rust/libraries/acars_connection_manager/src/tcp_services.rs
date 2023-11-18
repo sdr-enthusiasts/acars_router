@@ -7,13 +7,13 @@
 
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use futures::SinkExt;
+use sdre_stubborn_io::tokio::StubbornIo;
+use sdre_stubborn_io::StubbornTcpStream;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use stubborn_io::tokio::StubbornIo;
-use stubborn_io::StubbornTcpStream;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Receiver;

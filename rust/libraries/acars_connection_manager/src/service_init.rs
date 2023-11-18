@@ -17,12 +17,12 @@ use crate::{
 use acars_config::Input;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use async_trait::async_trait;
+use sdre_stubborn_io::tokio::StubbornIo;
+use sdre_stubborn_io::StubbornTcpStream;
 use std::io;
 use std::net::{AddrParseError, IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
-use stubborn_io::tokio::StubbornIo;
-use stubborn_io::StubbornTcpStream;
 use tmq::publish::Publish;
 use tmq::{publish, Context, TmqError};
 use tokio::io::BufReader;

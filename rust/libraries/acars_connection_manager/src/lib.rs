@@ -4,7 +4,7 @@ extern crate acars_config;
 extern crate acars_vdlm2_parser;
 extern crate async_trait;
 extern crate futures;
-extern crate stubborn_io;
+extern crate sdre_stubborn_io;
 extern crate tmq;
 pub extern crate tokio as tokio;
 extern crate tokio_stream;
@@ -19,12 +19,12 @@ pub mod udp_services;
 pub mod zmq_services;
 
 use acars_vdlm2_parser::AcarsVdlm2Message;
+use sdre_stubborn_io::ReconnectOptions;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::net::SocketAddr;
 use std::time::Duration;
-use stubborn_io::ReconnectOptions;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
 
