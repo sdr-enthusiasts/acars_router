@@ -19,5 +19,5 @@ serde = { version = "1.0.192", features = ["derive"] }
 serde_json = "1.0.108"
 failure = "0.1.8"
 acars_config = { path = "../../libraries/acars_config" }
-sdre-rust-logging = { git = "https://github.com/sdr-enthusiasts/sdre-rust-logging.git" }
+sdre-rust-logging = "0.1.0"
 acars_connection_manager = { path = "../../libraries/acars_connection_manager" }

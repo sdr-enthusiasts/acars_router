@@ -8,4 +8,4 @@ edition.workspace = true
 [dependencies]
 clap = { version = "4.4.8", features = ["derive", "env"] }
 log = "0.4.20"
-sdre-rust-logging = { git = "https://github.com/sdr-enthusiasts/sdre-rust-logging.git" }
+sdre-rust-logging = "0.1.0"
