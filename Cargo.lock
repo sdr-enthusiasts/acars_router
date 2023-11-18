@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acars_config"
-version = "1.0.21"
+version = "1.0.22"
 dependencies = [
  "clap",
  "log",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "acars_connection_manager"
-version = "1.0.21"
+version = "1.0.22"
 dependencies = [
  "acars_config",
  "acars_vdlm2_parser",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "acars_router"
-version = "1.0.21"
+version = "1.0.22"
 dependencies = [
  "acars_config",
  "acars_connection_manager",
@@ -947,8 +947,9 @@ dependencies = [
 
 [[package]]
 name = "sdre-stubborn-io"
-version = "0.4.2"
-source = "git+https://github.com/sdr-enthusiasts/sdre-stubborn-io.git#cd9d70dc5cb9a9abd596cc1e2659049671d5e702"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60795a4ed3fb5c214072c1fc3824f34d9d41a6158ca62360b3c9a206f8418c11"
 dependencies = [
  "log",
  "rand",
