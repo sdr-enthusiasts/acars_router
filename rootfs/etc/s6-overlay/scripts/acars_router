@@ -3,12 +3,6 @@
 
 AR_COMMAND=()
 
-if [[ ${AR_VERBOSITY,,} =~ debug || $AR_VERBOSITY -eq 1 ]]; then
-    AR_COMMAND+=("-v")
-elif [[ ${AR_VERBOSITY,,} =~ trace  || $AR_VERBOSITY -ge 2 ]]; then
-    AR_COMMAND+=("-vv")
-fi
-
 # ACARS Input
 
 if [[ -n $AR_LISTEN_UDP_ACARS ]]; then
