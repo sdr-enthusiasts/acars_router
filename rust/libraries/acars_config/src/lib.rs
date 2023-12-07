@@ -13,8 +13,14 @@ use sdre_rust_logging::SetupLogging;
 pub struct Input {
     // Output Options
     /// Set the log level. debug, trace, info are valid options.
-    #[clap(short, long, action = clap::ArgAction::Count)]
-    pub verbose: u8,
+    #[clap(
+        short,
+        long,
+        env = "AR_VERBOSITY",
+        value_parser,
+        default_value = "info"
+    )]
+    pub verbose: String,
     /// Enable message deduplication
     #[clap(long, env = "AR_ENABLE_DEDUPE", value_parser)]
     pub enable_dedupe: bool,
@@ -128,7 +134,7 @@ impl Input {
         debug!("AR_SEND_TCP_ACARS: {:?}", self.send_tcp_acars);
         debug!("AR_SERVE_TCP_ACARS: {:?}", self.serve_tcp_acars);
         debug!("AR_SERVE_ZMQ_ACARS: {:?}", self.serve_zmq_acars);
-        debug!("AR_VERBOSE: {:?}", self.verbose.set_logging_level());
+        debug!("AR_VERBOSE: {:?}", self.verbose.clone().set_logging_level());
         debug!("AR_ADD_PROXY_ID: {:?}", self.add_proxy_id);
         debug!("AR_ENABLE_DEDUPE: {:?}", self.enable_dedupe);
         debug!("AR_DEDUPE_WINDOW: {:?}", self.dedupe_window);
