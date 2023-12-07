@@ -13,7 +13,13 @@ use sdre_rust_logging::SetupLogging;
 pub struct Input {
     // Output Options
     /// Set the log level. debug, trace, info are valid options.
-    #[clap(short, long, env = "AR_VERBOSE", value_parser, default_value = "info")]
+    #[clap(
+        short,
+        long,
+        env = "AR_VERBOSITY",
+        value_parser,
+        default_value = "info"
+    )]
     pub verbose: String,
     /// Enable message deduplication
     #[clap(long, env = "AR_ENABLE_DEDUPE", value_parser)]
