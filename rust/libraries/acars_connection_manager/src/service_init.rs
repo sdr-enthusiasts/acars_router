@@ -40,6 +40,8 @@ pub async fn start_processes(args: Input) {
         MessageHandlerConfig::new(&args, "ACARS");
     let message_handler_config_vdlm: MessageHandlerConfig =
         MessageHandlerConfig::new(&args, "VDLM");
+    let message_handler_config_hfdl: MessageHandlerConfig =
+        MessageHandlerConfig::new(&args, "HFDL");
 
     // ACARS Servers
     // Create the input channel all receivers will send their data to.
@@ -54,6 +56,11 @@ pub async fn start_processes(args: Input) {
     let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
     // Create the input channel processed messages will be sent to
     let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
+    // HFDL
+    // Create the input channel all receivers will send their data to.
+    let (tx_receivers_hfdl, rx_receivers_hfdl) = mpsc::channel(32);
+    // Create the input channel processed messages will be sent to
+    let (tx_processed_hfdl, rx_processed_hfdl) = mpsc::channel(32);
 
     // start the input servers
     debug!("Starting input servers");
@@ -81,6 +88,19 @@ pub async fn start_processes(args: Input) {
     );
     tokio::spawn(async move {
         vdlm_input_config.start_listeners(tx_receivers_vdlm);
+    });
+
+    let hfdl_input_config: OutputServerConfig = OutputServerConfig::new(
+        &args.listen_udp_hfdl,
+        &args.listen_tcp_hfdl,
+        &args.receive_tcp_hfdl,
+        &args.receive_zmq_hfdl,
+        &args.reassembly_window,
+        ServerType::Hfdl,
+    );
+
+    tokio::spawn(async move {
+        hfdl_input_config.start_listeners(tx_receivers_hfdl);
     });
 
     // start the output servers
@@ -116,6 +136,21 @@ pub async fn start_processes(args: Input) {
             .await;
     });
 
+    info!("Starting HFDL Output Servers");
+    let hfdl_output_config: SenderServerConfig = SenderServerConfig::new(
+        &args.send_udp_hfdl,
+        &args.send_tcp_hfdl,
+        &args.serve_tcp_hfdl,
+        &args.serve_zmq_hfdl,
+        &args.max_udp_packet_size,
+    );
+
+    tokio::spawn(async move {
+        hfdl_output_config
+            .start_senders(rx_processed_hfdl, "HFDL")
+            .await;
+    });
+
     // Start the message handler tasks.
     // Don't start the queue watcher UNLESS there is a valid input source AND output source for the message type
 
@@ -140,6 +175,18 @@ pub async fn start_processes(args: Input) {
     } else {
         info!(
             "Not starting the VDLM message handler task. No input and/or output sources specified."
+        );
+    }
+
+    if args.hfdl_configured() {
+        tokio::spawn(async move {
+            message_handler_config_hfdl
+                .watch_message_queue(rx_receivers_hfdl, tx_processed_hfdl)
+                .await;
+        });
+    } else {
+        info!(
+            "Not starting the HFDL message handler task. No input and/or output sources specified."
         );
     }
 

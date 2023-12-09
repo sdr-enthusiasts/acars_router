@@ -61,6 +61,7 @@ pub struct Input {
         default_value = "1.0"
     )]
     pub reassembly_window: f64,
+
     // Input Options
 
     // ACARS
@@ -90,7 +91,23 @@ pub struct Input {
     /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_zmq_vdlm2: Option<Vec<String>>,
+
+    // HFDL
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_udp_hfdl: Option<Vec<u16>>,
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_tcp_hfdl: Option<Vec<u16>>,
+    /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_tcp_hfdl: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_zmq_hfdl: Option<Vec<String>>,
+
     // JSON Output options
+
     // ACARS
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
     #[clap(long, value_parser, value_delimiter = ';')]
@@ -104,6 +121,7 @@ pub struct Input {
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_zmq_acars: Option<Vec<u16>>,
+
     // VDLM
     /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
     #[clap(long, value_parser, value_delimiter = ';')]
@@ -117,6 +135,20 @@ pub struct Input {
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_zmq_vdlm2: Option<Vec<u16>>,
+
+    // HFDL
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_udp_hfdl: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_tcp_hfdl: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_tcp_hfdl: Option<Vec<u16>>,
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_zmq_hfdl: Option<Vec<u16>>,
 }
 
 impl Input {
@@ -147,6 +179,15 @@ impl Input {
         debug!("AR_SERVE_ZMQ_VDLM2: {:?}", self.serve_zmq_vdlm2);
         debug!("AR_MAX_UDP_PACKET_SIZE: {:?}", self.max_udp_packet_size);
         debug!("AR_REASSEMBLY_WINDOW: {:?}", self.reassembly_window);
+        debug!("AR_STATS_VERBOSE: {:?}", self.stats_verbose);
+        debug!("AR_LISTEN_UDP_HFDL: {:?}", self.listen_udp_hfdl);
+        debug!("AR_LISTEN_TCP_HFDL: {:?}", self.listen_tcp_hfdl);
+        debug!("AR_RECV_TCP_HFDL: {:?}", self.receive_tcp_hfdl);
+        debug!("AR_RECV_ZMQ_HFDL: {:?}", self.receive_zmq_hfdl);
+        debug!("AR_SEND_UDP_HFDL: {:?}", self.send_udp_hfdl);
+        debug!("AR_SEND_TCP_HFDL: {:?}", self.send_tcp_hfdl);
+        debug!("AR_SERVE_TCP_HFDL: {:?}", self.serve_tcp_hfdl);
+        debug!("AR_SERVE_ZMQ_HFDL: {:?}", self.serve_zmq_hfdl);
     }
 
     pub fn acars_configured(&self) -> bool {
@@ -169,5 +210,16 @@ impl Input {
             || self.send_tcp_vdlm2.is_some()
             || self.serve_tcp_vdlm2.is_some()
             || self.serve_zmq_vdlm2.is_some()
+    }
+
+    pub fn hfdl_configured(&self) -> bool {
+        self.receive_tcp_hfdl.is_some()
+            || self.listen_udp_hfdl.is_some()
+            || self.listen_tcp_hfdl.is_some()
+            || self.receive_zmq_hfdl.is_some()
+            || self.send_udp_hfdl.is_some()
+            || self.send_tcp_hfdl.is_some()
+            || self.serve_tcp_hfdl.is_some()
+            || self.serve_zmq_hfdl.is_some()
     }
 }

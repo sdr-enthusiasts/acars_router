@@ -69,6 +69,7 @@ pub(crate) enum SocketType {
 pub(crate) enum ServerType {
     Acars,
     Vdlm2,
+    Hfdl,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -137,6 +138,7 @@ impl fmt::Display for ServerType {
         match self {
             ServerType::Acars => write!(f, "ACARS"),
             ServerType::Vdlm2 => write!(f, "VDLM"),
+            ServerType::Hfdl => write!(f, "HFDL"),
         }
     }
 }
