@@ -93,3 +93,61 @@ With the above deployment:
 - `acars_router` will connect to `dumpvdl2` via TCP/ZMQ and receive JSON messages.
 - `acars_router` will set your station ID on all messages.
 - `acars_router` will then output to `acarshub`.
+
+## Ports
+
+All ports are configurable. By default, the following ports will be used:
+
+| Port  | Protocol | Description                                                                 |
+| ----- | -------- | --------------------------------------------------------------------------- |
+| 5550  | UDP/TCP  | ACARS injest                                                                |
+| 5555  | UDP/TCP  | VDLM2 injest                                                                |
+| 5556  | UDP/TCP  | HFDL injest                                                                 |
+| 15550 | TCP      | ACARS server. Can be used for other clients to connect and get messages     |
+| 15555 | TCP      | VDLM2 server. Can be used for other clients to connect and get messages     |
+| 15556 | TCP      | HFDL server. Can be used for other clients to connect and get messages      |
+| 45550 | ZMQ      | ACARS server. Can be used for other ZMQ clients to connect and get messages |
+| 45555 | ZMQ      | VDLM2 server. Can be used for other ZMQ clients to connect and get messages |
+| 45556 | ZMQ      | HFDL server. Can be used for other ZMQ clients to connect and get messages  |
+
+If you want any port(s) to be exposed outside of the docker network, please be sure to append them to the ports section of the `docker-compose.yml` file.
+
+## Environment Variables
+
+All env variables with `SEND` or `RECV` in them can have multiple destinations. Each destination should be separated by a `;`. For example, `SEND_UDP_ACARS=acarshub:5550;acarshub2:5550` will send UDP ACARS messages to both `acarshub` and `acarshub2`.
+
+The nomenclature for the environment variables is as follows:
+
+`AR_SERV_protocol_type`: acars*router will \_serve* data of this type over the specified protocol. A client should _connect_ to this port to receive data. TCP/ZMQ only.
+`AR_SEND_protocol_type`: acars*router will \_send* data of this type over the specified protocol. A client should _listen (UDP)_/_have a service listening for acars router to connect to(TCP)_ on this port to receive data.
+
+`AR_RECV_protocol_type`: acars*router will \_receive* a connection from a client of this type over the specified protocol. A client should _send_ data to this port to for acars router to process.
+`AR_LISTEN_protocol_type`: acars*router will \_listen* for data of this type over the specified protocol. A client should _connect (TCP)_/_have a service that will send data to acars router on the port specified (UDP)_ on this port to send data.
+
+For sending data:
+
+| Env Variable      | Command Line Switch | Default | Description                             |
+| ----------------- | ------------------- | ------- | --------------------------------------- |
+| AR_SEND_UDP_ACARS | --send-udp-acars    | `unset` | UDP host:port to send ACARS messages to |
+| AR_SEND_UDP_VDLM2 | --send-udp-vdlm2    | `unset` | UDP host:port to send VDLM2 messages to |
+| AR_SEND_UDP_HFDL  | --send-udp-hfdl     | `unset` | UDP host:port to send HFDL messages to  |
+| AR_SEND_TCP_ACARS | --send-tcp-acars    | `unset` | TCP host:port to send ACARS messages to |
+| AR_SEND_TCP_VDLM2 | --send-tcp-vdlm2    | `unset` | TCP host:port to send VDLM2 messages to |
+| AR_SEND_TCP_HFDL  | --send-tcp-hfdl     | `unset` | TCP host:port to send HFDL messages to  |
+
+For receiving data:
+
+| Env Variable        | Command Line Switch | Default | Description                                     |
+| ------------------- | ------------------- | ------- | ----------------------------------------------- |
+| AR_RECV_ZMQ_ACARS   | --recv-zmq-acars    | `unset` | ZMQ host:port to receive ACARS messages from    |
+| AR_RECV_ZMQ_VDLM2   | --recv-zmq-vdlm2    | `unset` | ZMQ host:port to receive VDLM2 messages from    |
+| AR_RECV_ZMQ_HFDL    | --recv-zmq-hfdl     | `unset` | ZMQ host:port to receive HFDL messages from     |
+| AR_RECV_TCP_ACARS   | --recv-tcp-acars    | `unset` | TCP host:port to receive ACARS messages from    |
+| AR_RECV_TCP_VDLM2   | --recv-tcp-vdlm2    | `unset` | TCP host:port to receive VDLM2 messages from    |
+| AR_RECV_TCP_HFDL    | --recv-tcp-hfdl     | `unset` | TCP host:port to receive HFDL messages from     |
+| AR_LISTEN_TCP_ACARS | --listen-tcp-acars  | `unset` | TCP host:port to listen for ACARS messages from |
+| AR_LISTEN_TCP_VDLM2 | --listen-tcp-vdlm2  | `unset` | TCP host:port to listen for VDLM2 messages from |
+| AR_LISTEN_TCP_HFDL  | --listen-tcp-hfdl   | `unset` | TCP host:port to listen for HFDL messages from  |
+| AR_LISTEN_UDP_ACARS | --listen-udp-acars  | `unset` | UDP host:port to listen for ACARS messages from |
+| AR_LISTEN_UDP_VDLM2 | --listen-udp-vdlm2  | `unset` | UDP host:port to listen for VDLM2 messages from |
+| AR_LISTEN_UDP_HFDL  | --listen-udp-hfdl   | `unset` | UDP host:port to listen for HFDL messages from  |
