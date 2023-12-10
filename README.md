@@ -11,39 +11,26 @@ volumes:
   - acarshub_run
 
 services:
-  acarsdec:
-    image: ghcr.io/sdr-enthusiasts/docker-acarsdec:latest
+    acarshub:
+    image: ghcr.io/sdr-enthusiasts/docker-acarshub:latest
     tty: true
-    container_name: acarsdec
+    container_name: acarshub
     restart: always
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
+    ports:
+      - 8080:80
     environment:
-      - TZ=${FEEDER_TZ}
-      - SERIAL=XXX
-      - FREQUENCIES=XXX;XXX;XXX
-      - GAIN=XXX
-      - SERVER=acars_router
-      - SERVER_PORT=5550
+      - ENABLE_VDLM=EXTERNAL
+      - ENABLE_ACARS=EXTERNAL
+      - FEED=true
+      - IATA_OVERRIDE=UP|UPS|United Parcel Service;GS|FTH|Mountain Aviation (Foothills);GS|EJA|ExecJet
+      - ENABLE_ADSB=true
+      - ADSB_LAT=${FEEDER_LAT}
+      - ADSB_LON=${FEEDER_LON}
+      - ADSB_URL=${ACARS_TAR_HOST}
+    volumes:
+      - "acars_run:/run/acars"
     tmpfs:
-      - /run:exec,size=64M
-      - /var/log
-
-  dumpvdl2:
-    image: ghcr.io/sdr-enthusiasts/docker-dumpvdl2:latest
-    tty: true
-    container_name: dumpvdl2
-    restart: always
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
-    environment:
-      - TZ=${FEEDER_TZ}
-      - SERIAL=XXX
-      - FREQUENCIES=XXX;XXX;XXX
-      - GAIN=XXX
-      - ZMQ_MODE=server
-      - ZMQ_ENDPOINT=tcp://0.0.0.0:45555
-    tmpfs:
+      - /database:exec,size=64M
       - /run:exec,size=64M
       - /var/log
 
@@ -54,32 +41,12 @@ services:
     restart: always
     environment:
       - TZ=${FEEDER_TZ}
-      - AR_SEND_UDP_ACARS=acarshub:5550
+      - AR_ENABLE_DEDUPE=true
+      - AR_SEND_UDP_ACARS=acarshub:5550;feed.airframes.io:5550
       - AR_SEND_UDP_VDLM2=acarshub:5555
+      - AR_SEND_TCP_VDLM2=feed.airframes.io:5553
+      - AR_SEND_TCP_HFDL=feed.airframes.io:5556
       - AR_RECV_ZMQ_VDLM2=dumpvdl2:45555
-      - AR_OVERRIDE_STATION_NAME=${FEEDER_NAME}
-      - AR_STATS_VERBOSE=false
-    tmpfs:
-      - /run:exec,size=64M
-      - /var/log
-
-  acarshub:
-    image: ghcr.io/sdr-enthusiasts/docker-acarshub:latest
-    tty: true
-    container_name: acarshub
-    hostname: acarshub
-    restart: always
-    ports:
-      - 8080:80
-    environment:
-      - TZ=${FEEDER_TZ}
-      - ADSB_LAT=${FEEDER_LAT}
-      - ADSB_LON=${FEEDER_LONG}
-      - ENABLE_ADSB=true
-      - ENABLE_ACARS=external
-      - ENABLE_VDLM=external
-    volumes:
-      - acarshub_run:/run/acars
     tmpfs:
       - /run:exec,size=64M
       - /var/log
