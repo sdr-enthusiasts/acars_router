@@ -119,23 +119,29 @@ All env variables with `SEND` or `RECV` in them can have multiple destinations. 
 The nomenclature for the environment variables is as follows:
 
 `AR_SERV_protocol_type`: acars*router will \_serve* data of this type over the specified protocol. A client should _connect_ to this port to receive data. TCP/ZMQ only.
-`AR_SEND_protocol_type`: acars*router will \_send* data of this type over the specified protocol. A client should _listen (UDP)_/_have a service listening for acars router to connect to(TCP)_ on this port to receive data.
+`AR_SEND_protocol_type`: acars*router will \_send* data of this type over the specified protocol. A client should listen (UDP) / have a service _listening_ for acars router to connect to (TCP) on this port to receive data.
 
-`AR_RECV_protocol_type`: acars*router will \_receive* a connection from a client of this type over the specified protocol. A client should _send_ data to this port to for acars router to process.
-`AR_LISTEN_protocol_type`: acars*router will \_listen* for data of this type over the specified protocol. A client should _connect (TCP)_/_have a service that will send data to acars router on the port specified (UDP)_ on this port to send data.
+`AR_RECV_protocol_type`: acars*router will \_receive* a connection from a client of this type over the specified protocol (TCP/ZMQ).
+`AR_LISTEN_protocol_type`: acars*router will \_listen* for data of this type over the specified protocol. A client should _connect_ (TCP) / have a service that will _send_ data to acars router on the port specified (UDP) on this port to send data.
 
-For sending data:
+### Outbound data
 
-| Env Variable      | Command Line Switch | Default | Description                             |
-| ----------------- | ------------------- | ------- | --------------------------------------- |
-| AR_SEND_UDP_ACARS | --send-udp-acars    | `unset` | UDP host:port to send ACARS messages to |
-| AR_SEND_UDP_VDLM2 | --send-udp-vdlm2    | `unset` | UDP host:port to send VDLM2 messages to |
-| AR_SEND_UDP_HFDL  | --send-udp-hfdl     | `unset` | UDP host:port to send HFDL messages to  |
-| AR_SEND_TCP_ACARS | --send-tcp-acars    | `unset` | TCP host:port to send ACARS messages to |
-| AR_SEND_TCP_VDLM2 | --send-tcp-vdlm2    | `unset` | TCP host:port to send VDLM2 messages to |
-| AR_SEND_TCP_HFDL  | --send-tcp-hfdl     | `unset` | TCP host:port to send HFDL messages to  |
+| Env Variable       | Command Line Switch | Default | Description                              |
+| ------------------ | ------------------- | ------- | ---------------------------------------- |
+| AR_SEND_UDP_ACARS  | --send-udp-acars    | `unset` | UDP host:port to send ACARS messages to  |
+| AR_SEND_UDP_VDLM2  | --send-udp-vdlm2    | `unset` | UDP host:port to send VDLM2 messages to  |
+| AR_SEND_UDP_HFDL   | --send-udp-hfdl     | `unset` | UDP host:port to send HFDL messages to   |
+| AR_SEND_TCP_ACARS  | --send-tcp-acars    | `unset` | TCP host:port to send ACARS messages to  |
+| AR_SEND_TCP_VDLM2  | --send-tcp-vdlm2    | `unset` | TCP host:port to send VDLM2 messages to  |
+| AR_SEND_TCP_HFDL   | --send-tcp-hfdl     | `unset` | TCP host:port to send HFDL messages to   |
+| AR_SERVE_TCP_ACARS | --serve-tcp-acars   | `5550`  | TCP host:port to serve ACARS messages to |
+| AR_SERVE_TCP_VDLM2 | --serve-tcp-vdlm2   | `5555`  | TCP host:port to serve VDLM2 messages to |
+| AR_SERVE_TCP_HFDL  | --serve-tcp-hfdl    | `5556`  | TCP host:port to serve HFDL messages to  |
+| AR_SERVE_ZMQ_ACARS | --serve-zmq-acars   | `45550` | ZMQ host:port to serve ACARS messages to |
+| AR_SERVE_ZMQ_VDLM2 | --serve-zmq-vdlm2   | `45555` | ZMQ host:port to serve VDLM2 messages to |
+| AR_SERVE_ZMQ_HFDL  | --serve-zmq-hfdl    | `45556` | ZMQ host:port to serve HFDL messages to  |
 
-For receiving data:
+### Inbound data
 
 | Env Variable        | Command Line Switch | Default | Description                                     |
 | ------------------- | ------------------- | ------- | ----------------------------------------------- |
@@ -145,9 +151,24 @@ For receiving data:
 | AR_RECV_TCP_ACARS   | --recv-tcp-acars    | `unset` | TCP host:port to receive ACARS messages from    |
 | AR_RECV_TCP_VDLM2   | --recv-tcp-vdlm2    | `unset` | TCP host:port to receive VDLM2 messages from    |
 | AR_RECV_TCP_HFDL    | --recv-tcp-hfdl     | `unset` | TCP host:port to receive HFDL messages from     |
-| AR_LISTEN_TCP_ACARS | --listen-tcp-acars  | `unset` | TCP host:port to listen for ACARS messages from |
-| AR_LISTEN_TCP_VDLM2 | --listen-tcp-vdlm2  | `unset` | TCP host:port to listen for VDLM2 messages from |
-| AR_LISTEN_TCP_HFDL  | --listen-tcp-hfdl   | `unset` | TCP host:port to listen for HFDL messages from  |
-| AR_LISTEN_UDP_ACARS | --listen-udp-acars  | `unset` | UDP host:port to listen for ACARS messages from |
-| AR_LISTEN_UDP_VDLM2 | --listen-udp-vdlm2  | `unset` | UDP host:port to listen for VDLM2 messages from |
-| AR_LISTEN_UDP_HFDL  | --listen-udp-hfdl   | `unset` | UDP host:port to listen for HFDL messages from  |
+| AR_LISTEN_TCP_ACARS | --listen-tcp-acars  | `5550`  | TCP host:port to listen for ACARS messages from |
+| AR_LISTEN_TCP_VDLM2 | --listen-tcp-vdlm2  | `5555`  | TCP host:port to listen for VDLM2 messages from |
+| AR_LISTEN_TCP_HFDL  | --listen-tcp-hfdl   | `5556`  | TCP host:port to listen for HFDL messages from  |
+| AR_LISTEN_UDP_ACARS | --listen-udp-acars  | `5550`  | UDP host:port to listen for ACARS messages from |
+| AR_LISTEN_UDP_VDLM2 | --listen-udp-vdlm2  | `5555`  | UDP host:port to listen for VDLM2 messages from |
+| AR_LISTEN_UDP_HFDL  | --listen-udp-hfdl   | `5556`  | UDP host:port to listen for HFDL messages from  |
+
+### General Options
+
+| Env Variable             | Command Line Switch     | Default | Description                                                                                                                                                                                    |
+| ------------------------ | ----------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AR_VERBOSITY             | --verbose               | `info`  | Verbosity level. Valid values are `debug`, `info`, `warning`, `error`                                                                                                                          |
+| AR_ENABLE_DEDUPE         | --enable-dedupe         | `false` | Enable message deduplication. Valid values are `true` or `false`                                                                                                                               |
+| AR_DEDUPE_WINDOW         | --dedupe-window         | `2`     | Window for how long a message will be considered a duplicate if the same message is received again.                                                                                            |
+| SKEW_DEDUPE_WINDOW       | --skew-window           | `1`     | If a message is older then the skew window it will be automatically rejected.                                                                                                                  |
+| AR_MAX_UDP_PACKET_SIZE   | --max-udp-packet-size   | `60000` | Maximum UDP packet size. Messages greater then this will be send in multiple parts                                                                                                             |
+| AR_ADD_PROXY_ID          | --add-proxy-id          | `true`  | Append to the message a header indicating that acars router processed the message                                                                                                              |
+| AR_OVERRIDE_STATION_NAME | --override-station-name | `unset` | Change the station id field (identifying your station name for unstream clients) is set to this instead of what was in the message originally                                                  |
+| AR_STATS_EVERY           | --stats-every           | `5`     | How often to print stats to the log in minutes                                                                                                                                                 |
+| AR_STATS_VERBOSE         | --stats-verbose         | `false` | Print verbose stats to the log                                                                                                                                                                 |
+| AR_REASSEMBLY_WINDOW     | --reassemble-window     | `1.0`   | If a message comes in, but part of the message is missing, this value will be used to keep the partial message fragment around while attempting to wait for the second (or subsequent) part(s) |
