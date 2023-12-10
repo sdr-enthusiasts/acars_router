@@ -29,7 +29,7 @@ pub struct Input {
     #[clap(long, env = "AR_DEDUPE_WINDOW", value_parser, default_value = "2")]
     pub dedupe_window: u64,
     /// Reject messages with a timestamp greater than +/- this many seconds.
-    #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "1")]
+    #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "5")]
     pub skew_window: u64,
     /// Set maximum UDP packet size, peer-to-peer.
     #[clap(
