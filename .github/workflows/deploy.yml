@@ -12,6 +12,11 @@ on:
         type: boolean
         description: "Use base image testpr"
         default: false
+      build_latest_as_test:
+        required: false
+        type: boolean
+        description: "Build latest as test"
+        default: false
   push:
     branches:
       - main
@@ -36,9 +41,11 @@ jobs:
         env:
           INPUTS_REASON: ${{ github.event.inputs.reason }}
           INPUTS_USE_TEST_IMAGE: ${{ github.event.inputs.use_test_image }}
+          INPUTS_BUILD_LATEST_AS_TEST: ${{ github.event.inputs.build_latest_as_test }}
         run: |
           echo "Workflow dispatch reason: $INPUTS_REASON"
           echo "Use test image: $INPUTS_USE_TEST_IMAGE"
+          echo "Build latest as test: $INPUTS_BUILD_LATEST_AS_TEST"
 
   binary_build_armv7:
     name: Build Binary - armv7
@@ -192,6 +199,9 @@ jobs:
 
   release_binaries:
     name: Release Binaries
+    if: |
+      github.event.inputs.build_latest_as_test == 'false' ||
+      github.event.inputs.build_latest_as_test == ''
     needs:
       [
         binary_build_amd64,
@@ -244,6 +254,9 @@ jobs:
 
   deploy:
     name: Deploy
+    if: |
+      github.event.inputs.build_latest_as_test == 'false' ||
+      github.event.inputs.build_latest_as_test == ''
     needs: [consolidate_binaries]
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
     with:
@@ -262,6 +275,35 @@ jobs:
       # only build the entire stack if we are not using the test image
       build_version_specific: ${{ github.event.inputs.use_test_image == 'false' || github.event.inputs.use_test_image == '' }}
       build_platform_specific: ${{ github.event.inputs.use_test_image == 'false' || github.event.inputs.use_test_image == '' }}
+      build_nohealthcheck: false
+      build_baseimage_url: :base/:base-test-pr
+    secrets:
+      ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy_test:
+    name: Deploy as test
+    if: |
+      github.event.inputs.build_latest_as_test == 'true' &&
+      (github.event.inputs.build_latest_as_test == 'false' ||
+      github.event.inputs.build_latest_as_test == '')
+    needs: [consolidate_binaries]
+    uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
+    with:
+      push_enabled: true
+      push_destinations: ghcr.io
+      ghcr_repo_owner: ${{ github.repository_owner }}
+      ghcr_repo: ${{ github.repository }}
+      build_with_tmpfs: true
+      get_version_method: cargo_toml_file_in_repo:file=/Cargo.toml
+      cache_enabled: true
+      cache_path: ./bin/
+      cache_key: ${{ github.run_id }}
+      # set build_latest to true if github.event.inputs.use_test_image is false
+      build_latest: true
+      build_baseimage_test: false
+      # only build the entire stack if we are not using the test image
+      build_version_specific: false
+      build_platform_specific: false
       build_nohealthcheck: false
       build_baseimage_url: :base/:base-test-pr
     secrets:
