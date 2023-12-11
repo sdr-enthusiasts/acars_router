@@ -300,6 +300,7 @@ jobs:
       cache_key: ${{ github.run_id }}
       # set build_latest to true if github.event.inputs.use_test_image is false
       build_latest: true
+      docker_latest_tag: test
       build_baseimage_test: false
       # only build the entire stack if we are not using the test image
       build_version_specific: false
