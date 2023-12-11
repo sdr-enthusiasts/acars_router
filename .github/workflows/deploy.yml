@@ -200,8 +200,9 @@ jobs:
   release_binaries:
     name: Release Binaries
     if: |
-      github.event.inputs.build_latest_as_test == 'false' ||
-      github.event.inputs.build_latest_as_test == ''
+      (github.event.inputs.build_latest_as_test == 'false' ||
+      github.event.inputs.build_latest_as_test == '') &&
+      (github.event.inputs.use_test_image == 'false' || github.event.inputs.use_test_image == '')
     needs:
       [
         binary_build_amd64,
