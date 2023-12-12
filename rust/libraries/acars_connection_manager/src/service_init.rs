@@ -270,11 +270,8 @@ impl OutputServerConfig {
                 &self.output_server_type.to_string()
             );
 
-            listen_zmq.zmq_port_listener(
-                &self.output_server_type.to_string(),
-                tx_receivers.clone(),
-                &self.reassembly_window,
-            );
+            listen_zmq
+                .zmq_port_listener(&self.output_server_type.to_string(), tx_receivers.clone());
         }
 
         // Start the ZMQ listeners
@@ -325,12 +322,7 @@ trait StartPortListener {
         channel: Sender<String>,
         reassembly_window: &f64,
     );
-    fn zmq_port_listener(
-        self,
-        decoder_type: &str,
-        channel: Sender<String>,
-        reassembly_window: &f64,
-    );
+    fn zmq_port_listener(self, decoder_type: &str, channel: Sender<String>);
 }
 
 impl StartHostListeners for Vec<String> {
@@ -408,17 +400,12 @@ impl StartPortListener for Vec<u16> {
         }
     }
 
-    fn zmq_port_listener(
-        self,
-        decoder_type: &str,
-        channel: Sender<String>,
-        reassembly_window: &f64,
-    ) {
+    fn zmq_port_listener(self, decoder_type: &str, channel: Sender<String>) {
         for zmq_port in self {
             let new_channel: Sender<String> = channel.clone();
             let server_zmq_port: String = zmq_port.to_string();
             let proto_name: String = format!("{}_ZMQ_LISTEN_{}", decoder_type, &server_zmq_port);
-            let server: ZMQListenerServer = ZMQListenerServer::new(&proto_name, reassembly_window);
+            let server: ZMQListenerServer = ZMQListenerServer::new(&proto_name);
             debug!("Starting {decoder_type} ZMQ server on {server_zmq_port}");
             tokio::spawn(async move { server.run(server_zmq_port, new_channel).await });
         }

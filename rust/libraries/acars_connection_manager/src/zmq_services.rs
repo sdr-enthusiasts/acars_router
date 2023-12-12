@@ -69,14 +69,12 @@ impl ZMQReceiverServer {
 
 pub struct ZMQListenerServer {
     pub(crate) proto_name: String,
-    pub(crate) reassembly_window: f64,
 }
 
 impl ZMQListenerServer {
-    pub fn new(proto_name: &str, reassembly_window: &f64) -> Self {
+    pub fn new(proto_name: &str) -> Self {
         Self {
             proto_name: proto_name.to_string(),
-            reassembly_window: *reassembly_window,
         }
     }
     pub async fn run(self, listen_acars_zmq_port: String, channel: Sender<String>) -> Result<()> {
