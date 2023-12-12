@@ -118,6 +118,7 @@ impl ZMQListenerServer {
                 Err(e) => error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e),
             }
         }
+
         Ok(())
     }
 }

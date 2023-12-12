@@ -416,7 +416,7 @@ impl StartPortListener for Vec<u16> {
     ) {
         for zmq_port in self {
             let new_channel: Sender<String> = channel.clone();
-            let server_zmq_port: String = format!("0.0.0.0:{}", zmq_port);
+            let server_zmq_port: String = zmq_port.to_string();
             let proto_name: String = format!("{}_ZMQ_LISTEN_{}", decoder_type, &server_zmq_port);
             let server: ZMQListenerServer = ZMQListenerServer::new(&proto_name, reassembly_window);
             debug!("Starting {decoder_type} ZMQ server on {server_zmq_port}");
