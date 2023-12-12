@@ -99,7 +99,7 @@ async fn process_tcp_sockets(
 ) -> Result<(), Box<dyn Error>> {
     let mut lines = Framed::new(stream, LinesCodec::new_with_max_length(8000));
 
-    let packet_handler = PacketHandler::new(proto_name, reassembly_window);
+    let packet_handler = PacketHandler::new(proto_name, "TCP", reassembly_window);
 
     while let Some(Ok(line)) = lines.next().await {
         let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
@@ -200,7 +200,7 @@ impl TCPReceiverServer {
 
         let reader = tokio::io::BufReader::new(stream);
         let mut lines = Framed::new(reader, LinesCodec::new());
-        let packet_handler = PacketHandler::new(&self.proto_name, self.reassembly_window);
+        let packet_handler = PacketHandler::new(&self.proto_name, "TCP", self.reassembly_window);
 
         while let Some(Ok(line)) = lines.next().await {
             // Clean up the line endings. This is probably unnecessary but it's here for safety.

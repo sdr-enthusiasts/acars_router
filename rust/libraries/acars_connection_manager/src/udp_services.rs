@@ -61,7 +61,7 @@ impl UDPListenerServer {
                 );
 
                 let packet_handler: PacketHandler =
-                    PacketHandler::new(&self.proto_name, self.reassembly_window);
+                    PacketHandler::new(&self.proto_name, "UDP", self.reassembly_window);
 
                 loop {
                     if let Some((size, peer)) = to_send {

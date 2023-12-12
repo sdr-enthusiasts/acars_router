@@ -606,8 +606,11 @@ impl SocketListenerServer {
                                     BufReader<StubbornIo<TcpStream, SocketAddr>>,
                                     LinesCodec,
                                 > = Framed::new(reader, LinesCodec::new());
-                                let packet_handler: PacketHandler =
-                                    PacketHandler::new(&self.proto_name, self.reassembly_window);
+                                let packet_handler: PacketHandler = PacketHandler::new(
+                                    &self.proto_name,
+                                    "TCP",
+                                    self.reassembly_window,
+                                );
                                 while let Some(Ok(line)) = lines.next().await {
                                     let split_messages_by_newline: Vec<&str> =
                                         line.split_terminator('\n').collect();
@@ -714,8 +717,11 @@ impl SocketListenerServer {
                                     self.proto_name,
                                     socket.local_addr()?
                                 );
-                                let packet_handler: PacketHandler =
-                                    PacketHandler::new(&self.proto_name, self.reassembly_window);
+                                let packet_handler: PacketHandler = PacketHandler::new(
+                                    &self.proto_name,
+                                    "UDP",
+                                    self.reassembly_window,
+                                );
                                 loop {
                                     if let Some((size, peer)) = to_send {
                                         let msg_string = match std::str::from_utf8(
