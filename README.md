@@ -65,17 +65,23 @@ With the above deployment:
 
 All ports are configurable. By default, the following ports will be used:
 
-| Port  | Protocol | Description                                                                 |
-| ----- | -------- | --------------------------------------------------------------------------- |
-| 5550  | UDP/TCP  | ACARS injest                                                                |
-| 5555  | UDP/TCP  | VDLM2 injest                                                                |
-| 5556  | UDP/TCP  | HFDL injest                                                                 |
-| 15550 | TCP      | ACARS server. Can be used for other clients to connect and get messages     |
-| 15555 | TCP      | VDLM2 server. Can be used for other clients to connect and get messages     |
-| 15556 | TCP      | HFDL server. Can be used for other clients to connect and get messages      |
-| 45550 | ZMQ      | ACARS server. Can be used for other ZMQ clients to connect and get messages |
-| 45555 | ZMQ      | VDLM2 server. Can be used for other ZMQ clients to connect and get messages |
-| 45556 | ZMQ      | HFDL server. Can be used for other ZMQ clients to connect and get messages  |
+| Port    | Protocol | Description                                                                      |
+| ------- | -------- | -------------------------------------------------------------------------------- |
+| `5550`  | `UDP`    | ACARS injest. Clients will send acars data to this port via UDP.                 |
+| `5550`  | `TCP`    | ACARS injest. Clients will send acars data to this port via TCP.                 |
+| `5555`  | `UDP`    | VDLM2 injest. Clients will send VDLM2 data to this port via UDP.                 |
+| `5555`  | `TCP`    | VDLM2 injest. Clients will send VDLM2 data to this port via TCP.                 |
+| `5556`  | `UDP`    | HFDL injest. Clients will send HFDL data to this port via UDP.                   |
+| `5556`  | `TCP`    | HFDL injest. Clients will send HFDL data to this port via TCP.                   |
+| `15550` | `TCP`    | ACARS server. Can be used for other clients to connect and get messages          |
+| `15555` | `TCP`    | VDLM2 server. Can be used for other clients to connect and get messages          |
+| `15556` | `TCP`    | HFDL server. Can be used for other clients to connect and get messages           |
+| `35550` | `ZMQ`    | ACARS injest. Clients will connect to this port and send acars messages over ZMQ |
+| `35555` | `ZMQ`    | VDLM2 injest. Clients will connect to this port and send VDLM2 messages over ZMQ |
+| `35556` | `ZMQ`    | HFDL injest. Clients will connect to this port and send HFDL messages over ZMQ   |
+| `45550` | `ZMQ`    | ACARS server. Can be used for other ZMQ clients to connect and get messages      |
+| `45555` | `ZMQ`    | VDLM2 server. Can be used for other ZMQ clients to connect and get messages      |
+| `45556` | `ZMQ`    | HFDL server. Can be used for other ZMQ clients to connect and get messages       |
 
 If you want any port(s) to be exposed outside of the docker network, please be sure to append them to the ports section of the `docker-compose.yml` file.
 
