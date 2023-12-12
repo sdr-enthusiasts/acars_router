@@ -9,7 +9,7 @@ use crate::message_handler::MessageHandlerConfig;
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use crate::tcp_services::{TCPListenerServer, TCPReceiverServer, TCPServeServer};
 use crate::udp_services::{UDPListenerServer, UDPSenderServer};
-use crate::zmq_services::ZMQListnerServer;
+use crate::zmq_services::{ZMQListenerServer, ZMQReceiverServer};
 use crate::{
     reconnect_options, OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared,
     SocketListenerServer, SocketType,
@@ -32,6 +32,16 @@ use tokio::sync::{mpsc, Mutex};
 use tokio::time::{sleep, Duration};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
+
+/// Nomenclature used in the code:
+/// Input:
+///     Receiver: ACARS router will connect out to a remote host and receive data from it. (TCP/ZMQ)
+///     Listener: ACARS router will listen on a port for incoming data or incoming connection
+///               based on socket type (TCP/UDP/ZMQ)
+/// Output:
+///     Sender: ACARS router will connect out to a remote host and send data to it. (TCP/ZMQ)
+///     Server: ACARS router will send data to a remote host (UDP) or listen for incoming connection (TCP/ZMQ)
+///             and send data to it.
 
 pub async fn start_processes(args: Input) {
     args.print_values();
@@ -69,6 +79,7 @@ pub async fn start_processes(args: Input) {
     let acars_input_config: OutputServerConfig = OutputServerConfig::new(
         &args.listen_udp_acars,
         &args.listen_tcp_acars,
+        &args.listen_zmq_acars,
         &args.receive_tcp_acars,
         &args.receive_zmq_acars,
         &args.reassembly_window,
@@ -81,6 +92,7 @@ pub async fn start_processes(args: Input) {
     let vdlm_input_config: OutputServerConfig = OutputServerConfig::new(
         &args.listen_udp_vdlm2,
         &args.listen_tcp_vdlm2,
+        &args.listen_zmq_vdlm2,
         &args.receive_tcp_vdlm2,
         &args.receive_zmq_vdlm2,
         &args.reassembly_window,
@@ -93,6 +105,7 @@ pub async fn start_processes(args: Input) {
     let hfdl_input_config: OutputServerConfig = OutputServerConfig::new(
         &args.listen_udp_hfdl,
         &args.listen_tcp_hfdl,
+        &args.listen_zmq_hfdl,
         &args.receive_tcp_hfdl,
         &args.receive_zmq_hfdl,
         &args.reassembly_window,
@@ -201,6 +214,7 @@ impl OutputServerConfig {
     fn new(
         listen_udp: &Option<Vec<u16>>,
         listen_tcp: &Option<Vec<u16>>,
+        listen_zmq: &Option<Vec<u16>>,
         receive_tcp: &Option<Vec<String>>,
         receive_zmq: &Option<Vec<String>>,
         reassembly_window: &f64,
@@ -209,6 +223,7 @@ impl OutputServerConfig {
         Self {
             listen_udp: listen_udp.clone(),
             listen_tcp: listen_tcp.clone(),
+            listen_zmq: listen_zmq.clone(),
             receive_tcp: receive_tcp.clone(),
             receive_zmq: receive_zmq.clone(),
             reassembly_window: *reassembly_window,
@@ -242,6 +257,20 @@ impl OutputServerConfig {
                 &self.output_server_type.to_string()
             );
             listen_tcp.tcp_port_listener(
+                &self.output_server_type.to_string(),
+                tx_receivers.clone(),
+                &self.reassembly_window,
+            );
+        }
+
+        if let Some(listen_zmq) = self.listen_zmq {
+            // Start the ZMQ listener servers for server_type
+            info!(
+                "Starting ZMQ listener servers for {}",
+                &self.output_server_type.to_string()
+            );
+
+            listen_zmq.zmq_port_listener(
                 &self.output_server_type.to_string(),
                 tx_receivers.clone(),
                 &self.reassembly_window,
@@ -296,6 +325,12 @@ trait StartPortListener {
         channel: Sender<String>,
         reassembly_window: &f64,
     );
+    fn zmq_port_listener(
+        self,
+        decoder_type: &str,
+        channel: Sender<String>,
+        reassembly_window: &f64,
+    );
 }
 
 impl StartHostListeners for Vec<String> {
@@ -305,7 +340,7 @@ impl StartHostListeners for Vec<String> {
             let proto_name: String = format!("{}_ZMQ_RECEIVER_{}", decoder_type, host);
 
             tokio::spawn(async move {
-                let zmq_listener_server = ZMQListnerServer {
+                let zmq_listener_server = ZMQReceiverServer {
                     host: host.to_string(),
                     proto_name: proto_name.to_string(),
                 };
@@ -370,6 +405,22 @@ impl StartPortListener for Vec<u16> {
             let server: UDPListenerServer = UDPListenerServer::new(&proto_name, reassembly_window);
             debug!("Starting {decoder_type} UDP server on {server_udp_port}");
             tokio::spawn(async move { server.run(&server_udp_port, new_channel).await });
+        }
+    }
+
+    fn zmq_port_listener(
+        self,
+        decoder_type: &str,
+        channel: Sender<String>,
+        reassembly_window: &f64,
+    ) {
+        for zmq_port in self {
+            let new_channel: Sender<String> = channel.clone();
+            let server_zmq_port: String = format!("0.0.0.0:{}", zmq_port);
+            let proto_name: String = format!("{}_ZMQ_LISTEN_{}", decoder_type, &server_zmq_port);
+            let server: ZMQListenerServer = ZMQListenerServer::new(&proto_name, reassembly_window);
+            debug!("Starting {decoder_type} ZMQ server on {server_zmq_port}");
+            tokio::spawn(async move { server.run(server_zmq_port, new_channel).await });
         }
     }
 }

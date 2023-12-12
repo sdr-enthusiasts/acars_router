@@ -13,6 +13,10 @@ if [[ -n $AR_LISTEN_TCP_ACARS ]]; then
     AR_COMMAND+=("--listen-tcp-acars" "$AR_LISTEN_TCP_ACARS")
 fi
 
+if [[ -n $AR_LISTEN_ZMQ_ACARS ]]; then
+    AR_COMMAND+=("--listen-zmq-acars" "$AR_LISTEN_ZMQ_ACARS")
+fi
+
 if [[ -n $AR_RECV_TCP_ACARS ]]; then
     AR_COMMAND+=("--receive-tcp-acars" "$AR_RECV_TCP_ACARS")
 fi
@@ -31,6 +35,10 @@ if [[ -n $AR_LISTEN_TCP_VDLM2 ]]; then
     AR_COMMAND+=("--listen-tcp-vdlm2" "$AR_LISTEN_TCP_VDLM2")
 fi
 
+if [[ -n $AR_LISTEN_ZMQ_VDLM2 ]]; then
+    AR_COMMAND+=("--listen-zmq-vdlm2" "$AR_LISTEN_ZMQ_VDLM2")
+fi
+
 if [[ -n $AR_RECV_TCP_VDLM2 ]]; then
     AR_COMMAND+=("--receive-tcp-vdlm2" "$AR_RECV_TCP_VDLM2")
 fi
@@ -47,6 +55,10 @@ fi
 
 if [[ -n $AR_LISTEN_TCP_HFDL ]]; then
     AR_COMMAND+=("--listen-tcp-hfdl" "$AR_LISTEN_TCP_HFDL")
+fi
+
+if [[ -n $AR_LISTEN_ZMQ_HFDL ]]; then
+    AR_COMMAND+=("--listen-zmq-hfdl" "$AR_LISTEN_ZMQ_HFDL")
 fi
 
 if [[ -n $AR_RECV_TCP_HFDL ]]; then

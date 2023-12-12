@@ -5,7 +5,7 @@
 // Full license information available in the project LICENSE file.
 //
 
-// NOTE: This is a listener. WE **SUB** to a *PUB* socket.
+// NOTE: WE **SUB** to a *PUB* socket.
 
 use crate::SenderServer;
 use acars_vdlm2_parser::AcarsVdlm2Message;
@@ -15,18 +15,74 @@ use tmq::publish::Publish;
 use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::{Receiver, Sender};
 
-pub struct ZMQListnerServer {
+pub struct ZMQReceiverServer {
     pub host: String,
     pub proto_name: String,
 }
 
-impl ZMQListnerServer {
+impl ZMQReceiverServer {
     pub async fn run(self, channel: Sender<String>) -> Result<()> {
-        debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
+        debug!("[ZMQ RECEIVER SERVER {}] Starting", self.proto_name);
         let address = format!("tcp://{}", self.host);
         let mut socket = subscribe(&Context::new())
             .connect(&address)?
             .subscribe(b"")?;
+
+        while let Some(msg) = socket.next().await {
+            let message = match msg {
+                Ok(message) => message,
+                Err(e) => {
+                    error!("[ZMQ RECEIVER SERVER {}] Error: {:?}", self.proto_name, e);
+                    continue;
+                }
+            };
+
+            let composed_message = message
+                .iter()
+                .map(|item| item.as_str().unwrap_or("invalid text"))
+                .collect::<Vec<&str>>()
+                .join(" ");
+            trace!(
+                "[ZMQ RECEIVER SERVER {}] Received: {}",
+                self.proto_name,
+                composed_message
+            );
+            let stripped = composed_message
+                .strip_suffix("\r\n")
+                .or_else(|| composed_message.strip_suffix('\n'))
+                .unwrap_or(&composed_message);
+
+            match channel.send(stripped.to_string()).await {
+                Ok(_) => trace!(
+                    "[ZMQ RECEIVER SERVER {}] Message sent to channel",
+                    self.proto_name
+                ),
+                Err(e) => error!(
+                    "[ZMQ RECEIVER SERVER {}] Error sending message to channel: {}",
+                    self.proto_name, e
+                ),
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct ZMQListenerServer {
+    pub(crate) proto_name: String,
+    pub(crate) reassembly_window: f64,
+}
+
+impl ZMQListenerServer {
+    pub fn new(proto_name: &str, reassembly_window: &f64) -> Self {
+        Self {
+            proto_name: proto_name.to_string(),
+            reassembly_window: *reassembly_window,
+        }
+    }
+    pub async fn run(self, listen_acars_zmq_port: String, channel: Sender<String>) -> Result<()> {
+        debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
+        let address = format!("tcp://0.0.0.0:{}", listen_acars_zmq_port);
+        let mut socket = subscribe(&Context::new()).bind(&address)?.subscribe(b"")?;
 
         while let Some(msg) = socket.next().await {
             let message = match msg {

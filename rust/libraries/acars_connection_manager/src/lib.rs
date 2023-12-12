@@ -85,6 +85,7 @@ pub(crate) struct SenderServerConfig {
 pub(crate) struct OutputServerConfig {
     pub(crate) listen_udp: Option<Vec<u16>>,
     pub(crate) listen_tcp: Option<Vec<u16>>,
+    pub(crate) listen_zmq: Option<Vec<u16>>,
     pub(crate) receive_tcp: Option<Vec<String>>,
     pub(crate) receive_zmq: Option<Vec<String>>,
     pub(crate) reassembly_window: f64,
