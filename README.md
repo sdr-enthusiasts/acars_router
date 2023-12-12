@@ -122,23 +122,23 @@ The nomenclature for the environment variables is as follows:
 
 ### Inbound data
 
-| Env Variable        | Command Line Switch | Default | Description                                     |
-| ------------------- | ------------------- | ------- | ----------------------------------------------- |
-| AR_RECV_ZMQ_ACARS   | --recv-zmq-acars    | `unset` | ZMQ host:port to receive ACARS messages from    |
-| AR_RECV_ZMQ_VDLM2   | --recv-zmq-vdlm2    | `unset` | ZMQ host:port to receive VDLM2 messages from    |
-| AR_RECV_ZMQ_HFDL    | --recv-zmq-hfdl     | `unset` | ZMQ host:port to receive HFDL messages from     |
-| AR_RECV_TCP_ACARS   | --recv-tcp-acars    | `unset` | TCP host:port to receive ACARS messages from    |
-| AR_RECV_TCP_VDLM2   | --recv-tcp-vdlm2    | `unset` | TCP host:port to receive VDLM2 messages from    |
-| AR_RECV_TCP_HFDL    | --recv-tcp-hfdl     | `unset` | TCP host:port to receive HFDL messages from     |
-| AR_LISTEN_TCP_ACARS | --listen-tcp-acars  | `5550`  | TCP host:port to listen for ACARS messages from |
-| AR_LISTEN_TCP_VDLM2 | --listen-tcp-vdlm2  | `5555`  | TCP host:port to listen for VDLM2 messages from |
-| AR_LISTEN_TCP_HFDL  | --listen-tcp-hfdl   | `5556`  | TCP host:port to listen for HFDL messages from  |
-| AR_LISTEN_UDP_ACARS | --listen-udp-acars  | `5550`  | UDP host:port to listen for ACARS messages from |
-| AR_LISTEN_UDP_VDLM2 | --listen-udp-vdlm2  | `5555`  | UDP host:port to listen for VDLM2 messages from |
-| AR_LISTEN_UDP_HFDL  | --listen-udp-hfdl   | `5556`  | UDP host:port to listen for HFDL messages from  |
-| AR_LISTEN_ZMQ_ACARS | --listen-zmq-acars  | `35550` | ZMQ host:port to listen for ACARS messages from |
-| AR_LISTEN_ZMQ_VDLM2 | --listen-zmq-vdlm2  | `35555` | ZMQ host:port to listen for VDLM2 messages from |
-| AR_LISTEN_ZMQ_HFDL  | --listen-zmq-hfdl   | `35556` | ZMQ host:port to listen for HFDL messages from  |
+| Env Variable        | Command Line Switch | Default | Description                                  |
+| ------------------- | ------------------- | ------- | -------------------------------------------- |
+| AR_RECV_ZMQ_ACARS   | --recv-zmq-acars    | `unset` | ZMQ host:port to receive ACARS messages from |
+| AR_RECV_ZMQ_VDLM2   | --recv-zmq-vdlm2    | `unset` | ZMQ host:port to receive VDLM2 messages from |
+| AR_RECV_ZMQ_HFDL    | --recv-zmq-hfdl     | `unset` | ZMQ host:port to receive HFDL messages from  |
+| AR_RECV_TCP_ACARS   | --recv-tcp-acars    | `unset` | TCP host:port to receive ACARS messages from |
+| AR_RECV_TCP_VDLM2   | --recv-tcp-vdlm2    | `unset` | TCP host:port to receive VDLM2 messages from |
+| AR_RECV_TCP_HFDL    | --recv-tcp-hfdl     | `unset` | TCP host:port to receive HFDL messages from  |
+| AR_LISTEN_TCP_ACARS | --listen-tcp-acars  | `5550`  | TCP port to listen for ACARS messages from   |
+| AR_LISTEN_TCP_VDLM2 | --listen-tcp-vdlm2  | `5555`  | TCP port to listen for VDLM2 messages from   |
+| AR_LISTEN_TCP_HFDL  | --listen-tcp-hfdl   | `5556`  | TCP port to listen for HFDL messages from    |
+| AR_LISTEN_UDP_ACARS | --listen-udp-acars  | `5550`  | UDP port to listen for ACARS messages from   |
+| AR_LISTEN_UDP_VDLM2 | --listen-udp-vdlm2  | `5555`  | UDP port to listen for VDLM2 messages from   |
+| AR_LISTEN_UDP_HFDL  | --listen-udp-hfdl   | `5556`  | UDP port to listen for HFDL messages from    |
+| AR_LISTEN_ZMQ_ACARS | --listen-zmq-acars  | `35550` | ZMQ port to listen for ACARS messages from   |
+| AR_LISTEN_ZMQ_VDLM2 | --listen-zmq-vdlm2  | `35555` | ZMQ port to listen for VDLM2 messages from   |
+| AR_LISTEN_ZMQ_HFDL  | --listen-zmq-hfdl   | `35556` | ZMQ port to listen for HFDL messages from    |
 
 ### General Options
 
