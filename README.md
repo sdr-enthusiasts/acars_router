@@ -85,11 +85,16 @@ All env variables with `SEND` or `RECV` in them can have multiple destinations. 
 
 The nomenclature for the environment variables is as follows:
 
-`AR_SERV_protocol_type`: acars*router will \_serve* data of this type over the specified protocol. A client should _connect_ to this port to receive data. TCP/ZMQ only.
-`AR_SEND_protocol_type`: acars*router will \_send* data of this type over the specified protocol. A client should listen (UDP) / have a service _listening_ for acars router to connect to (TCP) on this port to receive data.
+Nomenclature used in the code:
 
-`AR_RECV_protocol_type`: acars*router will \_receive* a connection from a client of this type over the specified protocol (TCP/ZMQ).
-`AR_LISTEN_protocol_type`: acars*router will \_listen* for data of this type over the specified protocol. A client should _connect_ (TCP) / have a service that will _send_ data to acars router on the port specified (UDP) on this port to send data.
+- Input/Inbound data
+
+  - Receiver: ACARS router will connect out to a remote host and receive data from it. (TCP/ZMQ)
+  - Listener: ACARS router will listen on a port for incoming data (UDP) or incoming connection based on socket type (TCP/ZMQ)
+
+- Output/Outbound data
+  - Sender: ACARS router will connect out to a remote host and send data to it. (TCP/ZMQ)
+  - Server: ACARS router will send data to a remote host (UDP) or listen for incoming connection (TCP/ZMQ) and send data to it.
 
 ### Outbound data
 
@@ -124,6 +129,9 @@ The nomenclature for the environment variables is as follows:
 | AR_LISTEN_UDP_ACARS | --listen-udp-acars  | `5550`  | UDP host:port to listen for ACARS messages from |
 | AR_LISTEN_UDP_VDLM2 | --listen-udp-vdlm2  | `5555`  | UDP host:port to listen for VDLM2 messages from |
 | AR_LISTEN_UDP_HFDL  | --listen-udp-hfdl   | `5556`  | UDP host:port to listen for HFDL messages from  |
+| AR_LISTEN_ZMQ_ACARS | --listen-zmq-acars  | `35550` | ZMQ host:port to listen for ACARS messages from |
+| AR_LISTEN_ZMQ_VDLM2 | --listen-zmq-vdlm2  | `35555` | ZMQ host:port to listen for VDLM2 messages from |
+| AR_LISTEN_ZMQ_HFDL  | --listen-zmq-hfdl   | `35556` | ZMQ host:port to listen for HFDL messages from  |
 
 ### General Options
 
