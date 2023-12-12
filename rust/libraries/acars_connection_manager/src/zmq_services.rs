@@ -85,38 +85,33 @@ impl ZMQListenerServer {
         let mut socket = subscribe(&Context::new()).bind(&address)?.subscribe(b"")?;
 
         while let Some(msg) = socket.next().await {
-            let message = match msg {
-                Ok(message) => message,
-                Err(e) => {
-                    error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e);
-                    continue;
+            match msg {
+                Ok(message) => {
+                    for item in message {
+                        let composed_message = item
+                            .as_str()
+                            .unwrap_or("invalid text")
+                            .strip_suffix("\r\n")
+                            .or_else(|| item.as_str().unwrap_or("invalid text").strip_suffix('\n'))
+                            .unwrap_or(item.as_str().unwrap_or("invalid text"));
+                        trace!(
+                            "[ZMQ LISTENER SERVER {}] Received: {}",
+                            self.proto_name,
+                            composed_message
+                        );
+                        match channel.send(composed_message.to_string()).await {
+                            Ok(_) => trace!(
+                                "[ZMQ LISTENER SERVER {}] Message sent to channel",
+                                self.proto_name
+                            ),
+                            Err(e) => error!(
+                                "[ZMQ LISTENER SERVER {}] Error sending message to channel: {}",
+                                self.proto_name, e
+                            ),
+                        }
+                    }
                 }
-            };
-
-            let composed_message = message
-                .iter()
-                .map(|item| item.as_str().unwrap_or("invalid text"))
-                .collect::<Vec<&str>>()
-                .join(" ");
-            trace!(
-                "[ZMQ LISTENER SERVER {}] Received: {}",
-                self.proto_name,
-                composed_message
-            );
-            let stripped = composed_message
-                .strip_suffix("\r\n")
-                .or_else(|| composed_message.strip_suffix('\n'))
-                .unwrap_or(&composed_message);
-
-            match channel.send(stripped.to_string()).await {
-                Ok(_) => trace!(
-                    "[ZMQ LISTENER SERVER {}] Message sent to channel",
-                    self.proto_name
-                ),
-                Err(e) => error!(
-                    "[ZMQ LISTENER SERVER {}] Error sending message to channel: {}",
-                    self.proto_name, e
-                ),
+                Err(e) => error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e),
             }
         }
         Ok(())
