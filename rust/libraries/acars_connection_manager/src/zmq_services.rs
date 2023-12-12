@@ -82,6 +82,10 @@ impl ZMQListenerServer {
     pub async fn run(self, listen_acars_zmq_port: String, channel: Sender<String>) -> Result<()> {
         debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
         let address = format!("tcp://0.0.0.0:{}", listen_acars_zmq_port);
+        debug!(
+            "[ZMQ LISTENER SERVER {}] Listening on {}",
+            self.proto_name, address
+        );
         let mut socket = subscribe(&Context::new()).bind(&address)?.subscribe(b"")?;
 
         while let Some(msg) = socket.next().await {
@@ -114,7 +118,6 @@ impl ZMQListenerServer {
                 Err(e) => error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e),
             }
         }
-        debug!("Goiodbye");
         Ok(())
     }
 }
