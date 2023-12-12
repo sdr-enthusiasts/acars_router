@@ -85,7 +85,6 @@ impl ZMQListenerServer {
         let mut socket = subscribe(&Context::new()).bind(&address)?.subscribe(b"")?;
 
         while let Some(msg) = socket.next().await {
-            info!("Received message ZMQ");
             match msg {
                 Ok(message) => {
                     for item in message {
@@ -115,6 +114,7 @@ impl ZMQListenerServer {
                 Err(e) => error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e),
             }
         }
+        debug!("Goiodbye");
         Ok(())
     }
 }
