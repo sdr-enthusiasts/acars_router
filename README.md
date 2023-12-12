@@ -85,14 +85,14 @@ All env variables with `SEND` or `RECV` in them can have multiple destinations. 
 
 The nomenclature for the environment variables is as follows:
 
-Nomenclature used in the code:
+### Nomenclature used in variable naming
 
-### Input/Inbound data
+#### Input/Inbound data
 
 - Receiver: ACARS router will connect out to a remote host and receive data from it. (TCP/ZMQ)
 - Listener: ACARS router will listen on a port for incoming data (UDP) or incoming connection based on socket type (TCP/ZMQ)
 
-### Output/Outbound data
+#### Output/Outbound data
 
 - Sender: ACARS router will connect out to a remote host and send data to it. (TCP/ZMQ)
 - Server: ACARS router will send data to a remote host (UDP) or listen for incoming connection (TCP/ZMQ) and send data to it.
