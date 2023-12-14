@@ -15,11 +15,15 @@ use tmq::publish::Publish;
 use tmq::{subscribe, Context, Result};
 use tokio::sync::mpsc::{Receiver, Sender};
 
+/// ZMQ Receiver server. This is used to connect to a remote ZMQ server and process the messages.
+/// Used for incoming ZMQ data for ACARS Router to process
 pub struct ZMQReceiverServer {
     pub host: String,
     pub proto_name: String,
 }
 
+/// ZMQ Receiver server. This is used to connect to a remote ZMQ server and process the messages.
+/// Used for incoming ZMQ data for ACARS Router to process
 impl ZMQReceiverServer {
     pub async fn run(self, channel: Sender<String>) -> Result<()> {
         debug!("[ZMQ RECEIVER SERVER {}] Starting", self.proto_name);
@@ -67,10 +71,14 @@ impl ZMQReceiverServer {
     }
 }
 
+/// ZMQ Listener server. This is used to listen for incoming ZMQ data for ACARS Router to process
+/// Used for incoming ZMQ data for ACARS Router to process
 pub struct ZMQListenerServer {
     pub(crate) proto_name: String,
 }
 
+/// ZMQ Listener server. This is used to listen for incoming ZMQ data for ACARS Router to process
+/// Used for incoming ZMQ data for ACARS Router to process
 impl ZMQListenerServer {
     pub fn new(proto_name: &str) -> Self {
         Self {
@@ -121,6 +129,8 @@ impl ZMQListenerServer {
     }
 }
 
+/// ZMQ Sender server. This is used to send messages to a remote ZMQ server.
+/// Used for outgoing ZMQ data for ACARS Router to process
 impl SenderServer<Publish> {
     pub(crate) fn new(
         server_address: &str,

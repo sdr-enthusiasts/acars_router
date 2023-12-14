@@ -25,11 +25,15 @@ use tokio_util::codec::{Framed, LinesCodec};
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use crate::{reconnect_options, Rx, SenderServer, Shared};
 
+/// TCP Listener server. This is used to listen for incoming TCP connections and process them.
+/// Used for incoming TCP data for ACARS Router to process
 pub(crate) struct TCPListenerServer {
     pub(crate) proto_name: String,
     pub(crate) reassembly_window: f64,
 }
 
+/// TCP Listener server. This is used to listen for incoming TCP connections and process them.
+/// Used for incoming TCP data for ACARS Router to process
 impl TCPListenerServer {
     pub(crate) fn new(proto_name: &str, reassembly_window: &f64) -> Self {
         Self {
@@ -90,6 +94,8 @@ impl TCPListenerServer {
     }
 }
 
+/// This function is used to process the TCP socket. It will read the socket and send the messages to the channel.
+/// Used for incoming TCP data for ACARS Router to process
 async fn process_tcp_sockets(
     stream: TcpStream,
     proto_name: &str,
@@ -151,12 +157,16 @@ async fn process_tcp_sockets(
     Ok(())
 }
 
+/// TCP Receiver server. This is used to connect to a remote TCP server and process the messages.
+/// Used for incoming TCP data for ACARS Router to process
 pub struct TCPReceiverServer {
     pub host: String,
     pub proto_name: String,
     pub reassembly_window: f64,
 }
 
+/// TCP Receiver server. This is used to connect to a remote TCP server and process the messages.
+/// Used for incoming TCP data for ACARS Router to process
 impl TCPReceiverServer {
     pub(crate) fn new(server_host: &str, proto_name: &str, reassembly_window: f64) -> Self {
         Self {
@@ -272,6 +282,8 @@ impl TCPReceiverServer {
     }
 }
 
+/// TCP Sender server. This is used to connect to a remote TCP server and send the messages.
+/// Used for outgoing TCP data for ACARS Router to a client
 impl SenderServer<StubbornIo<TcpStream, String>> {
     pub async fn send_message(mut self) {
         tokio::spawn(async move {
@@ -294,6 +306,8 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
     }
 }
 
+/// TCP Serve Server. This is used to listen for incoming TCP connections and process them.
+/// Used for outgoing TCP data for ACARS Router to a client
 pub struct TCPServeServer {
     pub socket: TcpListener,
     pub proto_name: String,
@@ -351,6 +365,8 @@ impl Peer {
     }
 }
 
+/// TCP Serve Server. This is used to listen for incoming TCP connections and process them.
+/// Used for outgoing TCP data for ACARS Router to a client
 impl TCPServeServer {
     pub(crate) fn new(socket: TcpListener, proto_name: &str) -> Self {
         Self {
