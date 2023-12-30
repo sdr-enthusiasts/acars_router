@@ -923,7 +923,7 @@ dependencies = [
 [[package]]
 name = "sdre-stubborn-io"
 version = "0.5.0"
-source = "git+https://github.com/sdr-enthusiasts/sdre-stubborn-io?branch=fix-io-disconnect#e54aaeca6921ebe8723bf40ab54810f30e310924"
+source = "git+https://github.com/sdr-enthusiasts/sdre-stubborn-io?branch=fix-io-disconnect#97047ad67f8295cf3951b1f373dcb55ec68f622f"
 dependencies = [
  "log",
  "rand",
