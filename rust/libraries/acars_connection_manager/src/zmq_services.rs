@@ -159,7 +159,7 @@ impl SenderServer<Publish> {
                     // if they aren't sub'd to the topic we're broadcasting on. This should fix the issue with moronic (hello node)
                     // zmq implementations not getting the message if the topic is blank.
                     // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
-                    Ok(payload) => match self.socket.send(vec!["acars", &payload]).await {
+                    Ok(payload) => match self.socket.send(vec![&payload]).await {
                         Ok(_) => (),
                         Err(e) => error!(
                             "[ZMQ SENDER]: Error sending message on 'acars' topic: {:?}",

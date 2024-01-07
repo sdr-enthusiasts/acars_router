@@ -923,7 +923,8 @@ dependencies = [
 [[package]]
 name = "sdre-stubborn-io"
 version = "0.5.0"
-source = "git+https://github.com/sdr-enthusiasts/sdre-stubborn-io?branch=fix-io-disconnect#97047ad67f8295cf3951b1f373dcb55ec68f622f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8068568d9847745320064f4bf57b44c6c0a44926c112cf80b71d8bc420b5d237"
 dependencies = [
  "log",
  "rand",
