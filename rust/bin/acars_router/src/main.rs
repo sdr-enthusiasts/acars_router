@@ -9,8 +9,6 @@
 extern crate log;
 extern crate acars_config;
 extern crate acars_connection_manager;
-extern crate chrono;
-extern crate failure;
 extern crate sdre_rust_logging;
 extern crate serde;
 extern crate serde_json;

@@ -13,6 +13,10 @@ if [[ -n $AR_LISTEN_TCP_ACARS ]]; then
     AR_COMMAND+=("--listen-tcp-acars" "$AR_LISTEN_TCP_ACARS")
 fi
 
+if [[ -n $AR_LISTEN_ZMQ_ACARS ]]; then
+    AR_COMMAND+=("--listen-zmq-acars" "$AR_LISTEN_ZMQ_ACARS")
+fi
+
 if [[ -n $AR_RECV_TCP_ACARS ]]; then
     AR_COMMAND+=("--receive-tcp-acars" "$AR_RECV_TCP_ACARS")
 fi
@@ -31,12 +35,38 @@ if [[ -n $AR_LISTEN_TCP_VDLM2 ]]; then
     AR_COMMAND+=("--listen-tcp-vdlm2" "$AR_LISTEN_TCP_VDLM2")
 fi
 
+if [[ -n $AR_LISTEN_ZMQ_VDLM2 ]]; then
+    AR_COMMAND+=("--listen-zmq-vdlm2" "$AR_LISTEN_ZMQ_VDLM2")
+fi
+
 if [[ -n $AR_RECV_TCP_VDLM2 ]]; then
     AR_COMMAND+=("--receive-tcp-vdlm2" "$AR_RECV_TCP_VDLM2")
 fi
 
 if [[ -n $AR_RECV_ZMQ_VDLM2 ]]; then
     AR_COMMAND+=("--receive-zmq-vdlm2" "$AR_RECV_ZMQ_VDLM2")
+fi
+
+# HFDL input
+
+if [[ -n $AR_LISTEN_UDP_HFDL ]]; then
+    AR_COMMAND+=("--listen-udp-hfdl" "$AR_LISTEN_UDP_HFDL")
+fi
+
+if [[ -n $AR_LISTEN_TCP_HFDL ]]; then
+    AR_COMMAND+=("--listen-tcp-hfdl" "$AR_LISTEN_TCP_HFDL")
+fi
+
+if [[ -n $AR_LISTEN_ZMQ_HFDL ]]; then
+    AR_COMMAND+=("--listen-zmq-hfdl" "$AR_LISTEN_ZMQ_HFDL")
+fi
+
+if [[ -n $AR_RECV_TCP_HFDL ]]; then
+    AR_COMMAND+=("--receive-tcp-hfdl" "$AR_RECV_TCP_HFDL")
+fi
+
+if [[ -n $AR_RECV_ZMQ_HFDL ]]; then
+    AR_COMMAND+=("--receive-zmq-hfdl" "$AR_RECV_ZMQ_HFDL")
 fi
 
 # ACARS Output
@@ -73,6 +103,24 @@ fi
 
 if [[ -n $AR_SERVE_ZMQ_VDLM2 ]]; then
     AR_COMMAND+=("--serve-zmq-vdlm2" "$AR_SERVE_ZMQ_VDLM2")
+fi
+
+# HFDL Output
+
+if [[ -n $AR_SEND_UDP_HFDL ]]; then
+    AR_COMMAND+=("--send-udp-hfdl" "$AR_SEND_UDP_HFDL")
+fi
+
+if [[ -n $AR_SEND_TCP_HFDL ]]; then
+    AR_COMMAND+=("--send-tcp-hfdl" "$AR_SEND_TCP_HFDL")
+fi
+
+if [[ -n $AR_SERVE_TCP_HFDL ]]; then
+    AR_COMMAND+=("--serve-tcp-hfdl" "$AR_SERVE_TCP_HFDL")
+fi
+
+if [[ -n $AR_SERVE_ZMQ_HFDL ]]; then
+    AR_COMMAND+=("--serve-zmq-hfdl" "$AR_SERVE_ZMQ_HFDL")
 fi
 
 /opt/acars_router "${AR_COMMAND[@]}"

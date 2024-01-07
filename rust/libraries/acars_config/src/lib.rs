@@ -29,7 +29,7 @@ pub struct Input {
     #[clap(long, env = "AR_DEDUPE_WINDOW", value_parser, default_value = "2")]
     pub dedupe_window: u64,
     /// Reject messages with a timestamp greater than +/- this many seconds.
-    #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "1")]
+    #[clap(long, env = "AR_SKEW_WINDOW", value_parser, default_value = "5")]
     pub skew_window: u64,
     /// Set maximum UDP packet size, peer-to-peer.
     #[clap(
@@ -61,36 +61,77 @@ pub struct Input {
         default_value = "1.0"
     )]
     pub reassembly_window: f64,
+
     // Input Options
 
     // ACARS
+    /// ACARS Router will listen for ACARS messages on the specified UDP ports.
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub listen_udp_acars: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for ACARS messages on the specified TCP ports.
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub listen_tcp_acars: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for ACARS messages on the specified ZMQ ports.
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_zmq_acars: Option<Vec<u16>>,
+    /// ACARS Router will connect to the specified hosts for ACARS messages over TCP.
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_tcp_acars: Option<Vec<String>>,
+    /// ACARS Router will connect to the specified hosts for ACARS messages in ZMQ format.
     /// Semi-Colon separated list of arguments. io host:5550;host:5551;host:5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_zmq_acars: Option<Vec<String>>,
 
     // VDLM2
+    /// ACARS Router will listen for VDLM2 messages on the specified UDP ports.
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     #[clap(long, value_parser, value_delimiter = ';')]
     pub listen_udp_vdlm2: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for VDLM2 messages on the specified TCP ports.
     /// Semi-Colon separated list of arguments. ie 5555;5556;5557
     #[clap(long, value_parser, value_delimiter = ';')]
     pub listen_tcp_vdlm2: Option<Vec<u16>>,
+    #[clap(long, value_parser, value_delimiter = ';')]
+    /// ACARS Router will listen for connections from a client for VDLM2 messages on the specified ZMQ ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    pub listen_zmq_vdlm2: Option<Vec<u16>>,
+    /// ACARS Router will connect to the specified hosts for VDLM2 messages over TCP.
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_tcp_vdlm2: Option<Vec<String>>,
+    /// ACARS Router will connect to the specified hosts for VDLM2 messages in ZMQ format.
     /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_zmq_vdlm2: Option<Vec<String>>,
+
+    // HFDL
+    /// ACARS Router will listen for HFDL messages on the specified UDP ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_udp_hfdl: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for HFDL messages on the specified TCP ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_tcp_hfdl: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for HFDL messages on the specified ZMQ ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_zmq_hfdl: Option<Vec<u16>>,
+    /// ACARS Router will connect to the specified hosts for HFDL messages over TCP.
+    /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_tcp_hfdl: Option<Vec<String>>,
+    /// ACARS Router will connect to the specified hosts for HFDL messages in ZMQ format.
+    /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_zmq_hfdl: Option<Vec<String>>,
+
     // JSON Output options
+
     // ACARS
     /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
     #[clap(long, value_parser, value_delimiter = ';')]
@@ -104,6 +145,7 @@ pub struct Input {
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_zmq_acars: Option<Vec<u16>>,
+
     // VDLM
     /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
     #[clap(long, value_parser, value_delimiter = ';')]
@@ -117,6 +159,20 @@ pub struct Input {
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_zmq_vdlm2: Option<Vec<u16>>,
+
+    // HFDL
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_udp_hfdl: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_tcp_hfdl: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_tcp_hfdl: Option<Vec<u16>>,
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_zmq_hfdl: Option<Vec<u16>>,
 }
 
 impl Input {
@@ -147,6 +203,18 @@ impl Input {
         debug!("AR_SERVE_ZMQ_VDLM2: {:?}", self.serve_zmq_vdlm2);
         debug!("AR_MAX_UDP_PACKET_SIZE: {:?}", self.max_udp_packet_size);
         debug!("AR_REASSEMBLY_WINDOW: {:?}", self.reassembly_window);
+        debug!("AR_STATS_VERBOSE: {:?}", self.stats_verbose);
+        debug!("AR_LISTEN_UDP_HFDL: {:?}", self.listen_udp_hfdl);
+        debug!("AR_LISTEN_TCP_HFDL: {:?}", self.listen_tcp_hfdl);
+        debug!("AR_RECV_TCP_HFDL: {:?}", self.receive_tcp_hfdl);
+        debug!("AR_RECV_ZMQ_HFDL: {:?}", self.receive_zmq_hfdl);
+        debug!("AR_SEND_UDP_HFDL: {:?}", self.send_udp_hfdl);
+        debug!("AR_SEND_TCP_HFDL: {:?}", self.send_tcp_hfdl);
+        debug!("AR_SERVE_TCP_HFDL: {:?}", self.serve_tcp_hfdl);
+        debug!("AR_SERVE_ZMQ_HFDL: {:?}", self.serve_zmq_hfdl);
+        debug!("AR_LISTEN_ZMQ_ACARS: {:?}", self.listen_zmq_acars);
+        debug!("AR_LISTEN_ZMQ_VDLM2: {:?}", self.listen_zmq_vdlm2);
+        debug!("AR_LISTEN_ZMQ_HFDL: {:?}", self.listen_zmq_hfdl);
     }
 
     pub fn acars_configured(&self) -> bool {
@@ -169,5 +237,16 @@ impl Input {
             || self.send_tcp_vdlm2.is_some()
             || self.serve_tcp_vdlm2.is_some()
             || self.serve_zmq_vdlm2.is_some()
+    }
+
+    pub fn hfdl_configured(&self) -> bool {
+        self.receive_tcp_hfdl.is_some()
+            || self.listen_udp_hfdl.is_some()
+            || self.listen_tcp_hfdl.is_some()
+            || self.receive_zmq_hfdl.is_some()
+            || self.send_udp_hfdl.is_some()
+            || self.send_tcp_hfdl.is_some()
+            || self.serve_tcp_hfdl.is_some()
+            || self.serve_zmq_hfdl.is_some()
     }
 }

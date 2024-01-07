@@ -69,6 +69,7 @@ pub(crate) enum SocketType {
 pub(crate) enum ServerType {
     Acars,
     Vdlm2,
+    Hfdl,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -84,6 +85,7 @@ pub(crate) struct SenderServerConfig {
 pub(crate) struct OutputServerConfig {
     pub(crate) listen_udp: Option<Vec<u16>>,
     pub(crate) listen_tcp: Option<Vec<u16>>,
+    pub(crate) listen_zmq: Option<Vec<u16>>,
     pub(crate) receive_tcp: Option<Vec<String>>,
     pub(crate) receive_zmq: Option<Vec<String>>,
     pub(crate) reassembly_window: f64,
@@ -137,6 +139,7 @@ impl fmt::Display for ServerType {
         match self {
             ServerType::Acars => write!(f, "ACARS"),
             ServerType::Vdlm2 => write!(f, "VDLM"),
+            ServerType::Hfdl => write!(f, "HFDL"),
         }
     }
 }

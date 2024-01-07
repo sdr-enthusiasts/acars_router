@@ -197,6 +197,27 @@ impl MessageHandlerConfig {
                                 all_frequencies_logged.lock().await.push(new_frequency);
                             }
                         }
+                        AcarsVdlm2Message::HfdlMessage(m) => {
+                            // get the freq from HfdlMessage::HfdlBody
+                            let frequency: String = m.hfdl.freq.to_string();
+
+                            let mut found: bool = false;
+                            for freq in all_frequencies_logged.lock().await.iter_mut() {
+                                if freq.freq == frequency {
+                                    freq.count += 1;
+                                    found = true;
+                                    break;
+                                }
+                            }
+
+                            if !found {
+                                let new_frequency: FrequencyCount = FrequencyCount {
+                                    freq: frequency,
+                                    count: 1,
+                                };
+                                all_frequencies_logged.lock().await.push(new_frequency);
+                            }
+                        }
                     }
 
                     let get_message_time: Option<f64> = message.get_time();

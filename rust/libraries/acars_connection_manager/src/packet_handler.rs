@@ -16,6 +16,7 @@ use tokio::sync::Mutex;
 
 pub struct PacketHandler {
     name: String,
+    listener_type: String,
     // Hashmap key is peer, stores a tuple of time and message
     queue: Arc<Mutex<HashMap<SocketAddr, (f64, String)>>>,
     reassembly_window: f64,
@@ -43,7 +44,10 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
             Some(reassembled_msg) => {
                 let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
                 match parsed_msg {
-                    Err(parse_error) => error!("{}", parse_error),
+                    Err(parse_error) => error!(
+                        "[{} Listener Server: {}] {}",
+                        listener_type, proto_name, parse_error
+                    ),
                     Ok(msg) => {
                         trace!(
                             "[{} Listener SERVER: {}] Received message: {:?}",
@@ -74,10 +78,11 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
 }
 
 impl PacketHandler {
-    pub fn new(name: &str, reassembly_window: f64) -> PacketHandler {
+    pub fn new(name: &str, listener_type: &str, reassembly_window: f64) -> PacketHandler {
         PacketHandler {
             name: name.to_string(),
             queue: Arc::new(Mutex::new(HashMap::new())),
+            listener_type: listener_type.to_string(),
             reassembly_window,
         }
     }
@@ -108,8 +113,8 @@ impl PacketHandler {
 
         if self.queue.lock().await.contains_key(&peer) {
             info!(
-                "[UDP SERVER: {}] Message received from {} is being reassembled",
-                self.name, peer
+                "[{} SERVER: {}] Message received from {} is being reassembled",
+                self.listener_type, self.name, peer
             );
             let (time, message_to_test) = self.queue.lock().await.get(&peer).unwrap().clone();
             old_time = Some(time); // We have a good peer, save the time
@@ -118,8 +123,8 @@ impl PacketHandler {
                 Err(e) => info!("{e}"),
                 Ok(msg_deserialized) => {
                     info!(
-                        "[UDP SERVER: {}] Reassembled a message from peer {}",
-                        self.name, peer
+                        "[{} SERVER: {}] Reassembled a message from peer {}",
+                        self.listener_type, self.name, peer
                     );
                     // The default skew_window and are the same (1 second, but it doesn't matter)
                     // So we shouldn't see any weird issues where the message is reassembled
@@ -170,7 +175,10 @@ impl PacketHandler {
         };
 
         if current_time == 0.0 {
-            error!("[UDP SERVER: {}] Error getting current time", self.name);
+            error!(
+                "[{} SERVER: {}] Error getting current time",
+                self.listener_type, self.name
+            );
             return;
         }
 
@@ -178,10 +186,10 @@ impl PacketHandler {
             let (time, _) = old_messages;
             let time_diff: f64 = current_time - *time;
             if time_diff > self.reassembly_window {
-                debug!("[UDP SERVER {}] Peer {peer} has been idle for {time_diff} seconds, removing from queue", self.name);
+                debug!("[{} SERVER {}] Peer {peer} has been idle for {time_diff} seconds, removing from queue", self.listener_type, self.name);
                 false
             } else {
-                debug!("[UDP SERVER {}] Peer {peer} has been idle for {time_diff} seconds, keeping in queue", self.name);
+                debug!("[{} SERVER {}] Peer {peer} has been idle for {time_diff} seconds, keeping in queue", self.listener_type, self.name);
                 true
             }
         });

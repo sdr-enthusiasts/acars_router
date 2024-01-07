@@ -9,7 +9,7 @@ use crate::message_handler::MessageHandlerConfig;
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use crate::tcp_services::{TCPListenerServer, TCPReceiverServer, TCPServeServer};
 use crate::udp_services::{UDPListenerServer, UDPSenderServer};
-use crate::zmq_services::ZMQListnerServer;
+use crate::zmq_services::{ZMQListenerServer, ZMQReceiverServer};
 use crate::{
     reconnect_options, OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared,
     SocketListenerServer, SocketType,
@@ -33,6 +33,16 @@ use tokio::time::{sleep, Duration};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
 
+/// Nomenclature used in the code:
+/// Input:
+///     Receiver: ACARS router will connect out to a remote host and receive data from it. (TCP/ZMQ)
+///     Listener: ACARS router will listen on a port for incoming data or incoming connection
+///               based on socket type (TCP/UDP/ZMQ)
+/// Output:
+///     Sender: ACARS router will connect out to a remote host and send data to it. (TCP/ZMQ)
+///     Server: ACARS router will send data to a remote host (UDP) or listen for incoming connection (TCP/ZMQ)
+///             and send data to it.
+
 pub async fn start_processes(args: Input) {
     args.print_values();
 
@@ -40,6 +50,8 @@ pub async fn start_processes(args: Input) {
         MessageHandlerConfig::new(&args, "ACARS");
     let message_handler_config_vdlm: MessageHandlerConfig =
         MessageHandlerConfig::new(&args, "VDLM");
+    let message_handler_config_hfdl: MessageHandlerConfig =
+        MessageHandlerConfig::new(&args, "HFDL");
 
     // ACARS Servers
     // Create the input channel all receivers will send their data to.
@@ -54,6 +66,11 @@ pub async fn start_processes(args: Input) {
     let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
     // Create the input channel processed messages will be sent to
     let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
+    // HFDL
+    // Create the input channel all receivers will send their data to.
+    let (tx_receivers_hfdl, rx_receivers_hfdl) = mpsc::channel(32);
+    // Create the input channel processed messages will be sent to
+    let (tx_processed_hfdl, rx_processed_hfdl) = mpsc::channel(32);
 
     // start the input servers
     debug!("Starting input servers");
@@ -62,6 +79,7 @@ pub async fn start_processes(args: Input) {
     let acars_input_config: OutputServerConfig = OutputServerConfig::new(
         &args.listen_udp_acars,
         &args.listen_tcp_acars,
+        &args.listen_zmq_acars,
         &args.receive_tcp_acars,
         &args.receive_zmq_acars,
         &args.reassembly_window,
@@ -74,6 +92,7 @@ pub async fn start_processes(args: Input) {
     let vdlm_input_config: OutputServerConfig = OutputServerConfig::new(
         &args.listen_udp_vdlm2,
         &args.listen_tcp_vdlm2,
+        &args.listen_zmq_vdlm2,
         &args.receive_tcp_vdlm2,
         &args.receive_zmq_vdlm2,
         &args.reassembly_window,
@@ -81,6 +100,20 @@ pub async fn start_processes(args: Input) {
     );
     tokio::spawn(async move {
         vdlm_input_config.start_listeners(tx_receivers_vdlm);
+    });
+
+    let hfdl_input_config: OutputServerConfig = OutputServerConfig::new(
+        &args.listen_udp_hfdl,
+        &args.listen_tcp_hfdl,
+        &args.listen_zmq_hfdl,
+        &args.receive_tcp_hfdl,
+        &args.receive_zmq_hfdl,
+        &args.reassembly_window,
+        ServerType::Hfdl,
+    );
+
+    tokio::spawn(async move {
+        hfdl_input_config.start_listeners(tx_receivers_hfdl);
     });
 
     // start the output servers
@@ -116,6 +149,21 @@ pub async fn start_processes(args: Input) {
             .await;
     });
 
+    info!("Starting HFDL Output Servers");
+    let hfdl_output_config: SenderServerConfig = SenderServerConfig::new(
+        &args.send_udp_hfdl,
+        &args.send_tcp_hfdl,
+        &args.serve_tcp_hfdl,
+        &args.serve_zmq_hfdl,
+        &args.max_udp_packet_size,
+    );
+
+    tokio::spawn(async move {
+        hfdl_output_config
+            .start_senders(rx_processed_hfdl, "HFDL")
+            .await;
+    });
+
     // Start the message handler tasks.
     // Don't start the queue watcher UNLESS there is a valid input source AND output source for the message type
 
@@ -143,6 +191,18 @@ pub async fn start_processes(args: Input) {
         );
     }
 
+    if args.hfdl_configured() {
+        tokio::spawn(async move {
+            message_handler_config_hfdl
+                .watch_message_queue(rx_receivers_hfdl, tx_processed_hfdl)
+                .await;
+        });
+    } else {
+        info!(
+            "Not starting the HFDL message handler task. No input and/or output sources specified."
+        );
+    }
+
     trace!("Starting the sleep loop");
 
     loop {
@@ -154,6 +214,7 @@ impl OutputServerConfig {
     fn new(
         listen_udp: &Option<Vec<u16>>,
         listen_tcp: &Option<Vec<u16>>,
+        listen_zmq: &Option<Vec<u16>>,
         receive_tcp: &Option<Vec<String>>,
         receive_zmq: &Option<Vec<String>>,
         reassembly_window: &f64,
@@ -162,6 +223,7 @@ impl OutputServerConfig {
         Self {
             listen_udp: listen_udp.clone(),
             listen_tcp: listen_tcp.clone(),
+            listen_zmq: listen_zmq.clone(),
             receive_tcp: receive_tcp.clone(),
             receive_zmq: receive_zmq.clone(),
             reassembly_window: *reassembly_window,
@@ -199,6 +261,17 @@ impl OutputServerConfig {
                 tx_receivers.clone(),
                 &self.reassembly_window,
             );
+        }
+
+        if let Some(listen_zmq) = self.listen_zmq {
+            // Start the ZMQ listener servers for server_type
+            info!(
+                "Starting ZMQ listener servers for {}",
+                &self.output_server_type.to_string()
+            );
+
+            listen_zmq
+                .zmq_port_listener(&self.output_server_type.to_string(), tx_receivers.clone());
         }
 
         // Start the ZMQ listeners
@@ -249,6 +322,7 @@ trait StartPortListener {
         channel: Sender<String>,
         reassembly_window: &f64,
     );
+    fn zmq_port_listener(self, decoder_type: &str, channel: Sender<String>);
 }
 
 impl StartHostListeners for Vec<String> {
@@ -258,7 +332,7 @@ impl StartHostListeners for Vec<String> {
             let proto_name: String = format!("{}_ZMQ_RECEIVER_{}", decoder_type, host);
 
             tokio::spawn(async move {
-                let zmq_listener_server = ZMQListnerServer {
+                let zmq_listener_server = ZMQReceiverServer {
                     host: host.to_string(),
                     proto_name: proto_name.to_string(),
                 };
@@ -323,6 +397,17 @@ impl StartPortListener for Vec<u16> {
             let server: UDPListenerServer = UDPListenerServer::new(&proto_name, reassembly_window);
             debug!("Starting {decoder_type} UDP server on {server_udp_port}");
             tokio::spawn(async move { server.run(&server_udp_port, new_channel).await });
+        }
+    }
+
+    fn zmq_port_listener(self, decoder_type: &str, channel: Sender<String>) {
+        for zmq_port in self {
+            let new_channel: Sender<String> = channel.clone();
+            let server_zmq_port: String = zmq_port.to_string();
+            let proto_name: String = format!("{}_ZMQ_LISTEN_{}", decoder_type, &server_zmq_port);
+            let server: ZMQListenerServer = ZMQListenerServer::new(&proto_name);
+            debug!("Starting {decoder_type} ZMQ server on {server_zmq_port}");
+            tokio::spawn(async move { server.run(server_zmq_port, new_channel).await });
         }
     }
 }
@@ -559,8 +644,11 @@ impl SocketListenerServer {
                                     BufReader<StubbornIo<TcpStream, SocketAddr>>,
                                     LinesCodec,
                                 > = Framed::new(reader, LinesCodec::new());
-                                let packet_handler: PacketHandler =
-                                    PacketHandler::new(&self.proto_name, self.reassembly_window);
+                                let packet_handler: PacketHandler = PacketHandler::new(
+                                    &self.proto_name,
+                                    "TCP",
+                                    self.reassembly_window,
+                                );
                                 while let Some(Ok(line)) = lines.next().await {
                                     let split_messages_by_newline: Vec<&str> =
                                         line.split_terminator('\n').collect();
@@ -667,8 +755,11 @@ impl SocketListenerServer {
                                     self.proto_name,
                                     socket.local_addr()?
                                 );
-                                let packet_handler: PacketHandler =
-                                    PacketHandler::new(&self.proto_name, self.reassembly_window);
+                                let packet_handler: PacketHandler = PacketHandler::new(
+                                    &self.proto_name,
+                                    "UDP",
+                                    self.reassembly_window,
+                                );
                                 loop {
                                     if let Some((size, peer)) = to_send {
                                         let msg_string = match std::str::from_utf8(

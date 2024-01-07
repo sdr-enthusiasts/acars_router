@@ -1,17 +1,17 @@
 [workspace]
 members = [
-    "rust/bin/acars_router",
-    "rust/libraries/acars_config",
-    "rust/libraries/acars_connection_manager",
+  "rust/bin/acars_router",
+  "rust/libraries/acars_config",
+  "rust/libraries/acars_connection_manager",
 ]
 resolver = "2"
 
 
 [workspace.package]
 edition = "2021"
-version = "1.0.22"
+version = "1.1.0-beta.5"
 authors = ["Fred Clausen", "Mike Nye", "Alex Austin"]
-description = "ACARS Router: A Utility to ingest ACARS/VDLM2 from many sources, process, and feed out to many consumers."
+description = "ACARS Router: A Utility to ingest ACARS/VDLM2/HFDL from many sources, process, and feed out to many consumers."
 documentation = "https://github.com/sdr-enthusiasts/acars_router"
 homepage = "https://github.com/sdr-enthusiasts/acars_router"
 repository = "https://github.com/sdr-enthusiasts/acars_router"

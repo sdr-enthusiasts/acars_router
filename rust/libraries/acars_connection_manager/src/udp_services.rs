@@ -15,12 +15,16 @@ use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::{sleep, Duration};
 
+/// UDPListenerServer is a struct that contains the configuration for a UDP server
+/// that will listen for incoming UDP packets and process them
 #[derive(Debug, Clone)]
 pub(crate) struct UDPListenerServer {
     pub(crate) proto_name: String,
     pub(crate) reassembly_window: f64,
 }
 
+/// UDPSenderServer is a struct that contains the configuration for a UDP server
+/// that will send out UDP packets
 #[derive(Debug)]
 pub(crate) struct UDPSenderServer {
     pub(crate) host: Vec<String>,
@@ -30,6 +34,8 @@ pub(crate) struct UDPSenderServer {
     pub(crate) channel: Receiver<AcarsVdlm2Message>,
 }
 
+/// UDPListenerServer is a struct that contains the configuration for a UDP server
+/// that will listen for incoming UDP packets and process them
 impl UDPListenerServer {
     pub(crate) fn new(proto_name: &str, reassembly_window: &f64) -> Self {
         Self {
@@ -61,7 +67,7 @@ impl UDPListenerServer {
                 );
 
                 let packet_handler: PacketHandler =
-                    PacketHandler::new(&self.proto_name, self.reassembly_window);
+                    PacketHandler::new(&self.proto_name, "UDP", self.reassembly_window);
 
                 loop {
                     if let Some((size, peer)) = to_send {
@@ -131,6 +137,8 @@ impl UDPListenerServer {
     }
 }
 
+/// UDPSenderServer is a struct that contains the configuration for a UDP server
+/// that will send out UDP packets
 impl UDPSenderServer {
     pub(crate) fn new(
         send_udp: &[String],
