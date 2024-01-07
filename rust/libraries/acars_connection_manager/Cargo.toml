@@ -6,17 +6,16 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdre-stubborn-io = "0.5.0"
+sdre-stubborn-io = "0.5.1"
 #sdre-stubborn-io = "0.4.4"
 log = "0.4.20"
 tokio = { version = "1.35.1", features = ["full", "tracing"] }
 tokio-util = { version = "0.7.10", features = ["full"] }
 tokio-stream = "0.1.14"
 futures = "0.3.30"
-async-trait = "0.1.75"
+async-trait = "0.1.77"
 zmq = "0.10.0"
 tmq = "0.4.0"
 #acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
 acars_vdlm2_parser = { git = "https://github.com/fredclausen/acars_vdlm2_parser", branch = "hfdl-and-dependency-updates" }
-#acars_vdlm2_parser = { path = "../../../../../fred/acars_vdlm2_parser" }
 acars_config = { path = "../acars_config" }
