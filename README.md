@@ -113,9 +113,9 @@ The nomenclature for the environment variables is as follows:
 | AR_SEND_TCP_ACARS  | --send-tcp-acars    | `unset` | TCP host:port to send ACARS messages to  |
 | AR_SEND_TCP_VDLM2  | --send-tcp-vdlm2    | `unset` | TCP host:port to send VDLM2 messages to  |
 | AR_SEND_TCP_HFDL   | --send-tcp-hfdl     | `unset` | TCP host:port to send HFDL messages to   |
-| AR_SERVE_TCP_ACARS | --serve-tcp-acars   | `5550`  | TCP host:port to serve ACARS messages to |
-| AR_SERVE_TCP_VDLM2 | --serve-tcp-vdlm2   | `5555`  | TCP host:port to serve VDLM2 messages to |
-| AR_SERVE_TCP_HFDL  | --serve-tcp-hfdl    | `5556`  | TCP host:port to serve HFDL messages to  |
+| AR_SERVE_TCP_ACARS | --serve-tcp-acars   | `15550`  | TCP host:port to serve ACARS messages to |
+| AR_SERVE_TCP_VDLM2 | --serve-tcp-vdlm2   | `15555`  | TCP host:port to serve VDLM2 messages to |
+| AR_SERVE_TCP_HFDL  | --serve-tcp-hfdl    | `15556`  | TCP host:port to serve HFDL messages to  |
 | AR_SERVE_ZMQ_ACARS | --serve-zmq-acars   | `45550` | ZMQ host:port to serve ACARS messages to |
 | AR_SERVE_ZMQ_VDLM2 | --serve-zmq-vdlm2   | `45555` | ZMQ host:port to serve VDLM2 messages to |
 | AR_SERVE_ZMQ_HFDL  | --serve-zmq-hfdl    | `45556` | ZMQ host:port to serve HFDL messages to  |
