@@ -231,17 +231,17 @@ jobs:
     steps:
       - run: mkdir -p ./bin
 
-      - uses: actions/download-artifact@v4.1.1
+      - uses: actions/download-artifact@v4.1.2
         with:
           name: acars_router.amd64
           path: ./bin/acars_router.amd64
 
-      - uses: actions/download-artifact@v4.1.1
+      - uses: actions/download-artifact@v4.1.2
         with:
           name: acars_router.armv7
           path: ./bin/acars_router.armv7
 
-      - uses: actions/download-artifact@v4.1.1
+      - uses: actions/download-artifact@v4.1.2
         with:
           name: acars_router.arm64
           path: ./bin/acars_router.arm64
