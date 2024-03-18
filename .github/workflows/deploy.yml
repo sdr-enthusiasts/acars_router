@@ -82,7 +82,7 @@ jobs:
           outputs: type=local,dest=./image_armv7/
 
       - name: Upload artifact armv7 binary
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: acars_router.armv7
           path: ./image_armv7/acars_router
@@ -122,7 +122,7 @@ jobs:
           outputs: type=local,dest=./image_arm64/
 
       - name: Upload artifact arm64 binary
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: acars_router.arm64
           path: ./image_arm64/acars_router
@@ -162,7 +162,7 @@ jobs:
           outputs: type=local,dest=./image_amd64/
 
       - name: Upload artifact amd64 binary
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: acars_router.amd64
           path: ./image_amd64/acars_router
