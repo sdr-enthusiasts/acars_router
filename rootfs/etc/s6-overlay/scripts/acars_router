@@ -69,6 +69,50 @@ if [[ -n $AR_RECV_ZMQ_HFDL ]]; then
     AR_COMMAND+=("--receive-zmq-hfdl" "$AR_RECV_ZMQ_HFDL")
 fi
 
+# IMSL input
+
+if [[ -n $AR_LISTEN_UDP_IMSL ]]; then
+    AR_COMMAND+=("--listen-udp-imsl" "$AR_LISTEN_UDP_IMSL")
+fi
+
+if [[ -n $AR_LISTEN_TCP_IMSL ]]; then
+    AR_COMMAND+=("--listen-tcp-imsl" "$AR_LISTEN_TCP_IMSL")
+fi
+
+if [[ -n $AR_LISTEN_ZMQ_IMSL ]]; then
+    AR_COMMAND+=("--listen-zmq-imsl" "$AR_LISTEN_ZMQ_IMSL")
+fi
+
+if [[ -n $AR_RECV_TCP_IMSL ]]; then
+    AR_COMMAND+=("--receive-tcp-imsl" "$AR_RECV_TCP_IMSL")
+fi
+
+if [[ -n $AR_RECV_ZMQ_IMSL ]]; then
+    AR_COMMAND+=("--receive-zmq-imsl" "$AR_RECV_ZMQ_IMSL")
+fi
+
+# IRDM input
+
+if [[ -n $AR_LISTEN_UDP_IRDM ]]; then
+    AR_COMMAND+=("--listen-udp-irdm" "$AR_LISTEN_UDP_IRDM")
+fi
+
+if [[ -n $AR_LISTEN_TCP_IRDM ]]; then
+    AR_COMMAND+=("--listen-tcp-irdm" "$AR_LISTEN_TCP_IRDM")
+fi
+
+if [[ -n $AR_LISTEN_ZMQ_IRDM ]]; then
+    AR_COMMAND+=("--listen-zmq-irdm" "$AR_LISTEN_ZMQ_IRDM")
+fi
+
+if [[ -n $AR_RECV_TCP_IRDM ]]; then
+    AR_COMMAND+=("--receive-tcp-irdm" "$AR_RECV_TCP_IRDM")
+fi
+
+if [[ -n $AR_RECV_ZMQ_IRDM ]]; then
+    AR_COMMAND+=("--receive-zmq-irdm" "$AR_RECV_ZMQ_IRDM")
+fi
+
 # ACARS Output
 
 if [[ -n $AR_SEND_UDP_ACARS ]]; then
@@ -121,6 +165,42 @@ fi
 
 if [[ -n $AR_SERVE_ZMQ_HFDL ]]; then
     AR_COMMAND+=("--serve-zmq-hfdl" "$AR_SERVE_ZMQ_HFDL")
+fi
+
+# IMSL Output
+
+if [[ -n $AR_SEND_UDP_IMSL ]]; then
+    AR_COMMAND+=("--send-udp-imsl" "$AR_SEND_UDP_IMSL")
+fi
+
+if [[ -n $AR_SEND_TCP_IMSL ]]; then
+    AR_COMMAND+=("--send-tcp-imsl" "$AR_SEND_TCP_IMSL")
+fi
+
+if [[ -n $AR_SERVE_TCP_IMSL ]]; then
+    AR_COMMAND+=("--serve-tcp-imsl" "$AR_SERVE_TCP_IMSL")
+fi
+
+if [[ -n $AR_SERVE_ZMQ_IMSL ]]; then
+    AR_COMMAND+=("--serve-zmq-imsl" "$AR_SERVE_ZMQ_IMSL")
+fi
+
+# IRDM Output
+
+if [[ -n $AR_SEND_UDP_IRDM ]]; then
+    AR_COMMAND+=("--send-udp-irdm" "$AR_SEND_UDP_IRDM")
+fi
+
+if [[ -n $AR_SEND_TCP_IRDM ]]; then
+    AR_COMMAND+=("--send-tcp-irdm" "$AR_SEND_TCP_IRDM")
+fi
+
+if [[ -n $AR_SERVE_TCP_IRDM ]]; then
+    AR_COMMAND+=("--serve-tcp-irdm" "$AR_SERVE_TCP_IRDM")
+fi
+
+if [[ -n $AR_SERVE_ZMQ_IRDM ]]; then
+    AR_COMMAND+=("--serve-zmq-irdm" "$AR_SERVE_ZMQ_IRDM")
 fi
 
 /opt/acars_router "${AR_COMMAND[@]}"
