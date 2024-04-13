@@ -218,6 +218,8 @@ impl MessageHandlerConfig {
                                 all_frequencies_logged.lock().await.push(new_frequency);
                             }
                         }
+                        AcarsVdlm2Message::ImslMessage(_m) => {}
+                        AcarsVdlm2Message::IrdmMessage(_m) => {}
                     }
 
                     let get_message_time: Option<f64> = message.get_time();
