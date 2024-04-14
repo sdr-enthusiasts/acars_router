@@ -1,6 +1,6 @@
 # sdr-enthusiasts/acars_router
 
-`acars_router` receives, validates, deduplicates, modifies and routes ACARS and VDLM2 JSON messages.
+`acars_router` receives, validates, deduplicates, modifies and routes ACARS/VDLM2/HFDL/IMSL/IRDM JSON messages.
 
 ## Example Feeder `docker-compose.yml`
 
@@ -67,26 +67,26 @@ All ports are configurable. By default, the following ports will be used:
 
 | Port    | Protocol | Description                                                                      |
 | ------- | -------- | -------------------------------------------------------------------------------- |
-| `5550`  | `UDP`    | ACARS injest. Clients will send acars data to this port via UDP.                 |
-| `5550`  | `TCP`    | ACARS injest. Clients will send acars data to this port via TCP.                 |
-| `5555`  | `UDP`    | VDLM2 injest. Clients will send VDLM2 data to this port via UDP.                 |
-| `5555`  | `TCP`    | VDLM2 injest. Clients will send VDLM2 data to this port via TCP.                 |
-| `5556`  | `UDP`    | HFDL injest. Clients will send HFDL data to this port via UDP.                   |
-| `5556`  | `TCP`    | HFDL injest. Clients will send HFDL data to this port via TCP.                   |
-| `5557`  | `UDP`    | IMSL injest. Clients will send IMSL data to this port via UDP.                   |
-| `5557`  | `TCP`    | IMSL injest. Clients will send IMSL data to this port via TCP.                   |
-| `5558`  | `UDP`    | IRDM injest. Clients will send IRDM data to this port via UDP.                   |
-| `5558`  | `TCP`    | IRDM injest. Clients will send IRDM data to this port via TCP.                   |
+| `5550`  | `UDP`    | ACARS ingest. Clients will send ACARS data to this port via UDP.                 |
+| `5550`  | `TCP`    | ACARS ingest. Clients will send ACARS data to this port via TCP.                 |
+| `5555`  | `UDP`    | VDLM2 ingest. Clients will send VDLM2 data to this port via UDP.                 |
+| `5555`  | `TCP`    | VDLM2 ingest. Clients will send VDLM2 data to this port via TCP.                 |
+| `5556`  | `UDP`    | HFDL ingest. Clients will send HFDL data to this port via UDP.                   |
+| `5556`  | `TCP`    | HFDL ingest. Clients will send HFDL data to this port via TCP.                   |
+| `5557`  | `UDP`    | IMSL ingest. Clients will send IMSL data to this port via UDP.                   |
+| `5557`  | `TCP`    | IMSL ingest. Clients will send IMSL data to this port via TCP.                   |
+| `5558`  | `UDP`    | IRDM ingest. Clients will send IRDM data to this port via UDP.                   |
+| `5558`  | `TCP`    | IRDM ingest. Clients will send IRDM data to this port via TCP.                   |
 | `15550` | `TCP`    | ACARS server. Can be used for other clients to connect and get messages          |
 | `15555` | `TCP`    | VDLM2 server. Can be used for other clients to connect and get messages          |
 | `15556` | `TCP`    | HFDL server. Can be used for other clients to connect and get messages           |
 | `15557` | `TCP`    | IMSL server. Can be used for other clients to connect and get messages           |
 | `15558` | `TCP`    | IRDM server. Can be used for other clients to connect and get messages           |
-| `35550` | `ZMQ`    | ACARS injest. Clients will connect to this port and send ACARS messages over ZMQ |
-| `35555` | `ZMQ`    | VDLM2 injest. Clients will connect to this port and send VDLM2 messages over ZMQ |
-| `35556` | `ZMQ`    | HFDL injest. Clients will connect to this port and send HFDL messages over ZMQ   |
-| `35557` | `ZMQ`    | IMSL injest. Clients will connect to this port and send IMSL messages over ZMQ   |
-| `35558` | `ZMQ`    | IRDM injest. Clients will connect to this port and send IRDM messages over ZMQ   |
+| `35550` | `ZMQ`    | ACARS ingest. Clients will connect to this port and send ACARS messages over ZMQ |
+| `35555` | `ZMQ`    | VDLM2 ingest. Clients will connect to this port and send VDLM2 messages over ZMQ |
+| `35556` | `ZMQ`    | HFDL ingest. Clients will connect to this port and send HFDL messages over ZMQ   |
+| `35557` | `ZMQ`    | IMSL ingest. Clients will connect to this port and send IMSL messages over ZMQ   |
+| `35558` | `ZMQ`    | IRDM ingest. Clients will connect to this port and send IRDM messages over ZMQ   |
 | `45550` | `ZMQ`    | ACARS server. Can be used for other ZMQ clients to connect and get messages      |
 | `45555` | `ZMQ`    | VDLM2 server. Can be used for other ZMQ clients to connect and get messages      |
 | `45556` | `ZMQ`    | HFDL server. Can be used for other ZMQ clients to connect and get messages       |

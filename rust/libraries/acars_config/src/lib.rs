@@ -299,7 +299,6 @@ impl Input {
         debug!("AR_SEND_TCP_HFDL: {:?}", self.send_tcp_hfdl);
         debug!("AR_SERVE_TCP_HFDL: {:?}", self.serve_tcp_hfdl);
         debug!("AR_SERVE_ZMQ_HFDL: {:?}", self.serve_zmq_hfdl);
-        debug!("AR_LISTEN_ZMQ_HFDL: {:?}", self.listen_zmq_hfdl);
         debug!("AR_LISTEN_ZMQ_ACARS: {:?}", self.listen_zmq_acars);
         debug!("AR_LISTEN_ZMQ_VDLM2: {:?}", self.listen_zmq_vdlm2);
         debug!("AR_LISTEN_ZMQ_HFDL: {:?}", self.listen_zmq_hfdl);
