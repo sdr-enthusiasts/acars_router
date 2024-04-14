@@ -218,8 +218,48 @@ impl MessageHandlerConfig {
                                 all_frequencies_logged.lock().await.push(new_frequency);
                             }
                         }
-                        AcarsVdlm2Message::ImslMessage(_m) => {}
-                        AcarsVdlm2Message::IrdmMessage(_m) => {}
+                        AcarsVdlm2Message::ImslMessage(m) => {
+                            // get the freq from ImslMessage
+                            if let Some(frequency) = &m.freq {
+                                let mut found: bool = false;
+                                for freq in all_frequencies_logged.lock().await.iter_mut() {
+                                    if freq.freq == *frequency.to_string() {
+                                        freq.count += 1;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+
+                                if !found {
+                                    let new_frequency: FrequencyCount = FrequencyCount {
+                                        freq: frequency.to_string(),
+                                        count: 1,
+                                    };
+                                    all_frequencies_logged.lock().await.push(new_frequency);
+                                }
+                            }
+                        }
+                        AcarsVdlm2Message::IrdmMessage(m) => {
+                            // get the freq from IrdmMessage
+                            if let Some(frequency) = &m.freq {
+                                let mut found: bool = false;
+                                for freq in all_frequencies_logged.lock().await.iter_mut() {
+                                    if freq.freq == *frequency.to_string() {
+                                        freq.count += 1;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+
+                                if !found {
+                                    let new_frequency: FrequencyCount = FrequencyCount {
+                                        freq: frequency.to_string(),
+                                        count: 1,
+                                    };
+                                    all_frequencies_logged.lock().await.push(new_frequency);
+                                }
+                            }
+                        }
                     }
 
                     let get_message_time: Option<f64> = message.get_time();
