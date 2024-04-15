@@ -13,7 +13,7 @@ tokio = { version = "1.37.0", features = ["full", "tracing"] }
 tokio-util = { version = "0.7.10", features = ["full"] }
 tokio-stream = "0.1.15"
 futures = "0.3.30"
-async-trait = "0.1.79"
+async-trait = "0.1.80"
 zmq = "0.10.0"
 tmq = "0.4.0"
 #acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
