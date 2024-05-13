@@ -6,7 +6,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdre-stubborn-io = "0.5.4"
+sdre-stubborn-io = "0.5.5"
 #sdre-stubborn-io = "0.4.4"
 log = "0.4.21"
 tokio = { version = "1.37.0", features = ["full", "tracing"] }
