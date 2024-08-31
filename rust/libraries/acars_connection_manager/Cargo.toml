@@ -9,7 +9,7 @@ edition.workspace = true
 sdre-stubborn-io = "0.5.8"
 #sdre-stubborn-io = "0.4.4"
 log = "0.4.22"
-tokio = { version = "1.39.2", features = ["full", "tracing"] }
+tokio = { version = "1.40.0", features = ["full", "tracing"] }
 tokio-util = { version = "0.7.11", features = ["full"] }
 tokio-stream = "0.1.15"
 futures = "0.3.30"
