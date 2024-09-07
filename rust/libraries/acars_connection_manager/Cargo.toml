@@ -6,14 +6,14 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdre-stubborn-io = "0.5.8"
+sdre-stubborn-io = "0.5.9"
 #sdre-stubborn-io = "0.4.4"
 log = "0.4.22"
 tokio = { version = "1.40.0", features = ["full", "tracing"] }
-tokio-util = { version = "0.7.11", features = ["full"] }
+tokio-util = { version = "0.7.12", features = ["full"] }
 tokio-stream = "0.1.16"
 futures = "0.3.30"
-async-trait = "0.1.81"
+async-trait = "0.1.82"
 zmq = "0.10.0"
 tmq = "0.4.0"
 #acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
