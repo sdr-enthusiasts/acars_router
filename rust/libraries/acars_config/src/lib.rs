@@ -61,6 +61,15 @@ pub struct Input {
         default_value = "1.0"
     )]
     pub reassembly_window: f64,
+    /// Disable ACARS input
+    #[clap(long, env = "AR_DISABLE_ACARS", value_parser)]
+    pub disable_acars: bool,
+    /// Disable VDLM2 input
+    #[clap(long, env = "AR_DISABLE_VDLM2", value_parser)]
+    pub disable_vdlm2: bool,
+    /// Disable HFDL input
+    #[clap(long, env = "AR_DISABLE_HFDL", value_parser)]
+    pub disable_hfdl: bool,
 
     // Input Options
 
@@ -215,38 +224,44 @@ impl Input {
         debug!("AR_LISTEN_ZMQ_ACARS: {:?}", self.listen_zmq_acars);
         debug!("AR_LISTEN_ZMQ_VDLM2: {:?}", self.listen_zmq_vdlm2);
         debug!("AR_LISTEN_ZMQ_HFDL: {:?}", self.listen_zmq_hfdl);
+        debug!("AR_DISABLE_ACARS: {:?}", self.disable_acars);
+        debug!("AR_DISABLE_VDLM2: {:?}", self.disable_vdlm2);
+        debug!("AR_DISABLE_HFDL: {:?}", self.disable_hfdl);
     }
 
     pub fn acars_configured(&self) -> bool {
-        self.receive_tcp_acars.is_some()
-            || self.listen_udp_acars.is_some()
-            || self.listen_tcp_acars.is_some()
-            || self.receive_zmq_acars.is_some()
-            || self.send_udp_acars.is_some()
-            || self.send_tcp_acars.is_some()
-            || self.serve_tcp_acars.is_some()
-            || self.serve_zmq_acars.is_some()
+        !self.disable_acars
+            && (self.receive_tcp_acars.is_some()
+                || self.listen_udp_acars.is_some()
+                || self.listen_tcp_acars.is_some()
+                || self.receive_zmq_acars.is_some()
+                || self.send_udp_acars.is_some()
+                || self.send_tcp_acars.is_some()
+                || self.serve_tcp_acars.is_some()
+                || self.serve_zmq_acars.is_some())
     }
 
     pub fn vdlm_configured(&self) -> bool {
-        self.receive_tcp_vdlm2.is_some()
-            || self.listen_udp_vdlm2.is_some()
-            || self.listen_tcp_vdlm2.is_some()
-            || self.receive_zmq_vdlm2.is_some()
-            || self.send_udp_vdlm2.is_some()
-            || self.send_tcp_vdlm2.is_some()
-            || self.serve_tcp_vdlm2.is_some()
-            || self.serve_zmq_vdlm2.is_some()
+        !self.disable_vdlm2
+            && (self.receive_tcp_vdlm2.is_some()
+                || self.listen_udp_vdlm2.is_some()
+                || self.listen_tcp_vdlm2.is_some()
+                || self.receive_zmq_vdlm2.is_some()
+                || self.send_udp_vdlm2.is_some()
+                || self.send_tcp_vdlm2.is_some()
+                || self.serve_tcp_vdlm2.is_some()
+                || self.serve_zmq_vdlm2.is_some())
     }
 
     pub fn hfdl_configured(&self) -> bool {
-        self.receive_tcp_hfdl.is_some()
-            || self.listen_udp_hfdl.is_some()
-            || self.listen_tcp_hfdl.is_some()
-            || self.receive_zmq_hfdl.is_some()
-            || self.send_udp_hfdl.is_some()
-            || self.send_tcp_hfdl.is_some()
-            || self.serve_tcp_hfdl.is_some()
-            || self.serve_zmq_hfdl.is_some()
+        !self.disable_hfdl
+            && (self.receive_tcp_hfdl.is_some()
+                || self.listen_udp_hfdl.is_some()
+                || self.listen_tcp_hfdl.is_some()
+                || self.receive_zmq_hfdl.is_some()
+                || self.send_udp_hfdl.is_some()
+                || self.send_tcp_hfdl.is_some()
+                || self.serve_tcp_hfdl.is_some()
+                || self.serve_zmq_hfdl.is_some())
     }
 }

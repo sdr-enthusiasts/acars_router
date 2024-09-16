@@ -46,130 +46,51 @@ use tokio_util::codec::{Framed, LinesCodec};
 pub async fn start_processes(args: Input) {
     args.print_values();
 
-    let message_handler_config_acars: MessageHandlerConfig =
-        MessageHandlerConfig::new(&args, "ACARS");
-    let message_handler_config_vdlm: MessageHandlerConfig =
-        MessageHandlerConfig::new(&args, "VDLM");
-    let message_handler_config_hfdl: MessageHandlerConfig =
-        MessageHandlerConfig::new(&args, "HFDL");
-
-    // ACARS Servers
     // Create the input channel all receivers will send their data to.
     // NOTE: To keep this straight in my head, the "TX" is the RECEIVER server (and needs a channel to TRANSMIT data to)
     // The "RX" is the TRANSMIT server (and needs a channel to RECEIVE data from)
 
-    let (tx_receivers_acars, rx_receivers_acars) = mpsc::channel(32);
-    // Create the input channel processed messages will be sent to
-    let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
-    // VDLM
-    // Create the input channel all receivers will send their data to.
-    let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
-    // Create the input channel processed messages will be sent to
-    let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
-    // HFDL
-    // Create the input channel all receivers will send their data to.
-    let (tx_receivers_hfdl, rx_receivers_hfdl) = mpsc::channel(32);
-    // Create the input channel processed messages will be sent to
-    let (tx_processed_hfdl, rx_processed_hfdl) = mpsc::channel(32);
-
-    // start the input servers
-    debug!("Starting input servers");
-    // start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
-    info!("Starting ACARS input servers");
-    let acars_input_config: OutputServerConfig = OutputServerConfig::new(
-        &args.listen_udp_acars,
-        &args.listen_tcp_acars,
-        &args.listen_zmq_acars,
-        &args.receive_tcp_acars,
-        &args.receive_zmq_acars,
-        &args.reassembly_window,
-        ServerType::Acars,
-    );
-    tokio::spawn(async move {
-        acars_input_config.start_listeners(tx_receivers_acars);
-    });
-
-    let vdlm_input_config: OutputServerConfig = OutputServerConfig::new(
-        &args.listen_udp_vdlm2,
-        &args.listen_tcp_vdlm2,
-        &args.listen_zmq_vdlm2,
-        &args.receive_tcp_vdlm2,
-        &args.receive_zmq_vdlm2,
-        &args.reassembly_window,
-        ServerType::Vdlm2,
-    );
-    tokio::spawn(async move {
-        vdlm_input_config.start_listeners(tx_receivers_vdlm);
-    });
-
-    let hfdl_input_config: OutputServerConfig = OutputServerConfig::new(
-        &args.listen_udp_hfdl,
-        &args.listen_tcp_hfdl,
-        &args.listen_zmq_hfdl,
-        &args.receive_tcp_hfdl,
-        &args.receive_zmq_hfdl,
-        &args.reassembly_window,
-        ServerType::Hfdl,
-    );
-
-    tokio::spawn(async move {
-        hfdl_input_config.start_listeners(tx_receivers_hfdl);
-    });
-
-    // start the output servers
-    debug!("Starting output servers");
-
-    info!("Starting ACARS Output Servers");
-    let acars_output_config: SenderServerConfig = SenderServerConfig::new(
-        &args.send_udp_acars,
-        &args.send_tcp_acars,
-        &args.serve_tcp_acars,
-        &args.serve_zmq_acars,
-        &args.max_udp_packet_size,
-    );
-
-    tokio::spawn(async move {
-        acars_output_config
-            .start_senders(rx_processed_acars, "ACARS")
-            .await;
-    });
-
-    info!("Starting VDLM Output Servers");
-    let vdlm_output_config: SenderServerConfig = SenderServerConfig::new(
-        &args.send_udp_vdlm2,
-        &args.send_tcp_vdlm2,
-        &args.serve_tcp_vdlm2,
-        &args.serve_zmq_vdlm2,
-        &args.max_udp_packet_size,
-    );
-
-    tokio::spawn(async move {
-        vdlm_output_config
-            .start_senders(rx_processed_vdlm, "VDLM")
-            .await;
-    });
-
-    info!("Starting HFDL Output Servers");
-    let hfdl_output_config: SenderServerConfig = SenderServerConfig::new(
-        &args.send_udp_hfdl,
-        &args.send_tcp_hfdl,
-        &args.serve_tcp_hfdl,
-        &args.serve_zmq_hfdl,
-        &args.max_udp_packet_size,
-    );
-
-    tokio::spawn(async move {
-        hfdl_output_config
-            .start_senders(rx_processed_hfdl, "HFDL")
-            .await;
-    });
-
-    // Start the message handler tasks.
-    // Don't start the queue watcher UNLESS there is a valid input source AND output source for the message type
-
     debug!("Starting the message handler tasks");
 
     if args.acars_configured() {
+        let message_handler_config_acars: MessageHandlerConfig =
+            MessageHandlerConfig::new(&args, "ACARS");
+
+        let (tx_receivers_acars, rx_receivers_acars) = mpsc::channel(32);
+        // Create the input channel processed messages will be sent to
+        let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
+
+        // start the input servers
+        debug!("Starting input servers");
+        // start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
+        info!("Starting ACARS input servers");
+        let acars_input_config: OutputServerConfig = OutputServerConfig::new(
+            &args.listen_udp_acars,
+            &args.listen_tcp_acars,
+            &args.listen_zmq_acars,
+            &args.receive_tcp_acars,
+            &args.receive_zmq_acars,
+            &args.reassembly_window,
+            ServerType::Acars,
+        );
+        tokio::spawn(async move {
+            acars_input_config.start_listeners(tx_receivers_acars);
+        });
+
+        info!("Starting ACARS Output Servers");
+        let acars_output_config: SenderServerConfig = SenderServerConfig::new(
+            &args.send_udp_acars,
+            &args.send_tcp_acars,
+            &args.serve_tcp_acars,
+            &args.serve_zmq_acars,
+            &args.max_udp_packet_size,
+        );
+
+        tokio::spawn(async move {
+            acars_output_config
+                .start_senders(rx_processed_acars, "ACARS")
+                .await;
+        });
         tokio::spawn(async move {
             message_handler_config_acars
                 .watch_message_queue(rx_receivers_acars, tx_processed_acars)
@@ -180,6 +101,43 @@ pub async fn start_processes(args: Input) {
     }
 
     if args.vdlm_configured() {
+        let message_handler_config_vdlm: MessageHandlerConfig =
+            MessageHandlerConfig::new(&args, "VDLM");
+
+        // VDLM
+        // Create the input channel all receivers will send their data to.
+        let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
+        // Create the input channel processed messages will be sent to
+        let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
+
+        let vdlm_input_config: OutputServerConfig = OutputServerConfig::new(
+            &args.listen_udp_vdlm2,
+            &args.listen_tcp_vdlm2,
+            &args.listen_zmq_vdlm2,
+            &args.receive_tcp_vdlm2,
+            &args.receive_zmq_vdlm2,
+            &args.reassembly_window,
+            ServerType::Vdlm2,
+        );
+        tokio::spawn(async move {
+            vdlm_input_config.start_listeners(tx_receivers_vdlm);
+        });
+
+        info!("Starting VDLM Output Servers");
+        let vdlm_output_config: SenderServerConfig = SenderServerConfig::new(
+            &args.send_udp_vdlm2,
+            &args.send_tcp_vdlm2,
+            &args.serve_tcp_vdlm2,
+            &args.serve_zmq_vdlm2,
+            &args.max_udp_packet_size,
+        );
+
+        tokio::spawn(async move {
+            vdlm_output_config
+                .start_senders(rx_processed_vdlm, "VDLM")
+                .await;
+        });
+
         tokio::spawn(async move {
             message_handler_config_vdlm
                 .watch_message_queue(rx_receivers_vdlm, tx_processed_vdlm)
@@ -192,6 +150,43 @@ pub async fn start_processes(args: Input) {
     }
 
     if args.hfdl_configured() {
+        let message_handler_config_hfdl: MessageHandlerConfig =
+            MessageHandlerConfig::new(&args, "HFDL");
+        // HFDL
+        // Create the input channel all receivers will send their data to.
+        let (tx_receivers_hfdl, rx_receivers_hfdl) = mpsc::channel(32);
+        // Create the input channel processed messages will be sent to
+        let (tx_processed_hfdl, rx_processed_hfdl) = mpsc::channel(32);
+
+        let hfdl_input_config: OutputServerConfig = OutputServerConfig::new(
+            &args.listen_udp_hfdl,
+            &args.listen_tcp_hfdl,
+            &args.listen_zmq_hfdl,
+            &args.receive_tcp_hfdl,
+            &args.receive_zmq_hfdl,
+            &args.reassembly_window,
+            ServerType::Hfdl,
+        );
+
+        tokio::spawn(async move {
+            hfdl_input_config.start_listeners(tx_receivers_hfdl);
+        });
+
+        info!("Starting HFDL Output Servers");
+        let hfdl_output_config: SenderServerConfig = SenderServerConfig::new(
+            &args.send_udp_hfdl,
+            &args.send_tcp_hfdl,
+            &args.serve_tcp_hfdl,
+            &args.serve_zmq_hfdl,
+            &args.max_udp_packet_size,
+        );
+
+        tokio::spawn(async move {
+            hfdl_output_config
+                .start_senders(rx_processed_hfdl, "HFDL")
+                .await;
+        });
+
         tokio::spawn(async move {
             message_handler_config_hfdl
                 .watch_message_queue(rx_receivers_hfdl, tx_processed_hfdl)

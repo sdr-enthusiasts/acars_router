@@ -25,7 +25,10 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
     AR_SERVE_ZMQ_ACARS=45550 \
     AR_SERVE_ZMQ_VDLM2=45555 \
     AR_SERVE_ZMQ_HFDL=45556 \
-    AR_ADD_PROXY_ID=true
+    AR_ADD_PROXY_ID=true \
+    AR_DISABLE_ACARS=false \
+    AR_DISABLE_VDLM2=false \
+    AR_DISABLE_HFDL=false
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY rootfs /

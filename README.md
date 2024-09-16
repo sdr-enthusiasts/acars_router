@@ -105,20 +105,20 @@ The nomenclature for the environment variables is as follows:
 
 ### Outbound data
 
-| Env Variable       | Command Line Switch | Default | Description                              |
-| ------------------ | ------------------- | ------- | ---------------------------------------- |
-| AR_SEND_UDP_ACARS  | --send-udp-acars    | `unset` | UDP host:port to send ACARS messages to  |
-| AR_SEND_UDP_VDLM2  | --send-udp-vdlm2    | `unset` | UDP host:port to send VDLM2 messages to  |
-| AR_SEND_UDP_HFDL   | --send-udp-hfdl     | `unset` | UDP host:port to send HFDL messages to   |
-| AR_SEND_TCP_ACARS  | --send-tcp-acars    | `unset` | TCP host:port to send ACARS messages to  |
-| AR_SEND_TCP_VDLM2  | --send-tcp-vdlm2    | `unset` | TCP host:port to send VDLM2 messages to  |
-| AR_SEND_TCP_HFDL   | --send-tcp-hfdl     | `unset` | TCP host:port to send HFDL messages to   |
-| AR_SERVE_TCP_ACARS | --serve-tcp-acars   | `15550` | TCP port to serve ACARS messages to      |
-| AR_SERVE_TCP_VDLM2 | --serve-tcp-vdlm2   | `15555` | TCP port to serve VDLM2 messages to      |
-| AR_SERVE_TCP_HFDL  | --serve-tcp-hfdl    | `15556` | TCP port to serve HFDL messages to       |
-| AR_SERVE_ZMQ_ACARS | --serve-zmq-acars   | `45550` | ZMQ port to serve ACARS messages to      |
-| AR_SERVE_ZMQ_VDLM2 | --serve-zmq-vdlm2   | `45555` | ZMQ port to serve VDLM2 messages to      |
-| AR_SERVE_ZMQ_HFDL  | --serve-zmq-hfdl    | `45556` | ZMQ port to serve HFDL messages to       |
+| Env Variable       | Command Line Switch | Default | Description                             |
+| ------------------ | ------------------- | ------- | --------------------------------------- |
+| AR_SEND_UDP_ACARS  | --send-udp-acars    | `unset` | UDP host:port to send ACARS messages to |
+| AR_SEND_UDP_VDLM2  | --send-udp-vdlm2    | `unset` | UDP host:port to send VDLM2 messages to |
+| AR_SEND_UDP_HFDL   | --send-udp-hfdl     | `unset` | UDP host:port to send HFDL messages to  |
+| AR_SEND_TCP_ACARS  | --send-tcp-acars    | `unset` | TCP host:port to send ACARS messages to |
+| AR_SEND_TCP_VDLM2  | --send-tcp-vdlm2    | `unset` | TCP host:port to send VDLM2 messages to |
+| AR_SEND_TCP_HFDL   | --send-tcp-hfdl     | `unset` | TCP host:port to send HFDL messages to  |
+| AR_SERVE_TCP_ACARS | --serve-tcp-acars   | `15550` | TCP port to serve ACARS messages to     |
+| AR_SERVE_TCP_VDLM2 | --serve-tcp-vdlm2   | `15555` | TCP port to serve VDLM2 messages to     |
+| AR_SERVE_TCP_HFDL  | --serve-tcp-hfdl    | `15556` | TCP port to serve HFDL messages to      |
+| AR_SERVE_ZMQ_ACARS | --serve-zmq-acars   | `45550` | ZMQ port to serve ACARS messages to     |
+| AR_SERVE_ZMQ_VDLM2 | --serve-zmq-vdlm2   | `45555` | ZMQ port to serve VDLM2 messages to     |
+| AR_SERVE_ZMQ_HFDL  | --serve-zmq-hfdl    | `45556` | ZMQ port to serve HFDL messages to      |
 
 ### Inbound data
 
@@ -154,3 +154,6 @@ The nomenclature for the environment variables is as follows:
 | AR_STATS_EVERY           | --stats-every           | `5`     | How often to print stats to the log in minutes                                                                                                                                                                  |
 | AR_STATS_VERBOSE         | --stats-verbose         | `false` | Print verbose stats to the log                                                                                                                                                                                  |
 | AR_REASSEMBLY_WINDOW     | --reassemble-window     | `1.0`   | If a message comes in, but part of the message is missing, this value will be used to keep the partial message fragment around while attempting to wait for the second (or subsequent) part(s)                  |
+| AR_DISABLE_ACARS         | --disable-acars         | `false` | Disable ACARS processing. Valid values are `true` or `false`                                                                                                                                                    |
+| AR_DISABLE_VDLM2         | --disable-vdlm          | `false` | Disable VDLM processing. Valid values are `true` or `false`                                                                                                                                                     |
+| AR_DISABLE_HFDL          | --disable-hfdl          | `false` | Disable HFDL processing. Valid values are `true` or `false`                                                                                                                                                     |
