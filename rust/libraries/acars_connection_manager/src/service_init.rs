@@ -198,6 +198,104 @@ pub async fn start_processes(args: Input) {
         );
     }
 
+    if args.imsl_configured() {
+        let message_handler_config_imsl: MessageHandlerConfig =
+            MessageHandlerConfig::new(&args, "IMSL");
+        // IMSL
+        // Create the input channel all receivers will send their data to.
+        let (tx_receivers_imsl, rx_receivers_imsl) = mpsc::channel(32);
+        // Create the input channel processed messages will be sent to
+        let (tx_processed_imsl, rx_processed_imsl) = mpsc::channel(32);
+
+        let imsl_input_config: OutputServerConfig = OutputServerConfig::new(
+            &args.listen_udp_imsl,
+            &args.listen_tcp_imsl,
+            &args.listen_zmq_imsl,
+            &args.receive_tcp_imsl,
+            &args.receive_zmq_imsl,
+            &args.reassembly_window,
+            ServerType::Imsl,
+        );
+
+        tokio::spawn(async move {
+            imsl_input_config.start_listeners(tx_receivers_imsl);
+        });
+
+        info!("Starting IMSL Output Servers");
+        let imsl_output_config: SenderServerConfig = SenderServerConfig::new(
+            &args.send_udp_imsl,
+            &args.send_tcp_imsl,
+            &args.serve_tcp_imsl,
+            &args.serve_zmq_imsl,
+            &args.max_udp_packet_size,
+        );
+
+        tokio::spawn(async move {
+            imsl_output_config
+                .start_senders(rx_processed_imsl, "IMSL")
+                .await;
+        });
+
+        tokio::spawn(async move {
+            message_handler_config_imsl
+                .watch_message_queue(rx_receivers_imsl, tx_processed_imsl)
+                .await;
+        });
+    } else {
+        info!(
+            "Not starting the IMSL message handler task. No input and/or output sources specified."
+        );
+    }
+
+    if args.irdm_configured() {
+        let message_handler_config_irdm: MessageHandlerConfig =
+            MessageHandlerConfig::new(&args, "IRDM");
+        // IRDM
+        // Create the input channel all receivers will send their data to.
+        let (tx_receivers_irdm, rx_receivers_irdm) = mpsc::channel(32);
+        // Create the input channel processed messages will be sent to
+        let (tx_processed_irdm, rx_processed_irdm) = mpsc::channel(32);
+
+        let irdm_input_config: OutputServerConfig = OutputServerConfig::new(
+            &args.listen_udp_irdm,
+            &args.listen_tcp_irdm,
+            &args.listen_zmq_irdm,
+            &args.receive_tcp_irdm,
+            &args.receive_zmq_irdm,
+            &args.reassembly_window,
+            ServerType::Irdm,
+        );
+
+        tokio::spawn(async move {
+            irdm_input_config.start_listeners(tx_receivers_irdm);
+        });
+
+        info!("Starting IRDM Output Servers");
+        let irdm_output_config: SenderServerConfig = SenderServerConfig::new(
+            &args.send_udp_irdm,
+            &args.send_tcp_irdm,
+            &args.serve_tcp_irdm,
+            &args.serve_zmq_irdm,
+            &args.max_udp_packet_size,
+        );
+
+        tokio::spawn(async move {
+            irdm_output_config
+                .start_senders(rx_processed_irdm, "IRDM")
+                .await;
+        });
+
+        tokio::spawn(async move {
+            message_handler_config_irdm
+                .watch_message_queue(rx_receivers_irdm, tx_processed_irdm)
+                .await;
+        });
+    } else {
+        info!(
+            "Not starting the IRDM message handler task. No input and/or output sources specified."
+        );
+    }
+
     trace!("Starting the sleep loop");
 
     loop {

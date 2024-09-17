@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acars_config"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "clap",
  "log",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "acars_connection_manager"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "acars_config",
  "acars_vdlm2_parser",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "acars_router"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "acars_config",
  "acars_connection_manager",
@@ -43,9 +43,10 @@ dependencies = [
 
 [[package]]
 name = "acars_vdlm2_parser"
-version = "0.2.1"
-source = "git+https://github.com/fredclausen/acars_vdlm2_parser?branch=hfdl-and-dependency-updates#8bea595eff65544624ede1b08c803b29738e51c8"
+version = "0.4.0"
+source = "git+https://github.com/rpatel3001/acars_vdlm2_parser?branch=add_imsl_irdm"
 dependencies = [
+ "chrono",
  "log",
  "serde",
  "serde_json",

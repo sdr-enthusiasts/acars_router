@@ -1,6 +1,6 @@
 # sdr-enthusiasts/acars_router
 
-`acars_router` receives, validates, deduplicates, modifies and routes ACARS and VDLM2 JSON messages.
+`acars_router` receives, validates, deduplicates, modifies and routes ACARS/VDLM2/HFDL/IMSL/IRDM JSON messages.
 
 ## Example Feeder `docker-compose.yml`
 
@@ -67,21 +67,31 @@ All ports are configurable. By default, the following ports will be used:
 
 | Port    | Protocol | Description                                                                      |
 | ------- | -------- | -------------------------------------------------------------------------------- |
-| `5550`  | `UDP`    | ACARS injest. Clients will send acars data to this port via UDP.                 |
-| `5550`  | `TCP`    | ACARS injest. Clients will send acars data to this port via TCP.                 |
-| `5555`  | `UDP`    | VDLM2 injest. Clients will send VDLM2 data to this port via UDP.                 |
-| `5555`  | `TCP`    | VDLM2 injest. Clients will send VDLM2 data to this port via TCP.                 |
-| `5556`  | `UDP`    | HFDL injest. Clients will send HFDL data to this port via UDP.                   |
-| `5556`  | `TCP`    | HFDL injest. Clients will send HFDL data to this port via TCP.                   |
+| `5550`  | `UDP`    | ACARS ingest. Clients will send ACARS data to this port via UDP.                 |
+| `5550`  | `TCP`    | ACARS ingest. Clients will send ACARS data to this port via TCP.                 |
+| `5555`  | `UDP`    | VDLM2 ingest. Clients will send VDLM2 data to this port via UDP.                 |
+| `5555`  | `TCP`    | VDLM2 ingest. Clients will send VDLM2 data to this port via TCP.                 |
+| `5556`  | `UDP`    | HFDL ingest. Clients will send HFDL data to this port via UDP.                   |
+| `5556`  | `TCP`    | HFDL ingest. Clients will send HFDL data to this port via TCP.                   |
+| `5557`  | `UDP`    | IMSL ingest. Clients will send IMSL data to this port via UDP.                   |
+| `5557`  | `TCP`    | IMSL ingest. Clients will send IMSL data to this port via TCP.                   |
+| `5558`  | `UDP`    | IRDM ingest. Clients will send IRDM data to this port via UDP.                   |
+| `5558`  | `TCP`    | IRDM ingest. Clients will send IRDM data to this port via TCP.                   |
 | `15550` | `TCP`    | ACARS server. Can be used for other clients to connect and get messages          |
 | `15555` | `TCP`    | VDLM2 server. Can be used for other clients to connect and get messages          |
 | `15556` | `TCP`    | HFDL server. Can be used for other clients to connect and get messages           |
-| `35550` | `ZMQ`    | ACARS injest. Clients will connect to this port and send acars messages over ZMQ |
-| `35555` | `ZMQ`    | VDLM2 injest. Clients will connect to this port and send VDLM2 messages over ZMQ |
-| `35556` | `ZMQ`    | HFDL injest. Clients will connect to this port and send HFDL messages over ZMQ   |
+| `15557` | `TCP`    | IMSL server. Can be used for other clients to connect and get messages           |
+| `15558` | `TCP`    | IRDM server. Can be used for other clients to connect and get messages           |
+| `35550` | `ZMQ`    | ACARS ingest. Clients will connect to this port and send ACARS messages over ZMQ |
+| `35555` | `ZMQ`    | VDLM2 ingest. Clients will connect to this port and send VDLM2 messages over ZMQ |
+| `35556` | `ZMQ`    | HFDL ingest. Clients will connect to this port and send HFDL messages over ZMQ   |
+| `35557` | `ZMQ`    | IMSL ingest. Clients will connect to this port and send IMSL messages over ZMQ   |
+| `35558` | `ZMQ`    | IRDM ingest. Clients will connect to this port and send IRDM messages over ZMQ   |
 | `45550` | `ZMQ`    | ACARS server. Can be used for other ZMQ clients to connect and get messages      |
 | `45555` | `ZMQ`    | VDLM2 server. Can be used for other ZMQ clients to connect and get messages      |
 | `45556` | `ZMQ`    | HFDL server. Can be used for other ZMQ clients to connect and get messages       |
+| `45557` | `ZMQ`    | IMSL server. Can be used for other ZMQ clients to connect and get messages       |
+| `45558` | `ZMQ`    | IRDM server. Can be used for other ZMQ clients to connect and get messages       |
 
 If you want any port(s) to be exposed outside of the docker network, please be sure to append them to the ports section of the `docker-compose.yml` file.
 
@@ -110,15 +120,23 @@ The nomenclature for the environment variables is as follows:
 | AR_SEND_UDP_ACARS  | --send-udp-acars    | `unset` | UDP host:port to send ACARS messages to |
 | AR_SEND_UDP_VDLM2  | --send-udp-vdlm2    | `unset` | UDP host:port to send VDLM2 messages to |
 | AR_SEND_UDP_HFDL   | --send-udp-hfdl     | `unset` | UDP host:port to send HFDL messages to  |
+| AR_SEND_UDP_IMSL   | --send-udp-imsl     | `unset` | UDP host:port to send IMSL messages to  |
+| AR_SEND_UDP_IRDM   | --send-udp-irdm     | `unset` | UDP host:port to send IRDM messages to  |
 | AR_SEND_TCP_ACARS  | --send-tcp-acars    | `unset` | TCP host:port to send ACARS messages to |
 | AR_SEND_TCP_VDLM2  | --send-tcp-vdlm2    | `unset` | TCP host:port to send VDLM2 messages to |
 | AR_SEND_TCP_HFDL   | --send-tcp-hfdl     | `unset` | TCP host:port to send HFDL messages to  |
+| AR_SEND_TCP_IMSL   | --send-tcp-imsl     | `unset` | TCP host:port to send IMSL messages to  |
+| AR_SEND_TCP_IRDM   | --send-tcp-irdm     | `unset` | TCP host:port to send IRDM messages to  |
 | AR_SERVE_TCP_ACARS | --serve-tcp-acars   | `15550` | TCP port to serve ACARS messages to     |
 | AR_SERVE_TCP_VDLM2 | --serve-tcp-vdlm2   | `15555` | TCP port to serve VDLM2 messages to     |
 | AR_SERVE_TCP_HFDL  | --serve-tcp-hfdl    | `15556` | TCP port to serve HFDL messages to      |
+| AR_SERVE_TCP_IMSL  | --serve-tcp-imsl    | `15557` | TCP port to serve IMSL messages to      |
+| AR_SERVE_TCP_IRDM  | --serve-tcp-irdm    | `15558` | TCP port to serve IRDM messages to      |
 | AR_SERVE_ZMQ_ACARS | --serve-zmq-acars   | `45550` | ZMQ port to serve ACARS messages to     |
 | AR_SERVE_ZMQ_VDLM2 | --serve-zmq-vdlm2   | `45555` | ZMQ port to serve VDLM2 messages to     |
 | AR_SERVE_ZMQ_HFDL  | --serve-zmq-hfdl    | `45556` | ZMQ port to serve HFDL messages to      |
+| AR_SERVE_ZMQ_IMSL  | --serve-zmq-imsl    | `45557` | ZMQ port to serve IMSL messages to      |
+| AR_SERVE_ZMQ_IRDM  | --serve-zmq-irdm    | `45558` | ZMQ port to serve IRDM messages to      |
 
 ### Inbound data
 
@@ -127,18 +145,28 @@ The nomenclature for the environment variables is as follows:
 | AR_RECV_ZMQ_ACARS   | --recv-zmq-acars    | `unset` | ZMQ host:port to receive ACARS messages from |
 | AR_RECV_ZMQ_VDLM2   | --recv-zmq-vdlm2    | `unset` | ZMQ host:port to receive VDLM2 messages from |
 | AR_RECV_ZMQ_HFDL    | --recv-zmq-hfdl     | `unset` | ZMQ host:port to receive HFDL messages from  |
+| AR_RECV_ZMQ_IMSL    | --recv-zmq-imsl     | `unset` | ZMQ host:port to receive IMSL messages from  |
+| AR_RECV_ZMQ_IRDM    | --recv-zmq-irdm     | `unset` | ZMQ host:port to receive IRDM messages from  |
 | AR_RECV_TCP_ACARS   | --recv-tcp-acars    | `unset` | TCP host:port to receive ACARS messages from |
 | AR_RECV_TCP_VDLM2   | --recv-tcp-vdlm2    | `unset` | TCP host:port to receive VDLM2 messages from |
 | AR_RECV_TCP_HFDL    | --recv-tcp-hfdl     | `unset` | TCP host:port to receive HFDL messages from  |
+| AR_RECV_TCP_IMSL    | --recv-tcp-imsl     | `unset` | TCP host:port to receive IMSL messages from  |
+| AR_RECV_TCP_IRDM    | --recv-tcp-irdm     | `unset` | TCP host:port to receive IRDM messages from  |
 | AR_LISTEN_TCP_ACARS | --listen-tcp-acars  | `5550`  | TCP port to listen for ACARS messages from   |
 | AR_LISTEN_TCP_VDLM2 | --listen-tcp-vdlm2  | `5555`  | TCP port to listen for VDLM2 messages from   |
 | AR_LISTEN_TCP_HFDL  | --listen-tcp-hfdl   | `5556`  | TCP port to listen for HFDL messages from    |
+| AR_LISTEN_TCP_IMSL  | --listen-tcp-imsl   | `5557`  | TCP port to listen for IMSL messages from    |
+| AR_LISTEN_TCP_IRDM  | --listen-tcp-irdm   | `5558`  | TCP port to listen for IRDM messages from    |
 | AR_LISTEN_UDP_ACARS | --listen-udp-acars  | `5550`  | UDP port to listen for ACARS messages from   |
 | AR_LISTEN_UDP_VDLM2 | --listen-udp-vdlm2  | `5555`  | UDP port to listen for VDLM2 messages from   |
 | AR_LISTEN_UDP_HFDL  | --listen-udp-hfdl   | `5556`  | UDP port to listen for HFDL messages from    |
+| AR_LISTEN_UDP_IMSL  | --listen-udp-imsl   | `5557`  | UDP port to listen for IMSL messages from    |
+| AR_LISTEN_UDP_IRDM  | --listen-udp-irdm   | `5558`  | UDP port to listen for IRDM messages from    |
 | AR_LISTEN_ZMQ_ACARS | --listen-zmq-acars  | `35550` | ZMQ port to listen for ACARS messages from   |
 | AR_LISTEN_ZMQ_VDLM2 | --listen-zmq-vdlm2  | `35555` | ZMQ port to listen for VDLM2 messages from   |
 | AR_LISTEN_ZMQ_HFDL  | --listen-zmq-hfdl   | `35556` | ZMQ port to listen for HFDL messages from    |
+| AR_LISTEN_ZMQ_IMSL  | --listen-zmq-imsl   | `35557` | ZMQ port to listen for IMSL messages from    |
+| AR_LISTEN_ZMQ_IRDM  | --listen-zmq-irdm   | `35558` | ZMQ port to listen for IRDM messages from    |
 
 ### General Options
 
@@ -157,3 +185,5 @@ The nomenclature for the environment variables is as follows:
 | AR_DISABLE_ACARS         | --disable-acars         | `false` | Disable ACARS processing. Valid values are `true` or `false`                                                                                                                                                    |
 | AR_DISABLE_VDLM2         | --disable-vdlm          | `false` | Disable VDLM processing. Valid values are `true` or `false`                                                                                                                                                     |
 | AR_DISABLE_HFDL          | --disable-hfdl          | `false` | Disable HFDL processing. Valid values are `true` or `false`                                                                                                                                                     |
+| AR_DISABLE_IMSL          | --disable-imsl          | `false` | Disable IMSL processing. Valid values are `true` or `false`                                                                                                                                                     |
+| AR_DISABLE_IRDM          | --disable-irdm          | `false` | Disable IRDM processing. Valid values are `true` or `false`                                                                                                                                                     |

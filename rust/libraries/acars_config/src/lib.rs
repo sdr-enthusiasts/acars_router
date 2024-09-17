@@ -70,6 +70,12 @@ pub struct Input {
     /// Disable HFDL input
     #[clap(long, env = "AR_DISABLE_HFDL", value_parser)]
     pub disable_hfdl: bool,
+    /// Disable IMSL input
+    #[clap(long, env = "AR_DISABLE_IMSL", value_parser)]
+    pub disable_imsl: bool,
+    /// Disable IRDM input
+    #[clap(long, env = "AR_DISABLE_IRDM", value_parser)]
+    pub disable_irdm: bool,
 
     // Input Options
 
@@ -139,6 +145,50 @@ pub struct Input {
     #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_zmq_hfdl: Option<Vec<String>>,
 
+    // IMSL
+    /// ACARS Router will listen for IMSL messages on the specified UDP ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_udp_imsl: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for IMSL messages on the specified TCP ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_tcp_imsl: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for IMSL messages on the specified ZMQ ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_zmq_imsl: Option<Vec<u16>>,
+    /// ACARS Router will connect to the specified hosts for IMSL messages over TCP.
+    /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_tcp_imsl: Option<Vec<String>>,
+    /// ACARS Router will connect to the specified hosts for IMSL messages in ZMQ format.
+    /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_zmq_imsl: Option<Vec<String>>,
+
+    // IRDM
+    /// ACARS Router will listen for IRDM messages on the specified UDP ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_udp_irdm: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for IRDM messages on the specified TCP ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_tcp_irdm: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for IRDM messages on the specified ZMQ ports.
+    /// Semi-Colon separated list of arguments. ie 5555;5556;5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_zmq_irdm: Option<Vec<u16>>,
+    /// ACARS Router will connect to the specified hosts for IRDM messages over TCP.
+    /// Semi-Colon separated list of arguments. ie host:5550;host:5551;host:5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_tcp_irdm: Option<Vec<String>>,
+    /// ACARS Router will connect to the specified hosts for IRDM messages in ZMQ format.
+    /// Semi-Colon separated list of arguments. ie  host:5550;host:5551;host:5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_zmq_irdm: Option<Vec<String>>,
+
     // JSON Output options
 
     // ACARS
@@ -182,6 +232,34 @@ pub struct Input {
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_zmq_hfdl: Option<Vec<u16>>,
+
+    // IMSL
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_udp_imsl: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_tcp_imsl: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_tcp_imsl: Option<Vec<u16>>,
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_zmq_imsl: Option<Vec<u16>>,
+
+    // IRDM
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_udp_irdm: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie host:5555;host:5556;host:5557
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_tcp_irdm: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_tcp_irdm: Option<Vec<u16>>,
+    /// Semi-Colon separated list of arguments. ie 5550;5551;5552
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_zmq_irdm: Option<Vec<u16>>,
 }
 
 impl Input {
@@ -224,9 +302,29 @@ impl Input {
         debug!("AR_LISTEN_ZMQ_ACARS: {:?}", self.listen_zmq_acars);
         debug!("AR_LISTEN_ZMQ_VDLM2: {:?}", self.listen_zmq_vdlm2);
         debug!("AR_LISTEN_ZMQ_HFDL: {:?}", self.listen_zmq_hfdl);
+        debug!("AR_LISTEN_UDP_IMSL: {:?}", self.listen_udp_imsl);
+        debug!("AR_LISTEN_TCP_IMSL: {:?}", self.listen_tcp_imsl);
+        debug!("AR_RECV_TCP_IMSL: {:?}", self.receive_tcp_imsl);
+        debug!("AR_RECV_ZMQ_IMSL: {:?}", self.receive_zmq_imsl);
+        debug!("AR_SEND_UDP_IMSL: {:?}", self.send_udp_imsl);
+        debug!("AR_SEND_TCP_IMSL: {:?}", self.send_tcp_imsl);
+        debug!("AR_SERVE_TCP_IMSL: {:?}", self.serve_tcp_imsl);
+        debug!("AR_SERVE_ZMQ_IMSL: {:?}", self.serve_zmq_imsl);
+        debug!("AR_LISTEN_ZMQ_IMSL: {:?}", self.listen_zmq_imsl);
+        debug!("AR_LISTEN_UDP_IRDM: {:?}", self.listen_udp_irdm);
+        debug!("AR_LISTEN_TCP_IRDM: {:?}", self.listen_tcp_irdm);
+        debug!("AR_RECV_TCP_IRDM: {:?}", self.receive_tcp_irdm);
+        debug!("AR_RECV_ZMQ_IRDM: {:?}", self.receive_zmq_irdm);
+        debug!("AR_SEND_UDP_IRDM: {:?}", self.send_udp_irdm);
+        debug!("AR_SEND_TCP_IRDM: {:?}", self.send_tcp_irdm);
+        debug!("AR_SERVE_TCP_IRDM: {:?}", self.serve_tcp_irdm);
+        debug!("AR_SERVE_ZMQ_IRDM: {:?}", self.serve_zmq_irdm);
+        debug!("AR_LISTEN_ZMQ_IRDM: {:?}", self.listen_zmq_irdm);
         debug!("AR_DISABLE_ACARS: {:?}", self.disable_acars);
         debug!("AR_DISABLE_VDLM2: {:?}", self.disable_vdlm2);
         debug!("AR_DISABLE_HFDL: {:?}", self.disable_hfdl);
+        debug!("AR_DISABLE_IMSL: {:?}", self.disable_imsl);
+        debug!("AR_DISABLE_IRDM: {:?}", self.disable_irdm);
     }
 
     pub fn acars_configured(&self) -> bool {
@@ -263,5 +361,29 @@ impl Input {
                 || self.send_tcp_hfdl.is_some()
                 || self.serve_tcp_hfdl.is_some()
                 || self.serve_zmq_hfdl.is_some())
+    }
+
+    pub fn imsl_configured(&self) -> bool {
+        !self.disable_imsl
+            && (self.receive_tcp_imsl.is_some()
+                || self.listen_udp_imsl.is_some()
+                || self.listen_tcp_imsl.is_some()
+                || self.receive_zmq_imsl.is_some()
+                || self.send_udp_imsl.is_some()
+                || self.send_tcp_imsl.is_some()
+                || self.serve_tcp_imsl.is_some()
+                || self.serve_zmq_imsl.is_some())
+    }
+
+    pub fn irdm_configured(&self) -> bool {
+        !self.disable_irdm
+            && (self.receive_tcp_irdm.is_some()
+                || self.listen_udp_irdm.is_some()
+                || self.listen_tcp_irdm.is_some()
+                || self.receive_zmq_irdm.is_some()
+                || self.send_udp_irdm.is_some()
+                || self.send_tcp_irdm.is_some()
+                || self.serve_tcp_irdm.is_some()
+                || self.serve_zmq_irdm.is_some())
     }
 }

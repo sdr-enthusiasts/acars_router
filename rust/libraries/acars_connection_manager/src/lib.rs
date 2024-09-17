@@ -70,6 +70,8 @@ pub(crate) enum ServerType {
     Acars,
     Vdlm2,
     Hfdl,
+    Imsl,
+    Irdm,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -140,6 +142,8 @@ impl fmt::Display for ServerType {
             ServerType::Acars => write!(f, "ACARS"),
             ServerType::Vdlm2 => write!(f, "VDLM"),
             ServerType::Hfdl => write!(f, "HFDL"),
+            ServerType::Imsl => write!(f, "IMSL"),
+            ServerType::Irdm => write!(f, "IRDM"),
         }
     }
 }
