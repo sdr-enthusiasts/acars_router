@@ -996,9 +996,9 @@ dependencies = [
 
 [[package]]
 name = "tmq"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "905dbcf73a013cf3c1e4a14053f376a73155ae6a1fb12cf80c55b51eb3bc0215"
+checksum = "c3f41ac3a42f65436eed7e1afe80dbe8a982dcac2ea4581bf61bc2d3dcfb19a1"
 dependencies = [
  "futures",
  "log",
