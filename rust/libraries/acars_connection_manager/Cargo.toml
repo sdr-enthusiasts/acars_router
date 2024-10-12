@@ -12,7 +12,7 @@ log = "0.4.22"
 tokio = { version = "1.40.0", features = ["full", "tracing"] }
 tokio-util = { version = "0.7.12", features = ["full"] }
 tokio-stream = "0.1.16"
-futures = "0.3.30"
+futures = "0.3.31"
 async-trait = "0.1.83"
 zmq = "0.10.0"
 tmq = "0.4.0"
