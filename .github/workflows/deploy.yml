@@ -192,7 +192,7 @@ jobs:
       - run: ls -la ./bin/*
 
       - name: Cache Binaries
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@v4.1.1
         with:
           path: ./bin/
           key: ${{ github.run_id }}
@@ -219,7 +219,7 @@ jobs:
 
       - name: Cache cargo build output
         id: get_cache
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@v4.1.1
         with:
           path: ./bin/
           key: ${{ github.run_id }}
