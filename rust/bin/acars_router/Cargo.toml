@@ -13,9 +13,9 @@ rust-version.workspace = true
 
 [dependencies]
 log = "0.4.22"
-tokio = { version = "1.41.0", features = ["full", "tracing"] }
-serde = { version = "1.0.213", features = ["derive"] }
+tokio = { version = "1.41.1", features = ["full", "tracing"] }
+serde = { version = "1.0.214", features = ["derive"] }
 serde_json = "1.0.132"
 acars_config = { path = "../../libraries/acars_config" }
-sdre-rust-logging = "0.3.4"
+sdre-rust-logging = "0.3.6"
 acars_connection_manager = { path = "../../libraries/acars_connection_manager" }
