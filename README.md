@@ -13,7 +13,6 @@ volumes:
 services:
     acarshub:
     image: ghcr.io/sdr-enthusiasts/docker-acarshub:latest
-    tty: true
     container_name: acarshub
     restart: always
     ports:
@@ -36,7 +35,6 @@ services:
 
   acars_router:
     image: ghcr.io/sdr-enthusiasts/acars_router:latest
-    tty: true
     container_name: acars_router
     restart: always
     environment:
