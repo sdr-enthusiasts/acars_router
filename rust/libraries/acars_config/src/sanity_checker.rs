@@ -399,9 +399,9 @@ mod test {
         let valid_hosts_tests: bool = valid_hosts.check_host_is_valid("valid_hosts");
         let invalid_hosts_tests: bool = invalid_hosts.check_host_is_valid("invalid_hosts");
         let empty_host_vec_test: bool = empty_host_vec.check_host_is_valid("empty_vec");
-        assert_eq!(valid_hosts_tests, true);
-        assert_eq!(invalid_hosts_tests, false);
-        assert_eq!(empty_host_vec_test, false);
+        assert!(valid_hosts_tests);
+        assert!(!invalid_hosts_tests);
+        assert!(!empty_host_vec_test);
     }
 
     #[test]
@@ -412,9 +412,9 @@ mod test {
         let valid_ports_test: bool = valid_ports.check_ports_are_valid("valid_ports");
         let invalid_ports_test: bool = invalid_ports.check_ports_are_valid("invalid_ports");
         let empty_ports_test: bool = empty_ports.check_ports_are_valid("empty_ports");
-        assert_eq!(valid_ports_test, true);
-        assert_eq!(invalid_ports_test, false);
-        assert_eq!(empty_ports_test, false);
+        assert!(valid_ports_test);
+        assert!(!invalid_ports_test);
+        assert!(!empty_ports_test);
     }
 
     #[test]
@@ -436,8 +436,8 @@ mod test {
         ports.serve_zmq_vdlm2 = Some(vec![8008, 65528]);
         let invalid_ports_test: bool = ports.check_no_duplicate_ports();
 
-        assert_eq!(valid_ports_test, true, "Expected valid ports to pass");
-        assert_eq!(invalid_ports_test, false, "Expected invalid ports to fail");
+        assert!(valid_ports_test, "Expected valid ports to pass");
+        assert!(!invalid_ports_test, "Expected invalid ports to fail");
     }
 
     #[test]
@@ -485,12 +485,12 @@ mod test {
         ]);
         let invalid_hosts_test: bool = hosts.check_no_duplicate_hosts();
 
-        assert_eq!(
-            valid_hosts_test, true,
+        assert!(
+            valid_hosts_test,
             "Expected there to be no duplicates for this check"
         );
-        assert_eq!(
-            invalid_hosts_test, false,
+        assert!(
+            !invalid_hosts_test,
             "Expected there to be duplicates for this check"
         );
     }

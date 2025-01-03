@@ -6,6 +6,6 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.5.21", features = ["derive", "env"] }
+clap = { version = "4.5.23", features = ["derive", "env"] }
 log = "0.4.22"
-sdre-rust-logging = "0.3.7"
+sdre-rust-logging = "0.3.8"
