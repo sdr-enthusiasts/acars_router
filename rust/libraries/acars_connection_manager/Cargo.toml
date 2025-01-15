@@ -6,17 +6,17 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdre-stubborn-io = "0.5.13"
-#sdre-stubborn-io = "0.4.4"
-log = "0.4.22"
-tokio = { version = "1.42.0", features = ["full", "tracing"] }
-tokio-util = { version = "0.7.13", features = ["full"] }
-tokio-stream = "0.1.17"
-futures = "0.3.31"
-async-trait = "0.1.84"
-zmq = "0.10.0"
-tmq = "0.5.0"
-#acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
-#acars_vdlm2_parser = { git = "https://github.com/fredclausen/acars_vdlm2_parser", branch = "hfdl-and-dependency-updates" }
 acars_vdlm2_parser = { git = "https://github.com/rpatel3001/acars_vdlm2_parser", branch = "add_imsl_irdm" }
 acars_config = { path = "../acars_config" }
+sdre-stubborn-io.workspace = true
+#sdre-stubborn-io = "0.4.4"
+log.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tokio-stream.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+zmq.workspace = true
+tmq.workspace = true
+#acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
+#acars_vdlm2_parser = { git = "https://github.com/fredclausen/acars_vdlm2_parser", branch = "hfdl-and-dependency-updates" }
