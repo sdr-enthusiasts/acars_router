@@ -244,7 +244,7 @@ jobs:
           echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Create binary release
-        uses: ncipollo/release-action@v1.14.0
+        uses: ncipollo/release-action@v1.15.0
         with:
           body: "See Commits"
           allowUpdates: true
