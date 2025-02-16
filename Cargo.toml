@@ -24,9 +24,9 @@ log = "0.4.25"
 tokio = { version = "1.43.0", features = ["full", "tracing"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
-sdre-rust-logging = "0.3.11"
-clap = { version = "4.5.28", features = ["derive", "env"] }
-sdre-stubborn-io = "0.6.1"
+sdre-rust-logging = "0.3.12"
+clap = { version = "4.5.29", features = ["derive", "env"] }
+sdre-stubborn-io = "0.6.2"
 tokio-util = { version = "0.7.13", features = ["full"] }
 tokio-stream = "0.1.17"
 futures = "0.3.31"
