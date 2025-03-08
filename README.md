@@ -5,13 +5,11 @@
 ## Example Feeder `docker-compose.yml`
 
 ```yaml
-version: "3.8"
-
 volumes:
   - acarshub_run
 
 services:
-    acarshub:
+  acarshub:
     image: ghcr.io/sdr-enthusiasts/docker-acarshub:latest
     container_name: acarshub
     restart: always
