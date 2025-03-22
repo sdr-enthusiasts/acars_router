@@ -249,7 +249,7 @@ jobs:
       - run: ls -la ./bin/*
 
       - name: Cache Binaries
-        uses: actions/cache@v4.2.2
+        uses: actions/cache@v4.2.3
         with:
           path: ./bin/
           key: ${{ github.run_id }}
