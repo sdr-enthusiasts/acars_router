@@ -123,10 +123,10 @@ jobs:
           swap_location: "/mnt/swapfile"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.4.0
+        uses: docker/setup-qemu-action@v3.6.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.9.0
+        uses: docker/setup-buildx-action@v3.10.0
 
       - name: Build armv7
         uses: docker/build-push-action@v6.15.0
@@ -139,7 +139,7 @@ jobs:
           outputs: type=local,dest=./image_armv7/
 
       - name: Upload artifact armv7 binary
-        uses: actions/upload-artifact@v4.6.1
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: acars_router.armv7
           path: ./image_armv7/acars_router
@@ -163,10 +163,10 @@ jobs:
           swap_location: "/mnt/swapfile"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.4.0
+        uses: docker/setup-qemu-action@v3.6.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.9.0
+        uses: docker/setup-buildx-action@v3.10.0
 
       - name: Build arm64
         uses: docker/build-push-action@v6.15.0
@@ -179,7 +179,7 @@ jobs:
           outputs: type=local,dest=./image_arm64/
 
       - name: Upload artifact arm64 binary
-        uses: actions/upload-artifact@v4.6.1
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: acars_router.arm64
           path: ./image_arm64/acars_router
@@ -203,10 +203,10 @@ jobs:
           swap_location: "/mnt/swapfile"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.4.0
+        uses: docker/setup-qemu-action@v3.6.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.9.0
+        uses: docker/setup-buildx-action@v3.10.0
 
       - name: Build amd64
         uses: docker/build-push-action@v6.15.0
@@ -219,7 +219,7 @@ jobs:
           outputs: type=local,dest=./image_amd64/
 
       - name: Upload artifact amd64 binary
-        uses: actions/upload-artifact@v4.6.1
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: acars_router.amd64
           path: ./image_amd64/acars_router
@@ -231,17 +231,17 @@ jobs:
     steps:
       - run: mkdir -p ./bin
 
-      - uses: actions/download-artifact@v4.1.9
+      - uses: actions/download-artifact@v4.2.1
         with:
           name: acars_router.amd64
           path: ./bin/acars_router.amd64
 
-      - uses: actions/download-artifact@v4.1.9
+      - uses: actions/download-artifact@v4.2.1
         with:
           name: acars_router.armv7
           path: ./bin/acars_router.armv7
 
-      - uses: actions/download-artifact@v4.1.9
+      - uses: actions/download-artifact@v4.2.1
         with:
           name: acars_router.arm64
           path: ./bin/acars_router.arm64
@@ -249,7 +249,7 @@ jobs:
       - run: ls -la ./bin/*
 
       - name: Cache Binaries
-        uses: actions/cache@v4.2.2
+        uses: actions/cache@v4.2.3
         with:
           path: ./bin/
           key: ${{ github.run_id }}
