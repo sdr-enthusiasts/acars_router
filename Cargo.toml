@@ -21,16 +21,16 @@ rust-version = "1.66.1"
 
 [workspace.dependencies]
 log = "0.4.26"
-tokio = { version = "1.43.0", features = ["full", "tracing"] }
-serde = { version = "1.0.218", features = ["derive"] }
-serde_json = "1.0.139"
-sdre-rust-logging = "0.3.13"
-clap = { version = "4.5.31", features = ["derive", "env"] }
-sdre-stubborn-io = "0.6.3"
-tokio-util = { version = "0.7.13", features = ["full"] }
+tokio = { version = "1.44.1", features = ["full", "tracing"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+sdre-rust-logging = "0.3.14"
+clap = { version = "4.5.32", features = ["derive", "env"] }
+sdre-stubborn-io = "0.6.4"
+tokio-util = { version = "0.7.14", features = ["full"] }
 tokio-stream = "0.1.17"
 futures = "0.3.31"
-async-trait = "0.1.86"
+async-trait = "0.1.88"
 zmq = "0.10.0"
 tmq = "0.5.0"
 #acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
