@@ -418,9 +418,11 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn test_check_no_duplicate_ports() {
         let mut ports: Input = Input::default();
         // Generate clean input
+
         ports.listen_udp_vdlm2 = Some(vec![8008, 65535]);
         ports.listen_udp_acars = Some(vec![8009, 65534]);
         ports.listen_tcp_acars = Some(vec![8008, 65533]);
@@ -441,6 +443,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn test_check_no_duplicate_hosts() {
         let mut hosts: Input = Input::default();
         // Generate clean input

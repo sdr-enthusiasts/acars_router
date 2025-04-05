@@ -709,7 +709,7 @@ impl SocketListenerServer {
                     SocketType::Tcp => {
                         trace!(
                             "[{} Receiver Server {}] Starting",
-                            self.socket_type.to_string(),
+                            self.socket_type,
                             self.proto_name
                         );
                         let open_stream: io::Result<StubbornIo<TcpStream, SocketAddr>> =
@@ -722,9 +722,9 @@ impl SocketListenerServer {
                             Err(stream_error) => {
                                 error!(
                                     "[{} Receiver Server {}] Error connecting to {}: {}",
-                                    self.socket_type.to_string(),
+                                    self.socket_type,
                                     self.proto_name,
-                                    socket_address.to_string(),
+                                    socket_address,
                                     &stream_error
                                 );
                                 Err(stream_error.into())
@@ -768,17 +768,17 @@ impl SocketListenerServer {
                                             {
                                                 let final_message: String = if count == 0 {
                                                     // First case is the first element, which should only ever need a single closing bracket
-                                                    trace!("[{} Receiver Server {}]Multiple messages received in a packet.", self.socket_type.to_string(), self.proto_name);
+                                                    trace!("[{} Receiver Server {}]Multiple messages received in a packet.", self.socket_type, self.proto_name);
                                                     format!("{}}}", msg_by_brackets)
                                                 } else if count
                                                     == split_messages_by_brackets.len() - 1
                                                 {
                                                     // This case is for the last element, which should only ever need a single opening bracket
-                                                    trace!("[{} Receiver Server {}] End of a multiple message packet", self.socket_type.to_string(), self.proto_name);
+                                                    trace!("[{} Receiver Server {}] End of a multiple message packet", self.socket_type, self.proto_name);
                                                     format!("{{{}", msg_by_brackets)
                                                 } else {
                                                     // This case is for any middle elements, which need both an opening and closing bracket
-                                                    trace!("[{} Receiver Server {}] Middle of a multiple message packet", self.socket_type.to_string(), self.proto_name);
+                                                    trace!("[{} Receiver Server {}] Middle of a multiple message packet", self.socket_type, self.proto_name);
                                                     format!("{{{}}}", msg_by_brackets)
                                                 };
                                                 packet_handler
@@ -817,9 +817,7 @@ impl SocketListenerServer {
                                 Err(socket_error) => {
                                     error!(
                                         "[{} SERVER: {} ] Error creating socket address: {}",
-                                        self.socket_type.to_string(),
-                                        self.proto_name,
-                                        socket_error
+                                        self.socket_type, self.proto_name, socket_error
                                     );
                                     Err(socket_error.into())
                                 }
@@ -836,14 +834,12 @@ impl SocketListenerServer {
                         match open_socket {
                             Err(e) => error!(
                                 "[{} SERVER: {}] Error listening on port: {}",
-                                self.socket_type.to_string(),
-                                self.proto_name,
-                                e
+                                self.socket_type, self.proto_name, e
                             ),
                             Ok(socket) => {
                                 info!(
                                     "[{} SERVER: {}]: Listening on: {}",
-                                    self.socket_type.to_string(),
+                                    self.socket_type,
                                     self.proto_name,
                                     socket.local_addr()?
                                 );
@@ -859,7 +855,7 @@ impl SocketListenerServer {
                                         ) {
                                             Ok(s) => s,
                                             Err(_) => {
-                                                warn!("[{} SERVER: {}] Invalid message received from {}", self.socket_type.to_string(), self.proto_name, peer);
+                                                warn!("[{} SERVER: {}] Invalid message received from {}", self.socket_type, self.proto_name, peer);
                                                 continue;
                                             }
                                         };
@@ -889,17 +885,17 @@ impl SocketListenerServer {
                                                 {
                                                     let final_message: String = if count == 0 {
                                                         // First case is the first element, which should only ever need a single closing bracket
-                                                        trace!("[{} SERVER: {}] Multiple messages received in a packet.", self.socket_type.to_string(), self.proto_name);
+                                                        trace!("[{} SERVER: {}] Multiple messages received in a packet.", self.socket_type, self.proto_name);
                                                         format!("{}}}", msg_by_brackets)
                                                     } else if count
                                                         == split_messages_by_brackets.len() - 1
                                                     {
                                                         // This case is for the last element, which should only ever need a single opening bracket
-                                                        trace!("[{} SERVER: {}] End of a multiple message packet", self.socket_type.to_string(), self.proto_name);
+                                                        trace!("[{} SERVER: {}] End of a multiple message packet", self.socket_type, self.proto_name);
                                                         format!("{{{}", msg_by_brackets)
                                                     } else {
                                                         // This case is for any middle elements, which need both an opening and closing bracket
-                                                        trace!("[{} SERVER: {}] Middle of a multiple message packet", self.socket_type.to_string(), self.proto_name);
+                                                        trace!("[{} SERVER: {}] Middle of a multiple message packet", self.socket_type, self.proto_name);
                                                         format!("{{{}}}", msg_by_brackets)
                                                     };
                                                     packet_handler
