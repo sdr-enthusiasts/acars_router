@@ -33,6 +33,7 @@ futures = "0.3.31"
 async-trait = "0.1.88"
 zmq = "0.10.0"
 tmq = "0.5.0"
+uuid = { version = "1.16.0", features = ["v4"] }
 #acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
 #acars_vdlm2_parser = { git = "https://github.com/fredclausen/acars_vdlm2_parser", branch = "hfdl-and-dependency-updates" }
 acars_config = { path = "../acars_config" }
