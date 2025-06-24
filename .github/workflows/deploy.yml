@@ -49,7 +49,7 @@ jobs:
       push_destinations: ghcr.io
       ghcr_repo_owner: ${{ github.repository_owner }}
       ghcr_repo: ${{ github.repository }}
-      build_with_tmpfs: true
+      build_with_tmpfs: false
       # set build_latest to true if github.event.inputs.use_test_image is false
       build_latest: ${{ github.event.inputs.use_test_image == 'false' || github.event.inputs.use_test_image == '' }}
       build_baseimage_test: ${{ github.event.inputs.use_test_image == 'true' }}
@@ -69,7 +69,7 @@ jobs:
       push_destinations: ghcr.io
       ghcr_repo_owner: ${{ github.repository_owner }}
       ghcr_repo: ${{ github.repository }}
-      build_with_tmpfs: true
+      build_with_tmpfs: false
       # set build_latest to true if github.event.inputs.use_test_image is false
       build_latest: true
       docker_latest_tag: test

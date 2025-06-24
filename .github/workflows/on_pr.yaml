@@ -109,7 +109,7 @@ jobs:
     needs: [hadolint, test_rust_functionality]
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/sdre.yml@main
     with:
-      build_with_tmpfs: true
+      build_with_tmpfs: false
       ghcr_repo_owner: ${{ github.repository_owner }}
       ghcr_repo: ${{ github.repository }}
       docker_build_file: Dockerfile.local
