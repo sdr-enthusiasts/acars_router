@@ -6,7 +6,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-acars_vdlm2_parser = { git = "https://github.com/rpatel3001/acars_vdlm2_parser", branch = "add_imsl_irdm" }
+acars_vdlm2_parser.workspace = true
 acars_config = { path = "../acars_config" }
 sdre-stubborn-io.workspace = true
 #sdre-stubborn-io = "0.4.4"

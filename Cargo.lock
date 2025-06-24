@@ -44,7 +44,7 @@ dependencies = [
 [[package]]
 name = "acars_vdlm2_parser"
 version = "0.4.0"
-source = "git+https://github.com/rpatel3001/acars_vdlm2_parser?branch=add_imsl_irdm#57480cabc26a230017447932b36b7dc58092b9b4"
+source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#079fa2e77fbed357ed8520725dc8da9f74bfaa44"
 dependencies = [
  "chrono",
  "log",
