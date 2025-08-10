@@ -1,4 +1,4 @@
-FROM rust:1.88.0 AS builder
+FROM rust:1.89.0 AS builder
 WORKDIR /tmp/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
