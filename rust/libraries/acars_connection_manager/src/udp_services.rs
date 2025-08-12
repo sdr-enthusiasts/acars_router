@@ -14,7 +14,8 @@ use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, Duration, Instant};
+
 
 /// UDPListenerServer is a struct that contains the configuration for a UDP server
 /// that will listen for incoming UDP packets and process them
@@ -22,6 +23,13 @@ use tokio::time::{sleep, Duration};
 pub(crate) struct UDPListenerServer {
     pub(crate) proto_name: String,
     pub(crate) reassembly_window: f64,
+}
+
+#[derive(Debug)]
+struct ResolvedAddr {
+    addr: String,
+    resopt: Option<SocketAddr>,
+    last_success: Instant,
 }
 
 /// UDPSenderServer is a struct that contains the configuration for a UDP server
@@ -33,6 +41,7 @@ pub(crate) struct UDPSenderServer {
     pub(crate) socket: UdpSocket,
     pub(crate) max_udp_packet_size: usize,
     pub(crate) channel: Receiver<AcarsVdlm2Message>,
+    resolved_addrs: Vec<ResolvedAddr>,
 }
 
 /// UDPListenerServer is a struct that contains the configuration for a UDP server
@@ -148,12 +157,21 @@ impl UDPSenderServer {
         max_udp_packet_size: &usize,
         rx_processed: Receiver<AcarsVdlm2Message>,
     ) -> Self {
+        let mut resolved_addrs: Vec<ResolvedAddr> = Vec::new();
+        for addr in send_udp {
+            resolved_addrs.push(ResolvedAddr{
+                addr: addr.to_string(),
+                resopt: None,
+                last_success: Instant::now(),
+            });
+        }
         Self {
             host: send_udp.to_vec(),
             proto_name: server_type.to_string(),
             socket,
             max_udp_packet_size: *max_udp_packet_size,
             channel: rx_processed,
+            resolved_addrs: resolved_addrs,
         }
     }
 
@@ -177,7 +195,40 @@ impl UDPSenderServer {
 
     async fn send_bytes(&mut self, message_as_bytes: &Vec<u8>) {
         let message_size: usize = message_as_bytes.len();
-        for addr in &self.host {
+        let mut use_addrs: Vec<(&String, SocketAddr)> = Vec::new();
+        for ra in &mut self.resolved_addrs {
+            //debug!("{:?}", ra);
+            if ra.resopt.is_none() || ra.last_success.elapsed() > Duration::from_secs(15) {
+                let mut res_option: Option<SocketAddr> = None;
+
+                match ra.addr.to_socket_addrs() {
+                    Ok(results) => {
+                        for res in results {
+                            if res.is_ipv4() {
+                                res_option = Some(res);
+                                break;
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        warn!(
+                            "[UDP SENDER {}] failed to resolve {}: {:?}",
+                            self.proto_name, ra.addr, e
+                        );
+                    },
+                }
+                if let Some(resolved) = res_option {
+                    ra.resopt = Some(resolved);
+                    ra.last_success = Instant::now();
+                }
+            }
+
+            if let Some(resolved) = ra.resopt {
+                use_addrs.push((&ra.addr, resolved));
+            }
+        }
+        //debug!("{:?}", use_addrs);
+        for (addr, resolved) in &use_addrs {
             let mut keep_sending: bool = true;
             let mut buffer_position: usize = 0;
             let mut buffer_end: usize =
@@ -186,75 +237,46 @@ impl UDPSenderServer {
                     false => self.max_udp_packet_size,
                 };
 
-            let mut res_option: Option<SocketAddr> = None;
+            while keep_sending {
+                trace!("[UDP SENDER {}] Sending {buffer_position} to {buffer_end} of {message_size} to {addr} ({resolved})", self.proto_name);
 
-            match addr.to_socket_addrs() {
-                Ok(results) => {
-                    for res in results {
-                        if res.is_ipv4() {
-                            res_option = Some(res);
-                            break;
-                        }
-                    }
-                },
-                Err(e) => {
-                    warn!(
-                        "[UDP SENDER {}] failed to resolve {}: {:?}",
-                        self.proto_name, addr, e
-                    );
-                },
-            }
-            if let Some(resolved) = res_option {
+                let bytes_sent = self
+                    .socket
+                    .send_to(&message_as_bytes[buffer_position..buffer_end], resolved)
+                    .await;
 
-                while keep_sending {
-                    trace!("[UDP SENDER {}] Sending {buffer_position} to {buffer_end} of {message_size} to {addr} ({resolved})", self.proto_name);
-
-                    let bytes_sent = self
-                        .socket
-                        .send_to(&message_as_bytes[buffer_position..buffer_end], resolved)
-                        .await;
-
-                    match bytes_sent {
-                        Ok(bytes_sent) => debug!(
-                            "[UDP SENDER {}] sent {} bytes to {} ({})",
-                            self.proto_name, bytes_sent, addr, resolved
-                        ),
-                        Err(e) => warn!(
-                            "[UDP SENDER {}] failed to send message to {} ({}): {:?}",
-                            self.proto_name, addr, resolved, e
-                        ),
-                    }
-
-                    if buffer_end == message_size {
-                        keep_sending = false;
-                    } else {
-                        buffer_position = buffer_end;
-                        buffer_end = match buffer_position + self.max_udp_packet_size
-                            < message_size
-                            {
-                                true => buffer_position + self.max_udp_packet_size,
-                                false => message_size,
-                            };
-
-                        // Slow the sender down!
-                        sleep(Duration::from_millis(100)).await;
-                    }
-                    trace!(
-                        "[UDP SENDER {}] New buffer start: {}, end: {}",
-                        self.proto_name,
-                        buffer_position,
-                        buffer_end
-                    );
+                match bytes_sent {
+                    Ok(bytes_sent) => debug!(
+                        "[UDP SENDER {}] sent {} bytes to {} ({})",
+                        self.proto_name, bytes_sent, addr, resolved
+                    ),
+                    Err(e) => warn!(
+                        "[UDP SENDER {}] failed to send message to {} ({}): {:?}",
+                        self.proto_name, addr, resolved, e
+                    ),
                 }
-            } else {
-                warn!(
-                    "[UDP SENDER {}] no IPv4 address for {}",
-                    self.proto_name, addr
+
+                if buffer_end == message_size {
+                    keep_sending = false;
+                } else {
+                    buffer_position = buffer_end;
+                    buffer_end = match buffer_position + self.max_udp_packet_size
+                        < message_size
+                        {
+                            true => buffer_position + self.max_udp_packet_size,
+                            false => message_size,
+                        };
+
+                    // Slow the sender down!
+                    sleep(Duration::from_millis(100)).await;
+                }
+                trace!(
+                    "[UDP SENDER {}] New buffer start: {}, end: {}",
+                    self.proto_name,
+                    buffer_position,
+                    buffer_end
                 );
-
             }
-
-
         }
     }
 }
