@@ -36,7 +36,6 @@ struct ResolvedAddr {
 /// that will send out UDP packets
 #[derive(Debug)]
 pub(crate) struct UDPSenderServer {
-    pub(crate) host: Vec<String>,
     pub(crate) proto_name: String,
     pub(crate) socket: UdpSocket,
     pub(crate) max_udp_packet_size: usize,
@@ -166,7 +165,6 @@ impl UDPSenderServer {
             });
         }
         Self {
-            host: send_udp.to_vec(),
             proto_name: server_type.to_string(),
             socket,
             max_udp_packet_size: *max_udp_packet_size,
