@@ -206,6 +206,19 @@ impl UDPSenderServer {
                                 break;
                             }
                         }
+                        if let Some(resolved) = res_option {
+                            debug!(
+                                "[UDP SENDER {}] Resolved: {} --> {}",
+                                self.proto_name, ra.addr, resolved
+                            );
+                            ra.resopt = Some(resolved);
+                            ra.last_success = Instant::now();
+                        } else {
+                            warn!(
+                                "[UDP SENDER {}] {} could not be resolved to an IPv4 address",
+                                self.proto_name, ra.addr
+                            );
+                        }
                     }
                     Err(e) => {
                         warn!(
@@ -213,10 +226,6 @@ impl UDPSenderServer {
                             self.proto_name, ra.addr, e
                         );
                     }
-                }
-                if let Some(resolved) = res_option {
-                    ra.resopt = Some(resolved);
-                    ra.last_success = Instant::now();
                 }
             }
 
