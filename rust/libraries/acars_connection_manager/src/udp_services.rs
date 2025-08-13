@@ -16,7 +16,6 @@ use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::{sleep, Duration, Instant};
 
-
 /// UDPListenerServer is a struct that contains the configuration for a UDP server
 /// that will listen for incoming UDP packets and process them
 #[derive(Debug, Clone)]
@@ -158,7 +157,7 @@ impl UDPSenderServer {
     ) -> Self {
         let mut resolved_addrs: Vec<ResolvedAddr> = Vec::new();
         for addr in send_udp {
-            resolved_addrs.push(ResolvedAddr{
+            resolved_addrs.push(ResolvedAddr {
                 addr: addr.to_string(),
                 resopt: None,
                 last_success: Instant::now(),
@@ -207,13 +206,13 @@ impl UDPSenderServer {
                                 break;
                             }
                         }
-                    },
+                    }
                     Err(e) => {
                         warn!(
                             "[UDP SENDER {}] failed to resolve {}: {:?}",
                             self.proto_name, ra.addr, e
                         );
-                    },
+                    }
                 }
                 if let Some(resolved) = res_option {
                     ra.resopt = Some(resolved);
@@ -229,11 +228,10 @@ impl UDPSenderServer {
         for (addr, resolved) in &use_addrs {
             let mut keep_sending: bool = true;
             let mut buffer_position: usize = 0;
-            let mut buffer_end: usize =
-                match message_as_bytes.len() < self.max_udp_packet_size {
-                    true => message_as_bytes.len(),
-                    false => self.max_udp_packet_size,
-                };
+            let mut buffer_end: usize = match message_as_bytes.len() < self.max_udp_packet_size {
+                true => message_as_bytes.len(),
+                false => self.max_udp_packet_size,
+            };
 
             while keep_sending {
                 trace!("[UDP SENDER {}] Sending {buffer_position} to {buffer_end} of {message_size} to {addr} ({resolved})", self.proto_name);
@@ -258,12 +256,10 @@ impl UDPSenderServer {
                     keep_sending = false;
                 } else {
                     buffer_position = buffer_end;
-                    buffer_end = match buffer_position + self.max_udp_packet_size
-                        < message_size
-                        {
-                            true => buffer_position + self.max_udp_packet_size,
-                            false => message_size,
-                        };
+                    buffer_end = match buffer_position + self.max_udp_packet_size < message_size {
+                        true => buffer_position + self.max_udp_packet_size,
+                        false => message_size,
+                    };
 
                     // Slow the sender down!
                     sleep(Duration::from_millis(100)).await;
