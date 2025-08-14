@@ -81,6 +81,7 @@ pub(crate) struct SenderServerConfig {
     pub(crate) serve_tcp: Option<Vec<u16>>,
     pub(crate) serve_zmq: Option<Vec<u16>>,
     pub(crate) max_udp_packet_size: usize,
+    pub(crate) udp_dns_cache_seconds: f64,
 }
 
 #[derive(Debug, Clone)]

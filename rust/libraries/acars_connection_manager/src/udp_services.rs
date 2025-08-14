@@ -40,6 +40,7 @@ pub(crate) struct UDPSenderServer {
     pub(crate) max_udp_packet_size: usize,
     pub(crate) channel: Receiver<AcarsVdlm2Message>,
     resolved_addrs: Vec<ResolvedAddr>,
+    dns_cache_duration: Duration,
 }
 
 /// UDPListenerServer is a struct that contains the configuration for a UDP server
@@ -153,6 +154,7 @@ impl UDPSenderServer {
         server_type: &str,
         socket: UdpSocket,
         max_udp_packet_size: &usize,
+        dns_cache_seconds: f64,
         rx_processed: Receiver<AcarsVdlm2Message>,
     ) -> Self {
         let mut resolved_addrs: Vec<ResolvedAddr> = Vec::new();
@@ -169,6 +171,7 @@ impl UDPSenderServer {
             max_udp_packet_size: *max_udp_packet_size,
             channel: rx_processed,
             resolved_addrs: resolved_addrs,
+            dns_cache_duration: Duration::from_secs_f64(dns_cache_seconds),
         }
     }
 
@@ -195,7 +198,7 @@ impl UDPSenderServer {
         let mut use_addrs: Vec<(&String, SocketAddr)> = Vec::new();
         for ra in &mut self.resolved_addrs {
             //debug!("{:?}", ra);
-            if ra.resopt.is_none() || ra.last_success.elapsed() > Duration::from_secs(15) {
+            if ra.resopt.is_none() || ra.last_success.elapsed() > self.dns_cache_duration {
                 let mut res_option: Option<SocketAddr> = None;
 
                 match ra.addr.to_socket_addrs() {

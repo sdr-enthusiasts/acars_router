@@ -39,6 +39,9 @@ pub struct Input {
         default_value = "60000"
     )]
     pub max_udp_packet_size: u64,
+    /// Number of seconds DNS resolve will be cached for UDP outputs
+    #[clap(long, env = "AR_UDP_DNS_CACHE_SECONDS", value_parser, default_value = "15.0")]
+    pub udp_dns_cache_seconds: f64,
     // Message Modification
     /// Set to true to enable message modification
     /// This will add a "proxied" field to the message
@@ -289,6 +292,7 @@ impl Input {
         debug!("AR_SERVE_TCP_VDLM2: {:?}", self.serve_tcp_vdlm2);
         debug!("AR_SERVE_ZMQ_VDLM2: {:?}", self.serve_zmq_vdlm2);
         debug!("AR_MAX_UDP_PACKET_SIZE: {:?}", self.max_udp_packet_size);
+        debug!("AR_UDP_DNS_CACHE_SECONDS: {:?}", self.udp_dns_cache_seconds);
         debug!("AR_REASSEMBLY_WINDOW: {:?}", self.reassembly_window);
         debug!("AR_STATS_VERBOSE: {:?}", self.stats_verbose);
         debug!("AR_LISTEN_UDP_HFDL: {:?}", self.listen_udp_hfdl);
