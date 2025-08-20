@@ -83,6 +83,7 @@ pub async fn start_processes(args: Input) {
             &args.serve_tcp_acars,
             &args.serve_zmq_acars,
             &args.max_udp_packet_size,
+            args.udp_dns_cache_seconds,
         );
 
         tokio::spawn(async move {
@@ -129,6 +130,7 @@ pub async fn start_processes(args: Input) {
             &args.serve_tcp_vdlm2,
             &args.serve_zmq_vdlm2,
             &args.max_udp_packet_size,
+            args.udp_dns_cache_seconds,
         );
 
         tokio::spawn(async move {
@@ -178,6 +180,7 @@ pub async fn start_processes(args: Input) {
             &args.serve_tcp_hfdl,
             &args.serve_zmq_hfdl,
             &args.max_udp_packet_size,
+            args.udp_dns_cache_seconds,
         );
 
         tokio::spawn(async move {
@@ -227,6 +230,7 @@ pub async fn start_processes(args: Input) {
             &args.serve_tcp_imsl,
             &args.serve_zmq_imsl,
             &args.max_udp_packet_size,
+            args.udp_dns_cache_seconds,
         );
 
         tokio::spawn(async move {
@@ -276,6 +280,7 @@ pub async fn start_processes(args: Input) {
             &args.serve_tcp_irdm,
             &args.serve_zmq_irdm,
             &args.max_udp_packet_size,
+            args.udp_dns_cache_seconds,
         );
 
         tokio::spawn(async move {
@@ -511,6 +516,7 @@ impl SenderServerConfig {
         serve_tcp: &Option<Vec<u16>>,
         serve_zmq: &Option<Vec<u16>>,
         max_udp_packet_size: &u64,
+        udp_dns_cache_seconds: f64,
     ) -> Self {
         Self {
             send_udp: send_udp.clone(),
@@ -518,6 +524,7 @@ impl SenderServerConfig {
             serve_tcp: serve_tcp.clone(),
             serve_zmq: serve_zmq.clone(),
             max_udp_packet_size: *max_udp_packet_size as usize,
+            udp_dns_cache_seconds: udp_dns_cache_seconds,
         }
     }
 
@@ -541,6 +548,7 @@ impl SenderServerConfig {
                         server_type,
                         socket,
                         &self.max_udp_packet_size,
+                        self.udp_dns_cache_seconds,
                         rx_processed,
                     );
 

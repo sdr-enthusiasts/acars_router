@@ -1,4 +1,4 @@
-FROM rust:1.89.0 AS builder
+FROM rust:1.89.0-bookworm AS builder
 WORKDIR /tmp/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
@@ -44,7 +44,6 @@ ENV AR_LISTEN_UDP_ACARS=5550 \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY rootfs /
-COPY --from=builder /tmp/acars_router/target/release/acars_router /opt/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
     KEPT_PACKAGES=() && \
@@ -55,11 +54,9 @@ RUN set -x && \
     "${KEPT_PACKAGES[@]}" \
     "${TEMP_PACKAGES[@]}"\
     && \
-    # ensure binaries are executable
-    chmod -v a+x \
-    /opt/acars_router \
-    && \
     # clean up
     apt-get remove -y "${TEMP_PACKAGES[@]}" && \
     apt-get autoremove -y && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/*
+
+COPY --from=builder /tmp/acars_router/target/release/acars_router /opt/acars_router
