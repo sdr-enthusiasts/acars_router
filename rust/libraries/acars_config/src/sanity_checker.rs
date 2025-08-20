@@ -411,16 +411,17 @@ mod test {
 
     #[test]
     fn test_check_no_duplicate_ports() {
-        let mut ports: Input = Input::default();
-        // Generate clean input
-        ports.listen_udp_vdlm2 = Some(vec![8008, 65535]);
-        ports.listen_udp_acars = Some(vec![8009, 65534]);
-        ports.listen_tcp_acars = Some(vec![8008, 65533]);
-        ports.listen_tcp_vdlm2 = Some(vec![8011, 65532]);
-        ports.serve_tcp_acars = Some(vec![8012, 65531]);
-        ports.serve_tcp_vdlm2 = Some(vec![8013, 65530]);
-        ports.serve_zmq_acars = Some(vec![8014, 65529]);
-        ports.serve_zmq_vdlm2 = Some(vec![8015, 65528]);
+        let mut ports: Input = Input {
+            listen_udp_vdlm2: Some(vec![8008, 65535]),
+            listen_udp_acars: Some(vec![8009, 65534]),
+            listen_tcp_acars: Some(vec![8008, 65533]),
+            listen_tcp_vdlm2: Some(vec![8011, 65532]),
+            serve_tcp_acars: Some(vec![8012, 65531]),
+            serve_tcp_vdlm2: Some(vec![8013, 65530]),
+            serve_zmq_acars: Some(vec![8014, 65529]),
+            serve_zmq_vdlm2: Some(vec![8015, 65528]),
+            ..Input::default()
+        };
 
         let valid_ports_test: bool = ports.check_no_duplicate_ports();
 
@@ -434,40 +435,41 @@ mod test {
 
     #[test]
     fn test_check_no_duplicate_hosts() {
-        let mut hosts: Input = Input::default();
-        // Generate clean input
-        hosts.receive_tcp_acars = Some(vec![
-            "test.com:8080".to_string(),
-            "192.168.1.1:8080".to_string(),
-        ]);
-        hosts.receive_zmq_acars = Some(vec![
-            "test.com:8081".to_string(),
-            "192.168.1.1:8081".to_string(),
-        ]);
-        hosts.receive_tcp_vdlm2 = Some(vec![
-            "test.com:8082".to_string(),
-            "192.168.1.1:8082".to_string(),
-        ]);
-        hosts.receive_zmq_vdlm2 = Some(vec![
-            "test.com:8083".to_string(),
-            "192.168.1.1:8083".to_string(),
-        ]);
-        hosts.send_tcp_acars = Some(vec![
-            "test.com:8084".to_string(),
-            "192.168.1.1:8084".to_string(),
-        ]);
-        hosts.send_udp_acars = Some(vec![
-            "test.com:8085".to_string(),
-            "192.168.1.1:8085".to_string(),
-        ]);
-        hosts.send_tcp_vdlm2 = Some(vec![
-            "test.com:8086".to_string(),
-            "192.168.1.1:8086".to_string(),
-        ]);
-        hosts.send_udp_vdlm2 = Some(vec![
-            "test.com:8087".to_string(),
-            "192.168.1.1:8087".to_string(),
-        ]);
+        let mut hosts: Input = Input {
+            receive_tcp_acars: Some(vec![
+                "test.com:8080".to_string(),
+                "192.168.1.1:8080".to_string(),
+            ]),
+            receive_zmq_acars: Some(vec![
+                "test.com:8081".to_string(),
+                "192.168.1.1:8081".to_string(),
+            ]),
+            receive_tcp_vdlm2: Some(vec![
+                "test.com:8082".to_string(),
+                "192.168.1.1:8082".to_string(),
+            ]),
+            receive_zmq_vdlm2: Some(vec![
+                "test.com:8083".to_string(),
+                "192.168.1.1:8083".to_string(),
+            ]),
+            send_tcp_acars: Some(vec![
+                "test.com:8084".to_string(),
+                "192.168.1.1:8084".to_string(),
+            ]),
+            send_udp_acars: Some(vec![
+                "test.com:8085".to_string(),
+                "192.168.1.1:8085".to_string(),
+            ]),
+            send_tcp_vdlm2: Some(vec![
+                "test.com:8086".to_string(),
+                "192.168.1.1:8086".to_string(),
+            ]),
+            send_udp_vdlm2: Some(vec![
+                "test.com:8087".to_string(),
+                "192.168.1.1:8087".to_string(),
+            ]),
+            ..Input::default()
+        };
         let valid_hosts_test: bool = hosts.check_no_duplicate_hosts();
 
         hosts.send_udp_vdlm2 = Some(vec![

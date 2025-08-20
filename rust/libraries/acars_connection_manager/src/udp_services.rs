@@ -187,13 +187,13 @@ impl UDPSenderServer {
                     self.proto_name, bytes_error
                 ),
                 Ok(message_as_bytes) => {
-                    self.send_bytes(&message_as_bytes).await;
+                    self.send_bytes(&message_as_bytes[..]).await;
                 }
             }
         }
     }
 
-    async fn send_bytes(&mut self, message_as_bytes: &Vec<u8>) {
+    async fn send_bytes(&mut self, message_as_bytes: &[u8]) {
         let message_size: usize = message_as_bytes.len();
         let mut use_addrs: Vec<(&String, SocketAddr)> = Vec::new();
         for ra in &mut self.resolved_addrs {
