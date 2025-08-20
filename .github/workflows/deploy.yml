@@ -54,7 +54,7 @@ jobs:
       build_latest: ${{ github.event.inputs.use_test_image == 'false' || github.event.inputs.use_test_image == '' }}
       build_baseimage_test: ${{ github.event.inputs.use_test_image == 'true' }}
       build_baseimage_url: :base/:base-test-pr
-      docker_build_file: Dockerfile.local
+      docker_build_file: Dockerfile
     secrets:
       ghcr_token: ${{ secrets.GITHUB_TOKEN }}
 
