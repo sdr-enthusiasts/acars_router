@@ -48,7 +48,7 @@ impl TCPListenerServer {
         channel: Sender<String>,
     ) -> Result<(), io::Error> {
         let listener: TcpListener =
-            TcpListener::bind(format!("0.0.0.0:{}", listen_acars_udp_port)).await?;
+            TcpListener::bind(format!("0.0.0.0:{listen_acars_udp_port}")).await?;
         info!(
             "[TCP Listener SERVER: {}]: Listening on: {}",
             self.proto_name,
@@ -79,10 +79,7 @@ impl TCPListenerServer {
                 )
                 .await
                 {
-                    Ok(_) => debug!(
-                        "[TCP Listener SERVER: {}] connection closed",
-                        new_proto_name
-                    ),
+                    Ok(_) => debug!("[TCP Listener SERVER: {new_proto_name}] connection closed"),
                     Err(e) => error!(
                         "[TCP Listener SERVER: {}] connection error: {}",
                         new_proto_name.clone(),
@@ -125,24 +122,21 @@ async fn process_tcp_sockets(
                     let final_message = if count == 0 {
                         // First case is the first element, which should only ever need a single closing bracket
                         trace!(
-                            "[TCP Listener SERVER: {}] Multiple messages received in a packet.",
-                            proto_name
+                            "[TCP Listener SERVER: {proto_name}] Multiple messages received in a packet."
                         );
-                        format!("{}}}", msg_by_brackets)
+                        format!("{msg_by_brackets}}}")
                     } else if count == split_messages_by_brackets.len() - 1 {
                         // This case is for the last element, which should only ever need a single opening bracket
                         trace!(
-                            "[TCP Listener SERVER: {}] End of a multiple message packet",
-                            proto_name
+                            "[TCP Listener SERVER: {proto_name}] End of a multiple message packet"
                         );
-                        format!("{{{}", msg_by_brackets)
+                        format!("{{{msg_by_brackets}")
                     } else {
                         // This case is for any middle elements, which need both an opening and closing bracket
                         trace!(
-                            "[TCP Listener SERVER: {}] Middle of a multiple message packet",
-                            proto_name
+                            "[TCP Listener SERVER: {proto_name}] Middle of a multiple message packet"
                         );
-                        format!("{{{}}}", msg_by_brackets)
+                        format!("{{{msg_by_brackets}}}")
                     };
                     packet_handler
                         .attempt_message_reassembly(final_message, peer)
@@ -258,7 +252,7 @@ impl TCPReceiverServer {
                         Some(encoded_msg) => {
                             let parse_msg = encoded_msg.to_string();
                             match parse_msg {
-                                Err(parse_error) => error!("{}", parse_error),
+                                Err(parse_error) => error!("{parse_error}"),
                                 Ok(msg) => {
                                     trace!(
                                         "[TCP Receiver Server {}] Received message: {}",
@@ -392,10 +386,7 @@ impl TCPServeServer {
                     tokio::spawn(async move {
                         info!("[TCP SERVER {new_proto}] accepted connection");
                         if let Err(e) = process(&state, stream, addr).await {
-                            info!(
-                                "[TCP SERVER {new_proto}] an error occurred; error = {:?}",
-                                e
-                            );
+                            info!("[TCP SERVER {new_proto}] an error occurred; error = {e:?}");
                         }
                     });
                 }
@@ -414,7 +405,7 @@ async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<AcarsVd
             // state.lock().await.broadcast(&format!("{}\n",received_message)).await;
             match received_message.to_string_newline() {
                 Err(message_parse_error) => {
-                    error!("Failed to parse message to string: {}", message_parse_error)
+                    error!("Failed to parse message to string: {message_parse_error}")
                 }
                 Ok(message) => state.lock().await.broadcast(&message).await,
             }
@@ -433,7 +424,7 @@ async fn process(
     let mut peer: Peer = match Peer::new(state.clone(), lines).await {
         Ok(peer) => peer,
         Err(e) => {
-            error!("[TCP SERVER {addr}]: Error creating peer: {}", e);
+            error!("[TCP SERVER {addr}]: Error creating peer: {e}");
             return Ok(());
         }
     };
@@ -446,7 +437,7 @@ async fn process(
                         debug!("[TCP SERVER {addr}]: Sent message");
                     }
                     Err(e) => {
-                        error!("[TCP SERVER {addr}]: Error sending message: {}", e);
+                        error!("[TCP SERVER {addr}]: Error sending message: {e}");
                     }
                 };
             }
@@ -456,7 +447,7 @@ async fn process(
                 // An error occurred.
                 Some(Err(e)) => {
                     error!(
-                        "[TCP SERVER {addr}]: [YOU SHOULD NEVER SEE THIS!] an error occurred while processing messages; error = {:?}", e
+                        "[TCP SERVER {addr}]: [YOU SHOULD NEVER SEE THIS!] an error occurred while processing messages; error = {e:?}"
                     );
                 }
                 // The stream has been exhausted.

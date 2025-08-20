@@ -426,7 +426,7 @@ impl StartHostListeners for Vec<String> {
     fn start_zmq(self, decoder_type: &str, channel: Sender<String>) {
         for host in self {
             let new_channel: Sender<String> = channel.clone();
-            let proto_name: String = format!("{}_ZMQ_RECEIVER_{}", decoder_type, host);
+            let proto_name: String = format!("{decoder_type}_ZMQ_RECEIVER_{host}");
 
             tokio::spawn(async move {
                 let zmq_listener_server = ZMQReceiverServer {
@@ -434,7 +434,7 @@ impl StartHostListeners for Vec<String> {
                     proto_name: proto_name.to_string(),
                 };
                 match zmq_listener_server.run(new_channel).await {
-                    Ok(_) => debug!("{} connection closed", proto_name),
+                    Ok(_) => debug!("{proto_name} connection closed"),
                     Err(e) => error!("{} connection error: {:?}", proto_name.clone(), e),
                 };
             });
@@ -449,15 +449,15 @@ impl StartHostListeners for Vec<String> {
     ) {
         for host in self {
             let new_channel: Sender<String> = channel.clone();
-            let proto_name: String = format!("{}_TCP_RECEIVER_{}", decoder_type, host);
+            let proto_name: String = format!("{decoder_type}_TCP_RECEIVER_{host}");
             let server_host: String = host.to_string();
             let reassembly_window: f64 = *reassembly_window;
             tokio::spawn(async move {
                 let tcp_receiver_server: TCPReceiverServer =
                     TCPReceiverServer::new(&server_host, &proto_name, reassembly_window);
                 match tcp_receiver_server.run(new_channel).await {
-                    Ok(_) => debug!("{} connection closed", proto_name),
-                    Err(e) => error!("{} connection error: {}", proto_name, e),
+                    Ok(_) => debug!("{proto_name} connection closed"),
+                    Err(e) => error!("{proto_name} connection error: {e}"),
                 }
             });
         }
@@ -489,7 +489,7 @@ impl StartPortListener for Vec<u16> {
     ) {
         for udp_port in self {
             let new_channel: Sender<String> = channel.clone();
-            let server_udp_port: String = format!("0.0.0.0:{}", udp_port);
+            let server_udp_port: String = format!("0.0.0.0:{udp_port}");
             let proto_name: String = format!("{}_UDP_LISTEN_{}", decoder_type, &server_udp_port);
             let server: UDPListenerServer = UDPListenerServer::new(&proto_name, reassembly_window);
             debug!("Starting {decoder_type} UDP server on {server_udp_port}");
@@ -524,7 +524,7 @@ impl SenderServerConfig {
             serve_tcp: serve_tcp.clone(),
             serve_zmq: serve_zmq.clone(),
             max_udp_packet_size: *max_udp_packet_size as usize,
-            udp_dns_cache_seconds: udp_dns_cache_seconds,
+            udp_dns_cache_seconds,
         }
     }
 
@@ -538,9 +538,9 @@ impl SenderServerConfig {
 
         if let Some(send_udp) = self.send_udp {
             // Start the UDP sender servers for {server_type}
-            info!("Starting {} UDP Sender", server_type);
+            info!("Starting {server_type} UDP Sender");
             match UdpSocket::bind("0.0.0.0:0".to_string()).await {
-                Err(e) => error!("[{}] Failed to start UDP sender server: {}", server_type, e),
+                Err(e) => error!("[{server_type}] Failed to start UDP sender server: {e}"),
                 Ok(socket) => {
                     let (tx_processed, rx_processed) = mpsc::channel(32);
                     let udp_sender_server: UDPSenderServer = UDPSenderServer::new(
@@ -568,7 +568,7 @@ impl SenderServerConfig {
                 let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
                 let s_type: String = server_type.to_string();
-                info!("Starting {} TCP Sender {} ", server_type, host);
+                info!("Starting {server_type} TCP Sender {host} ");
                 tokio::spawn(async move { new_state.start_tcp(&s_type, &host).await });
             }
         }
@@ -576,9 +576,9 @@ impl SenderServerConfig {
         if let Some(serve_tcp) = self.serve_tcp {
             // Start the TCP servers for {server_type}
             for host in serve_tcp {
-                let hostname: String = format!("0.0.0.0:{}", host);
+                let hostname: String = format!("0.0.0.0:{host}");
                 let socket: Result<TcpListener, io::Error> = TcpListener::bind(&hostname).await;
-                info!("Starting {} TCP Server {} ", server_type, hostname);
+                info!("Starting {server_type} TCP Server {hostname} ");
                 match socket {
                     Err(e) => error!("[TCP SERVE {server_type}]: Error binding to {host}: {e}"),
                     Ok(socket) => {
@@ -586,7 +586,7 @@ impl SenderServerConfig {
 
                         let tcp_sender_server: TCPServeServer = TCPServeServer::new(
                             socket,
-                            format!("{} {}", server_type, hostname).as_str(),
+                            format!("{server_type} {hostname}").as_str(),
                         );
                         let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
                             Arc::clone(&sender_servers);
@@ -612,12 +612,11 @@ impl SenderServerConfig {
                 let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
                 let (tx_processed, rx_processed) = mpsc::channel(32);
-                info!("Starting {}", name);
+                info!("Starting {name}");
                 match socket {
-                    Err(e) => error!(
-                        "Error starting ZMQ {server_type} server on port {port}: {:?}",
-                        e
-                    ),
+                    Err(e) => {
+                        error!("Error starting ZMQ {server_type} server on port {port}: {e:?}")
+                    }
                     Ok(socket) => {
                         let zmq_sender_server: SenderServer<Publish> =
                             SenderServer::new(&server_address, &name, socket, rx_processed);
@@ -645,13 +644,13 @@ trait SenderServers {
 #[async_trait]
 impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
     async fn monitor(self, mut rx_processed: Receiver<AcarsVdlm2Message>, name: &str) {
-        debug!("Starting the {} Output Queue", name);
+        debug!("Starting the {name} Output Queue");
         while let Some(message) = rx_processed.recv().await {
-            debug!("[CHANNEL SENDER {name}] Message received in the output queue. Sending to {} clients", name);
+            debug!("[CHANNEL SENDER {name}] Message received in the output queue. Sending to {name} clients");
             for sender_server in self.lock().await.iter() {
                 match sender_server.send(message.clone()).await {
                     Ok(_) => debug!("[CHANNEL SENDER {name}] Successfully sent the {name} message"),
-                    Err(e) => error!("[CHANNEL SENDER {name}]: Error sending message: {}", e),
+                    Err(e) => error!("[CHANNEL SENDER {name}]: Error sending message: {e}"),
                 }
             }
         }
@@ -717,7 +716,7 @@ impl SocketListenerServer {
                     SocketType::Tcp => {
                         trace!(
                             "[{} Receiver Server {}] Starting",
-                            self.socket_type.to_string(),
+                            self.socket_type,
                             self.proto_name
                         );
                         let open_stream: io::Result<StubbornIo<TcpStream, SocketAddr>> =
@@ -730,9 +729,9 @@ impl SocketListenerServer {
                             Err(stream_error) => {
                                 error!(
                                     "[{} Receiver Server {}] Error connecting to {}: {}",
-                                    self.socket_type.to_string(),
+                                    self.socket_type,
                                     self.proto_name,
-                                    socket_address.to_string(),
+                                    socket_address,
                                     &stream_error
                                 );
                                 Err(stream_error.into())
@@ -776,18 +775,18 @@ impl SocketListenerServer {
                                             {
                                                 let final_message: String = if count == 0 {
                                                     // First case is the first element, which should only ever need a single closing bracket
-                                                    trace!("[{} Receiver Server {}]Multiple messages received in a packet.", self.socket_type.to_string(), self.proto_name);
-                                                    format!("{}}}", msg_by_brackets)
+                                                    trace!("[{} Receiver Server {}]Multiple messages received in a packet.", self.socket_type, self.proto_name);
+                                                    format!("{msg_by_brackets}}}")
                                                 } else if count
                                                     == split_messages_by_brackets.len() - 1
                                                 {
                                                     // This case is for the last element, which should only ever need a single opening bracket
-                                                    trace!("[{} Receiver Server {}] End of a multiple message packet", self.socket_type.to_string(), self.proto_name);
-                                                    format!("{{{}", msg_by_brackets)
+                                                    trace!("[{} Receiver Server {}] End of a multiple message packet", self.socket_type, self.proto_name);
+                                                    format!("{{{msg_by_brackets}")
                                                 } else {
                                                     // This case is for any middle elements, which need both an opening and closing bracket
-                                                    trace!("[{} Receiver Server {}] Middle of a multiple message packet", self.socket_type.to_string(), self.proto_name);
-                                                    format!("{{{}}}", msg_by_brackets)
+                                                    trace!("[{} Receiver Server {}] Middle of a multiple message packet", self.socket_type, self.proto_name);
+                                                    format!("{{{msg_by_brackets}}}")
                                                 };
                                                 packet_handler
                                                     .attempt_message_reassembly(
@@ -825,9 +824,7 @@ impl SocketListenerServer {
                                 Err(socket_error) => {
                                     error!(
                                         "[{} SERVER: {} ] Error creating socket address: {}",
-                                        self.socket_type.to_string(),
-                                        self.proto_name,
-                                        socket_error
+                                        self.socket_type, self.proto_name, socket_error
                                     );
                                     Err(socket_error.into())
                                 }
@@ -844,14 +841,12 @@ impl SocketListenerServer {
                         match open_socket {
                             Err(e) => error!(
                                 "[{} SERVER: {}] Error listening on port: {}",
-                                self.socket_type.to_string(),
-                                self.proto_name,
-                                e
+                                self.socket_type, self.proto_name, e
                             ),
                             Ok(socket) => {
                                 info!(
                                     "[{} SERVER: {}]: Listening on: {}",
-                                    self.socket_type.to_string(),
+                                    self.socket_type,
                                     self.proto_name,
                                     socket.local_addr()?
                                 );
@@ -867,7 +862,7 @@ impl SocketListenerServer {
                                         ) {
                                             Ok(s) => s,
                                             Err(_) => {
-                                                warn!("[{} SERVER: {}] Invalid message received from {}", self.socket_type.to_string(), self.proto_name, peer);
+                                                warn!("[{} SERVER: {}] Invalid message received from {}", self.socket_type, self.proto_name, peer);
                                                 continue;
                                             }
                                         };
@@ -897,18 +892,18 @@ impl SocketListenerServer {
                                                 {
                                                     let final_message: String = if count == 0 {
                                                         // First case is the first element, which should only ever need a single closing bracket
-                                                        trace!("[{} SERVER: {}] Multiple messages received in a packet.", self.socket_type.to_string(), self.proto_name);
-                                                        format!("{}}}", msg_by_brackets)
+                                                        trace!("[{} SERVER: {}] Multiple messages received in a packet.", self.socket_type, self.proto_name);
+                                                        format!("{msg_by_brackets}}}")
                                                     } else if count
                                                         == split_messages_by_brackets.len() - 1
                                                     {
                                                         // This case is for the last element, which should only ever need a single opening bracket
-                                                        trace!("[{} SERVER: {}] End of a multiple message packet", self.socket_type.to_string(), self.proto_name);
-                                                        format!("{{{}", msg_by_brackets)
+                                                        trace!("[{} SERVER: {}] End of a multiple message packet", self.socket_type, self.proto_name);
+                                                        format!("{{{msg_by_brackets}")
                                                     } else {
                                                         // This case is for any middle elements, which need both an opening and closing bracket
-                                                        trace!("[{} SERVER: {}] Middle of a multiple message packet", self.socket_type.to_string(), self.proto_name);
-                                                        format!("{{{}}}", msg_by_brackets)
+                                                        trace!("[{} SERVER: {}] Middle of a multiple message packet", self.socket_type, self.proto_name);
+                                                        format!("{{{msg_by_brackets}}}")
                                                     };
                                                     packet_handler
                                                         .attempt_message_reassembly(

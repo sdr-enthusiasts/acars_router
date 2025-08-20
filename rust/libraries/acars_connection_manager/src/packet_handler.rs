@@ -44,35 +44,25 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
             Some(reassembled_msg) => {
                 let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
                 match parsed_msg {
-                    Err(parse_error) => error!(
-                        "[{} Listener Server: {}] {}",
-                        listener_type, proto_name, parse_error
-                    ),
+                    Err(parse_error) => {
+                        error!("[{listener_type} Listener Server: {proto_name}] {parse_error}")
+                    }
                     Ok(msg) => {
                         trace!(
-                            "[{} Listener SERVER: {}] Received message: {:?}",
-                            listener_type,
-                            proto_name,
-                            msg
+                            "[{listener_type} Listener SERVER: {proto_name}] Received message: {msg:?}"
                         );
                         match channel.send(msg).await {
                             Ok(_) => debug!(
-                                "[{} Listener SERVER: {}] Message sent to channel",
-                                listener_type, proto_name
+                                "[{listener_type} Listener SERVER: {proto_name}] Message sent to channel"
                             ),
                             Err(e) => error!(
-                                "[{} Listener SERVER: {}] sending message to channel: {}",
-                                listener_type, proto_name, e
+                                "[{listener_type} Listener SERVER: {proto_name}] sending message to channel: {e}"
                             ),
                         };
                     }
                 }
             }
-            None => trace!(
-                "[{} Listener SERVER: {}] Invalid Message",
-                listener_type,
-                proto_name
-            ),
+            None => trace!("[{listener_type} Listener SERVER: {proto_name}] Invalid Message"),
         }
     }
 }
@@ -118,7 +108,7 @@ impl PacketHandler {
             );
             let (time, message_to_test) = self.queue.lock().await.get(&peer).unwrap().clone();
             old_time = Some(time); // We have a good peer, save the time
-            message_for_peer = format!("{}{}", message_to_test, new_message_string);
+            message_for_peer = format!("{message_to_test}{new_message_string}");
             match message_for_peer.decode_message() {
                 Err(e) => info!("{e}"),
                 Ok(msg_deserialized) => {

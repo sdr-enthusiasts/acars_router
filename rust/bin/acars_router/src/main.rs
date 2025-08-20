@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             trace!("Config options are sane");
         }
         Err(e) => {
-            error!("{}", e);
+            error!("{e}");
             process::exit(1);
         }
     }

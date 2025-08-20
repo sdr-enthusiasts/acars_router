@@ -40,7 +40,12 @@ pub struct Input {
     )]
     pub max_udp_packet_size: u64,
     /// Number of seconds DNS resolve will be cached for UDP outputs
-    #[clap(long, env = "AR_UDP_DNS_CACHE_SECONDS", value_parser, default_value = "15.0")]
+    #[clap(
+        long,
+        env = "AR_UDP_DNS_CACHE_SECONDS",
+        value_parser,
+        default_value = "15.0"
+    )]
     pub udp_dns_cache_seconds: f64,
     // Message Modification
     /// Set to true to enable message modification

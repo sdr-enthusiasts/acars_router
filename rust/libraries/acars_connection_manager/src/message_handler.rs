@@ -388,14 +388,12 @@ pub fn print_formatted_stats(
 ) -> String {
     let mut output: String = String::new();
     output.push_str(&format!(
-            "{} in the last {} minute(s):\nTotal messages processed: {}\nTotal messages processed since last update: {}\n",
-            queue_type, stats_minutes, total_all_time, total_since_last
+            "{queue_type} in the last {stats_minutes} minute(s):\nTotal messages processed: {total_all_time}\nTotal messages processed since last update: {total_since_last}\n"
         ));
 
     if has_counted_freqs && frequencies.is_some() {
-        output.push_str(
-            format!("{} Frequencies logged since container start:\n", queue_type).as_str(),
-        );
+        output
+            .push_str(format!("{queue_type} Frequencies logged since container start:\n").as_str());
         if let Some(freqs) = frequencies {
             for freq in freqs.iter() {
                 let percentage: f64 = (freq.count as f64 / total_all_time as f64) * 100.0;
@@ -409,7 +407,7 @@ pub fn print_formatted_stats(
             }
         }
     } else if frequencies.is_some() {
-        output.push_str(format!("{} No frequencies logged.\n", queue_type).as_str());
+        output.push_str(format!("{queue_type} No frequencies logged.\n").as_str());
     }
 
     output
@@ -439,7 +437,7 @@ pub async fn print_stats(
                 f.lock().await.sort_by(|a, b| b.count.cmp(&a.count));
             }
 
-            if !has_counted_freqs && f.lock().await.len() > 0 {
+            if !has_counted_freqs && !f.lock().await.is_empty() {
                 has_counted_freqs = true;
             }
         }
@@ -521,7 +519,7 @@ fn hash_message(mut message: AcarsVdlm2Message) -> MessageResult<u64> {
     match parse_msg {
         Err(parse_error) => Err(parse_error),
         Ok(msg) => {
-            trace!("[Hasher] Message to be hashed: {}", msg);
+            trace!("[Hasher] Message to be hashed: {msg}");
             msg.hash(&mut hasher);
             let hashed_value = hasher.finish();
             Ok(hashed_value)

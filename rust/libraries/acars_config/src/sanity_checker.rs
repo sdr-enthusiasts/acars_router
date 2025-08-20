@@ -238,10 +238,7 @@ impl HostDuplicateCheck for Vec<String> {
     fn check_host(self, check_type: &str) -> bool {
         let unique_hosts = has_unique_elements(self.to_vec());
         if !unique_hosts {
-            error!(
-                "Duplicate host in {} configuration!\nContents: {:?}",
-                check_type, self
-            );
+            error!("Duplicate host in {check_type} configuration!\nContents: {self:?}");
         }
         unique_hosts
     }
@@ -276,12 +273,12 @@ impl ValidatePorts for Option<Vec<u16>> {
         // if we have a zero length vector the input is always bad
         if let Some(ports) = self {
             if ports.is_empty() {
-                error!("{} An empty listen ports vec has been provided", name);
+                error!("{name} An empty listen ports vec has been provided");
                 return false;
             }
             for port in ports {
                 if port.eq(&0) {
-                    error!("{} Listen Port is invalid as it is zero", name);
+                    error!("{name} Listen Port is invalid as it is zero");
                     return false;
                 }
             }
@@ -298,10 +295,7 @@ impl ValidateHosts for Option<Vec<String>> {
     fn check_host_is_valid(&self, name: &str) -> bool {
         if let Some(sockets) = self {
             if sockets.is_empty() {
-                error!(
-                    "{} has been provided, but there are no socket addresses",
-                    name
-                );
+                error!("{name} has been provided, but there are no socket addresses");
                 return false;
             }
             for socket in sockets {
@@ -311,27 +305,27 @@ impl ValidateHosts for Option<Vec<String>> {
                     let socket_parts = socket.split(':').collect::<Vec<_>>();
                     match socket_parts.len() {
                         1 => {
-                            error!("{} has no port specified for: {}", name, socket);
+                            error!("{name} has no port specified for: {socket}");
                             return false;
                         }
                         2 => {
                             let port = socket_parts[1];
                             // validate the port is numeric and between 1-65535
                             if !port.chars().all(|c| c.is_numeric()) {
-                                error!("{} Port is not numeric for: {}", name, socket);
+                                error!("{name} Port is not numeric for: {socket}");
                                 return false;
                             } else {
                                 match port.parse::<u16>() {
                                     Ok(parsed_socket) => {
                                         if parsed_socket == 0 {
-                                            error!("{}: Socket address is valid, but the port provided is zero: {}", name, socket);
+                                            error!("{name}: Socket address is valid, but the port provided is zero: {socket}");
                                             return false;
                                         } else {
-                                            trace!("{} is a valid socket address", socket);
+                                            trace!("{socket} is a valid socket address");
                                         }
                                     }
                                     Err(_) => {
-                                        error!("{} Port is invalid for: {}", name, socket);
+                                        error!("{name} Port is invalid for: {socket}");
                                         return false;
                                     }
                                 }
@@ -339,8 +333,7 @@ impl ValidateHosts for Option<Vec<String>> {
                         }
                         _ => {
                             error!(
-                                "{} has an address with more than one colon in it: {}",
-                                name, socket
+                                "{name} has an address with more than one colon in it: {socket}"
                             );
                             return false;
                         }
@@ -350,17 +343,16 @@ impl ValidateHosts for Option<Vec<String>> {
                     match parse_socket {
                         Err(parse_error) => {
                             error!(
-                                "{}: Failed to validate that {} is a properly formatted socket: {}",
-                                name, socket, parse_error
+                                "{name}: Failed to validate that {socket} is a properly formatted socket: {parse_error}"
                             );
                             return false;
                         }
                         Ok(parsed_socket) => {
                             if parsed_socket.port().eq(&0) {
-                                error!("{}: Socket address is valid, but the port provided is zero: {}", name, socket);
+                                error!("{name}: Socket address is valid, but the port provided is zero: {socket}");
                                 return false;
                             } else {
-                                trace!("{} is a valid socket address", socket);
+                                trace!("{socket} is a valid socket address");
                             }
                         }
                     }

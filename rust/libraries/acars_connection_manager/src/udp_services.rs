@@ -170,7 +170,7 @@ impl UDPSenderServer {
             socket,
             max_udp_packet_size: *max_udp_packet_size,
             channel: rx_processed,
-            resolved_addrs: resolved_addrs,
+            resolved_addrs,
             dns_cache_duration: Duration::from_secs_f64(dns_cache_seconds),
         }
     }

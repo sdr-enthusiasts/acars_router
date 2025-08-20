@@ -87,7 +87,7 @@ impl ZMQListenerServer {
     }
     pub async fn run(self, listen_acars_zmq_port: String, channel: Sender<String>) -> Result<()> {
         debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
-        let address = format!("tcp://0.0.0.0:{}", listen_acars_zmq_port);
+        let address = format!("tcp://0.0.0.0:{listen_acars_zmq_port}");
         debug!(
             "[ZMQ LISTENER SERVER {}] Listening on {}",
             self.proto_name, address
@@ -149,10 +149,9 @@ impl SenderServer<Publish> {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 match message.to_string_newline() {
-                    Err(decode_error) => error!(
-                        "[ZMQ SENDER]: Error parsing message to string: {}",
-                        decode_error
-                    ),
+                    Err(decode_error) => {
+                        error!("[ZMQ SENDER]: Error parsing message to string: {decode_error}")
+                    }
                     // For some Subscribers it appears that a "blank" topic causes it to never receive the message
                     // This needs more investigation...
                     // Right now it seems that any Sub who listens to the blank topic gets all of the messages, even
@@ -161,10 +160,9 @@ impl SenderServer<Publish> {
                     // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
                     Ok(payload) => match self.socket.send(vec![&payload]).await {
                         Ok(_) => (),
-                        Err(e) => error!(
-                            "[ZMQ SENDER]: Error sending message on 'acars' topic: {:?}",
-                            e
-                        ),
+                        Err(e) => {
+                            error!("[ZMQ SENDER]: Error sending message on 'acars' topic: {e:?}")
+                        }
                     },
                 }
             }
