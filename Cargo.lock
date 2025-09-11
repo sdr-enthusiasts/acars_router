@@ -21,6 +21,7 @@ dependencies = [
  "futures",
  "log",
  "sdre-stubborn-io",
+ "socket2",
  "tmq",
  "tokio",
  "tokio-stream",
@@ -38,6 +39,7 @@ dependencies = [
  "sdre-rust-logging",
  "serde",
  "serde_json",
+ "socket2",
  "tokio",
 ]
 

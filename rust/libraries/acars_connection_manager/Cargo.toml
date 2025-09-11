@@ -18,5 +18,6 @@ futures.workspace = true
 async-trait.workspace = true
 zmq.workspace = true
 tmq.workspace = true
+socket2.workspace = true
 #acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
 #acars_vdlm2_parser = { git = "https://github.com/fredclausen/acars_vdlm2_parser", branch = "hfdl-and-dependency-updates" }
