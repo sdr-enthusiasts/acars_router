@@ -21,6 +21,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, Mutex, MutexGuard};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
+use std::time::Duration;
 
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use crate::{reconnect_options, Rx, SenderServer, Shared};
@@ -199,6 +200,16 @@ impl TCPReceiverServer {
                 Err(e)?
             }
         };
+
+        // Set TCP KeepAlive
+
+        let sock_ref = socket2::SockRef::from(&*stream);
+
+        let mut ka = socket2::TcpKeepalive::new();
+        ka = ka.with_time(Duration::from_secs(5));
+        ka = ka.with_interval(Duration::from_secs(5));
+
+        sock_ref.set_tcp_keepalive(&ka)?;
 
         // create a buffered reader and send the messages to the channel
 

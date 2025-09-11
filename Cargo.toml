@@ -27,6 +27,7 @@ serde_json = "1.0.142"
 sdre-rust-logging = "0.3.21"
 clap = { version = "4.5.43", features = ["derive", "env"] }
 sdre-stubborn-io = "0.6.11"
+socket2 = "0.6.0"
 tokio-util = { version = "0.7.16", features = ["full"] }
 tokio-stream = "0.1.17"
 futures = "0.3.31"

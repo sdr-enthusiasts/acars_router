@@ -19,3 +19,4 @@ tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sdre-rust-logging.workspace = true
+socket2.workspace = true
