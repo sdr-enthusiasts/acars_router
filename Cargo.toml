@@ -20,18 +20,18 @@ license = "MIT"
 rust-version = "1.66.1"
 
 [workspace.dependencies]
-log = "0.4.27"
+log = "0.4.28"
 tokio = { version = "1.47.1", features = ["full", "tracing"] }
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.142"
-sdre-rust-logging = "0.3.21"
-clap = { version = "4.5.43", features = ["derive", "env"] }
-sdre-stubborn-io = "0.6.11"
+serde_json = "1.0.145"
+sdre-rust-logging = "0.3.22"
+clap = { version = "4.5.48", features = ["derive", "env"] }
+sdre-stubborn-io = "0.6.12"
 socket2 = "0.6.0"
 tokio-util = { version = "0.7.16", features = ["full"] }
 tokio-stream = "0.1.17"
 futures = "0.3.31"
-async-trait = "0.1.88"
+async-trait = "0.1.89"
 zmq = "0.10.0"
 tmq = "0.5.0"
 acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.4.0" }
