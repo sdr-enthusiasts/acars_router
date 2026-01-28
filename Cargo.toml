@@ -21,15 +21,15 @@ rust-version = "1.66.1"
 
 [workspace.dependencies]
 log = "0.4.29"
-tokio = { version = "1.48.0", features = ["full", "tracing"] }
+tokio = { version = "1.49.0", features = ["full", "tracing"] }
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.145"
-sdre-rust-logging = "0.3.23"
-clap = { version = "4.5.53", features = ["derive", "env"] }
-sdre-stubborn-io = "0.6.14"
-socket2 = "0.6.1"
-tokio-util = { version = "0.7.17", features = ["full"] }
-tokio-stream = "0.1.17"
+serde_json = "1.0.149"
+sdre-rust-logging = "0.3.24"
+clap = { version = "4.5.55", features = ["derive", "env"] }
+sdre-stubborn-io = "0.6.15"
+socket2 = "0.6.2"
+tokio-util = { version = "0.7.18", features = ["full"] }
+tokio-stream = "0.1.18"
 futures = "0.3.31"
 async-trait = "0.1.89"
 zmq = "0.10.0"
