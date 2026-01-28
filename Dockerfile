@@ -1,4 +1,4 @@
-FROM rust:1.92.0-bookworm AS builder
+FROM rust:1.93.0-bookworm AS builder
 WORKDIR /tmp/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
