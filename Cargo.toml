@@ -24,13 +24,13 @@ log = "0.4.29"
 tokio = { version = "1.49.0", features = ["full", "tracing"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.149"
-sdre-rust-logging = "0.3.24"
-clap = { version = "4.5.55", features = ["derive", "env"] }
-sdre-stubborn-io = "0.6.15"
+sdre-rust-logging = "0.3.25"
+clap = { version = "4.5.60", features = ["derive", "env"] }
+sdre-stubborn-io = "0.6.17"
 socket2 = "0.6.2"
 tokio-util = { version = "0.7.18", features = ["full"] }
 tokio-stream = "0.1.18"
-futures = "0.3.31"
+futures = "0.3.32"
 async-trait = "0.1.89"
 zmq = "0.10.0"
 tmq = "0.5.0"
