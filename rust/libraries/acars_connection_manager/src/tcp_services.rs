@@ -14,6 +14,7 @@ use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Receiver;
@@ -21,7 +22,6 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, Mutex, MutexGuard};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
-use std::time::Duration;
 
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use crate::{reconnect_options, Rx, SenderServer, Shared};
