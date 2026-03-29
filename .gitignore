@@ -174,3 +174,4 @@ test_data/*.patched
 /target
 .idea
 .direnv
+.pre-commit-config.yaml
