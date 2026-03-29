@@ -65,25 +65,13 @@
                 pkgs.typos
                 pkgs.vttest
                 pkgs.markdownlint-cli2
-              ]
-              ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-                pkgs.cargo-llvm-cov
-                pkgs.cachix
               ];
 
               # Extra dev packages provided by mkCheck (includes rustToolchain)
               extraDev = chk.passthru.devPackages or [ ];
 
               # Library path packages: whatever mkCheck wants + your GL/Wayland bits
-              libPkgs =
-                (chk.passthru.libPath or [ ])
-                ++ [
-                  pkgs.libGL
-                  pkgs.libxkbcommon
-                ]
-                ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-                  pkgs.wayland
-                ];
+              libPkgs = chk.passthru.libPath or [ ];
             in
             {
               default = pkgs.mkShell {
