@@ -53,7 +53,7 @@ jobs:
           git config --global user.email "noreply@github.com"
           git config --global user.name "github[bot]"
 
-      - uses: fredsystems/flake-update-action@2eef2f2f7aac684882457b7f5f6fd81b9202df14 # v3.0.2
+      - uses: fredsystems/flake-update-action@76d4f6b1d4d924c9ff073075b685d96474fb87f2 # v3.0.4
         with:
           dependency: ${{ matrix.flake }}
           pull-request-token: ${{ secrets.PAT }}
