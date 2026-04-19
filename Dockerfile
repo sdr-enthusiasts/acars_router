@@ -1,4 +1,4 @@
-FROM rust:1.94.1-bookworm@sha256:6ae102bdbf528294bc79ad6e1fae682f6f7c2a6e6621506ba959f9685b308a55 AS builder
+FROM rust:1.95.0-bookworm@sha256:225aa827d55fae9816a0492284592827e794a5247c6c6a961c3b471b344295ec AS builder
 WORKDIR /tmp/acars_router
 # hadolint ignore=DL3008,DL3003,SC1091
 RUN set -x && \
