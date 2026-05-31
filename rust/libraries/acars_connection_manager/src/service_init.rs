@@ -9,11 +9,8 @@ use crate::message_handler::MessageHandlerConfig;
 use crate::tcp_services::{TCPListenerServer, TCPReceiverServer, TCPServeServer};
 use crate::udp_services::{UDPListenerServer, UDPSenderServer};
 use crate::zmq_services::{ZMQListenerServer, ZMQReceiverServer};
-use crate::{
-    OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared, dns,
-    reconnect_options,
-};
-use acars_config::{Input, Protocol};
+use crate::{OutputServerConfig, SenderServer, SenderServerConfig, Shared, dns, reconnect_options};
+use acars_config::{Input, Protocol, ProtocolIo};
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use async_trait::async_trait;
 use log::{debug, error, info, trace};
@@ -51,275 +48,15 @@ pub async fn start_processes(args: Input) {
     // hand a clone to every receiver/sender that performs hostname lookups.
     let resolver = dns::new_shared_resolver();
 
-    if args.protocol(Protocol::Acars).is_configured() {
-        let message_handler_config_acars: MessageHandlerConfig =
-            MessageHandlerConfig::new(&args, "ACARS");
-
-        let (tx_receivers_acars, rx_receivers_acars) = mpsc::channel(32);
-        // Create the input channel processed messages will be sent to
-        let (tx_processed_acars, rx_processed_acars) = mpsc::channel(32);
-
-        // start the input servers
-        debug!("Starting input servers");
-        // start_listener_servers(&config, tx_receivers_acars, tx_receivers_vdlm);
-        info!("Starting ACARS input servers");
-        let acars_input_config: OutputServerConfig = OutputServerConfig::new(
-            args.listen_udp_acars.as_ref(),
-            args.listen_tcp_acars.as_ref(),
-            args.listen_zmq_acars.as_ref(),
-            args.receive_tcp_acars.as_ref(),
-            args.receive_zmq_acars.as_ref(),
-            args.reassembly_window,
-            ServerType::Acars,
-        )
-        .with_resolver(Arc::clone(&resolver));
-        tokio::spawn(async move {
-            acars_input_config.start_listeners(tx_receivers_acars);
-        });
-
-        info!("Starting ACARS Output Servers");
-        let acars_output_config: SenderServerConfig = SenderServerConfig::new(
-            args.send_udp_acars.as_ref(),
-            args.send_tcp_acars.as_ref(),
-            args.serve_tcp_acars.as_ref(),
-            args.serve_zmq_acars.as_ref(),
-            args.max_udp_packet_size,
-            args.udp_dns_cache_seconds,
-        )
-        .with_resolver(Arc::clone(&resolver));
-
-        tokio::spawn(async move {
-            acars_output_config
-                .start_senders(rx_processed_acars, "ACARS")
-                .await;
-        });
-        tokio::spawn(async move {
-            Box::pin(
-                message_handler_config_acars
-                    .watch_message_queue(rx_receivers_acars, tx_processed_acars),
-            )
-            .await;
-        });
-    } else {
-        info!(
-            "Not starting the ACARS message handler task. No input and/or output sources specified."
-        );
-    }
-
-    if args.protocol(Protocol::Vdlm2).is_configured() {
-        let message_handler_config_vdlm: MessageHandlerConfig =
-            MessageHandlerConfig::new(&args, "VDLM");
-
-        // VDLM
-        // Create the input channel all receivers will send their data to.
-        let (tx_receivers_vdlm, rx_receivers_vdlm) = mpsc::channel(32);
-        // Create the input channel processed messages will be sent to
-        let (tx_processed_vdlm, rx_processed_vdlm) = mpsc::channel(32);
-
-        let vdlm_input_config: OutputServerConfig = OutputServerConfig::new(
-            args.listen_udp_vdlm2.as_ref(),
-            args.listen_tcp_vdlm2.as_ref(),
-            args.listen_zmq_vdlm2.as_ref(),
-            args.receive_tcp_vdlm2.as_ref(),
-            args.receive_zmq_vdlm2.as_ref(),
-            args.reassembly_window,
-            ServerType::Vdlm2,
-        )
-        .with_resolver(Arc::clone(&resolver));
-        tokio::spawn(async move {
-            vdlm_input_config.start_listeners(tx_receivers_vdlm);
-        });
-
-        info!("Starting VDLM Output Servers");
-        let vdlm_output_config: SenderServerConfig = SenderServerConfig::new(
-            args.send_udp_vdlm2.as_ref(),
-            args.send_tcp_vdlm2.as_ref(),
-            args.serve_tcp_vdlm2.as_ref(),
-            args.serve_zmq_vdlm2.as_ref(),
-            args.max_udp_packet_size,
-            args.udp_dns_cache_seconds,
-        )
-        .with_resolver(Arc::clone(&resolver));
-
-        tokio::spawn(async move {
-            vdlm_output_config
-                .start_senders(rx_processed_vdlm, "VDLM")
-                .await;
-        });
-
-        tokio::spawn(async move {
-            Box::pin(
-                message_handler_config_vdlm
-                    .watch_message_queue(rx_receivers_vdlm, tx_processed_vdlm),
-            )
-            .await;
-        });
-    } else {
-        info!(
-            "Not starting the VDLM message handler task. No input and/or output sources specified."
-        );
-    }
-
-    if args.protocol(Protocol::Hfdl).is_configured() {
-        let message_handler_config_hfdl: MessageHandlerConfig =
-            MessageHandlerConfig::new(&args, "HFDL");
-        // HFDL
-        // Create the input channel all receivers will send their data to.
-        let (tx_receivers_hfdl, rx_receivers_hfdl) = mpsc::channel(32);
-        // Create the input channel processed messages will be sent to
-        let (tx_processed_hfdl, rx_processed_hfdl) = mpsc::channel(32);
-
-        let hfdl_input_config: OutputServerConfig = OutputServerConfig::new(
-            args.listen_udp_hfdl.as_ref(),
-            args.listen_tcp_hfdl.as_ref(),
-            args.listen_zmq_hfdl.as_ref(),
-            args.receive_tcp_hfdl.as_ref(),
-            args.receive_zmq_hfdl.as_ref(),
-            args.reassembly_window,
-            ServerType::Hfdl,
-        )
-        .with_resolver(Arc::clone(&resolver));
-
-        tokio::spawn(async move {
-            hfdl_input_config.start_listeners(tx_receivers_hfdl);
-        });
-
-        info!("Starting HFDL Output Servers");
-        let hfdl_output_config: SenderServerConfig = SenderServerConfig::new(
-            args.send_udp_hfdl.as_ref(),
-            args.send_tcp_hfdl.as_ref(),
-            args.serve_tcp_hfdl.as_ref(),
-            args.serve_zmq_hfdl.as_ref(),
-            args.max_udp_packet_size,
-            args.udp_dns_cache_seconds,
-        )
-        .with_resolver(Arc::clone(&resolver));
-
-        tokio::spawn(async move {
-            hfdl_output_config
-                .start_senders(rx_processed_hfdl, "HFDL")
-                .await;
-        });
-
-        tokio::spawn(async move {
-            Box::pin(
-                message_handler_config_hfdl
-                    .watch_message_queue(rx_receivers_hfdl, tx_processed_hfdl),
-            )
-            .await;
-        });
-    } else {
-        info!(
-            "Not starting the HFDL message handler task. No input and/or output sources specified."
-        );
-    }
-
-    if args.protocol(Protocol::Imsl).is_configured() {
-        let message_handler_config_imsl: MessageHandlerConfig =
-            MessageHandlerConfig::new(&args, "IMSL");
-        // IMSL
-        // Create the input channel all receivers will send their data to.
-        let (tx_receivers_imsl, rx_receivers_imsl) = mpsc::channel(32);
-        // Create the input channel processed messages will be sent to
-        let (tx_processed_imsl, rx_processed_imsl) = mpsc::channel(32);
-
-        let imsl_input_config: OutputServerConfig = OutputServerConfig::new(
-            args.listen_udp_imsl.as_ref(),
-            args.listen_tcp_imsl.as_ref(),
-            args.listen_zmq_imsl.as_ref(),
-            args.receive_tcp_imsl.as_ref(),
-            args.receive_zmq_imsl.as_ref(),
-            args.reassembly_window,
-            ServerType::Imsl,
-        )
-        .with_resolver(Arc::clone(&resolver));
-
-        tokio::spawn(async move {
-            imsl_input_config.start_listeners(tx_receivers_imsl);
-        });
-
-        info!("Starting IMSL Output Servers");
-        let imsl_output_config: SenderServerConfig = SenderServerConfig::new(
-            args.send_udp_imsl.as_ref(),
-            args.send_tcp_imsl.as_ref(),
-            args.serve_tcp_imsl.as_ref(),
-            args.serve_zmq_imsl.as_ref(),
-            args.max_udp_packet_size,
-            args.udp_dns_cache_seconds,
-        )
-        .with_resolver(Arc::clone(&resolver));
-
-        tokio::spawn(async move {
-            imsl_output_config
-                .start_senders(rx_processed_imsl, "IMSL")
-                .await;
-        });
-
-        tokio::spawn(async move {
-            Box::pin(
-                message_handler_config_imsl
-                    .watch_message_queue(rx_receivers_imsl, tx_processed_imsl),
-            )
-            .await;
-        });
-    } else {
-        info!(
-            "Not starting the IMSL message handler task. No input and/or output sources specified."
-        );
-    }
-
-    if args.protocol(Protocol::Irdm).is_configured() {
-        let message_handler_config_irdm: MessageHandlerConfig =
-            MessageHandlerConfig::new(&args, "IRDM");
-        // IRDM
-        // Create the input channel all receivers will send their data to.
-        let (tx_receivers_irdm, rx_receivers_irdm) = mpsc::channel(32);
-        // Create the input channel processed messages will be sent to
-        let (tx_processed_irdm, rx_processed_irdm) = mpsc::channel(32);
-
-        let irdm_input_config: OutputServerConfig = OutputServerConfig::new(
-            args.listen_udp_irdm.as_ref(),
-            args.listen_tcp_irdm.as_ref(),
-            args.listen_zmq_irdm.as_ref(),
-            args.receive_tcp_irdm.as_ref(),
-            args.receive_zmq_irdm.as_ref(),
-            args.reassembly_window,
-            ServerType::Irdm,
-        )
-        .with_resolver(Arc::clone(&resolver));
-
-        tokio::spawn(async move {
-            irdm_input_config.start_listeners(tx_receivers_irdm);
-        });
-
-        info!("Starting IRDM Output Servers");
-        let irdm_output_config: SenderServerConfig = SenderServerConfig::new(
-            args.send_udp_irdm.as_ref(),
-            args.send_tcp_irdm.as_ref(),
-            args.serve_tcp_irdm.as_ref(),
-            args.serve_zmq_irdm.as_ref(),
-            args.max_udp_packet_size,
-            args.udp_dns_cache_seconds,
-        )
-        .with_resolver(Arc::clone(&resolver));
-
-        tokio::spawn(async move {
-            irdm_output_config
-                .start_senders(rx_processed_irdm, "IRDM")
-                .await;
-        });
-
-        tokio::spawn(async move {
-            Box::pin(
-                message_handler_config_irdm
-                    .watch_message_queue(rx_receivers_irdm, tx_processed_irdm),
-            )
-            .await;
-        });
-    } else {
-        info!(
-            "Not starting the IRDM message handler task. No input and/or output sources specified."
-        );
+    for proto in Protocol::ALL {
+        let io = args.protocol(proto);
+        if !io.is_configured() {
+            info!(
+                "Not starting the {proto} message handler task. No input and/or output sources specified.",
+            );
+            continue;
+        }
+        spawn_protocol_pipeline(proto, &io, &args, Arc::clone(&resolver));
     }
 
     trace!("Starting the sleep loop");
@@ -329,103 +66,107 @@ pub async fn start_processes(args: Input) {
     }
 }
 
+/// Wire one protocol's listener/handler/sender trio onto the runtime.
+fn spawn_protocol_pipeline(
+    proto: Protocol,
+    io: &ProtocolIo,
+    args: &Input,
+    resolver: Arc<dns::Resolver>,
+) {
+    let message_handler_config = MessageHandlerConfig::new(args, proto.label());
+
+    // Receivers TX into rx_receivers; the message handler drains it.
+    let (tx_receivers, rx_receivers) = mpsc::channel(32);
+    // The message handler TX'es processed messages into rx_processed; senders drain it.
+    let (tx_processed, rx_processed) = mpsc::channel(32);
+
+    info!("Starting {proto} input servers");
+    let input_config =
+        OutputServerConfig::from_io(io, args.reassembly_window, proto, Arc::clone(&resolver));
+    tokio::spawn(async move {
+        input_config.start_listeners(tx_receivers);
+    });
+
+    info!("Starting {proto} Output Servers");
+    let output_config = SenderServerConfig::from_io(
+        io,
+        args.max_udp_packet_size,
+        args.udp_dns_cache_seconds,
+        resolver,
+    );
+    let proto_label = proto.label();
+    tokio::spawn(async move {
+        output_config.start_senders(rx_processed, proto_label).await;
+    });
+    tokio::spawn(async move {
+        Box::pin(message_handler_config.watch_message_queue(rx_receivers, tx_processed)).await;
+    });
+}
+
 impl OutputServerConfig {
-    fn new(
-        listen_udp: Option<&Vec<u16>>,
-        listen_tcp: Option<&Vec<u16>>,
-        listen_zmq: Option<&Vec<u16>>,
-        receive_tcp: Option<&Vec<String>>,
-        receive_zmq: Option<&Vec<String>>,
+    fn from_io(
+        io: &ProtocolIo,
         reassembly_window: f64,
-        output_server_type: ServerType,
+        proto: Protocol,
+        resolver: Arc<dns::Resolver>,
     ) -> Self {
         Self {
-            listen_udp: listen_udp.cloned(),
-            listen_tcp: listen_tcp.cloned(),
-            listen_zmq: listen_zmq.cloned(),
-            receive_tcp: receive_tcp.cloned(),
-            receive_zmq: receive_zmq.cloned(),
+            listen_udp: nonempty(io.listen_udp.clone()),
+            listen_tcp: nonempty(io.listen_tcp.clone()),
+            listen_zmq: nonempty(io.listen_zmq.clone()),
+            receive_tcp: nonempty(io.receive_tcp.clone()),
+            receive_zmq: nonempty(io.receive_zmq.clone()),
             reassembly_window,
-            output_server_type,
-            resolver: None,
+            output_server_type: proto,
+            resolver: Some(resolver),
         }
-    }
-
-    fn with_resolver(mut self, resolver: Arc<dns::Resolver>) -> Self {
-        self.resolver = Some(resolver);
-        self
     }
 
     fn start_listeners(self, tx_receivers: Sender<String>) {
-        // Start the UDP listener servers
+        let proto_label = self.output_server_type.label();
 
-        // Make sure we have at least one UDP port to listen on
+        // Start the UDP listener servers.
         if let Some(listen_udp) = self.listen_udp {
-            // Start the UDP listener servers for server_type
-            info!(
-                "Starting UDP listener servers for {}",
-                &self.output_server_type.to_string()
-            );
-            listen_udp.udp_port_listener(
-                &self.output_server_type.to_string(),
-                tx_receivers.clone(),
-                self.reassembly_window,
-            );
+            info!("Starting UDP listener servers for {proto_label}");
+            listen_udp.udp_port_listener(proto_label, tx_receivers.clone(), self.reassembly_window);
         }
 
-        // Start the TCP listeners
-
+        // Start the TCP listeners.
         if let Some(listen_tcp) = self.listen_tcp {
-            // Start the TCP listener servers for server_type
-            info!(
-                "Starting TCP listener servers for {}",
-                &self.output_server_type.to_string()
-            );
-            listen_tcp.tcp_port_listener(
-                &self.output_server_type.to_string(),
-                tx_receivers.clone(),
-                self.reassembly_window,
-            );
+            info!("Starting TCP listener servers for {proto_label}");
+            listen_tcp.tcp_port_listener(proto_label, tx_receivers.clone(), self.reassembly_window);
         }
 
         if let Some(listen_zmq) = self.listen_zmq {
-            // Start the ZMQ listener servers for server_type
-            info!(
-                "Starting ZMQ listener servers for {}",
-                &self.output_server_type.to_string()
-            );
-
-            listen_zmq
-                .zmq_port_listener(&self.output_server_type.to_string(), tx_receivers.clone());
+            info!("Starting ZMQ listener servers for {proto_label}");
+            listen_zmq.zmq_port_listener(proto_label, tx_receivers.clone());
         }
 
-        // Start the ZMQ listeners
-
         if let Some(receive_zmq) = self.receive_zmq {
-            // Start the ZMQ listener servers for {server_type}
-            info!(
-                "Starting ZMQ Receiver servers for {}",
-                &self.output_server_type.to_string()
-            );
-            receive_zmq.start_zmq(&self.output_server_type.to_string(), tx_receivers.clone());
+            info!("Starting ZMQ Receiver servers for {proto_label}");
+            receive_zmq.start_zmq(proto_label, tx_receivers.clone());
         }
 
         if let Some(receive_tcp) = self.receive_tcp {
-            info!(
-                "Starting TCP Receiver servers for {}",
-                &self.output_server_type.to_string()
-            );
+            info!("Starting TCP Receiver servers for {proto_label}");
             let resolver = self
                 .resolver
                 .expect("TCP receivers require a shared DNS resolver");
             receive_tcp.start_tcp_receivers(
-                &self.output_server_type.to_string(),
+                proto_label,
                 tx_receivers,
                 self.reassembly_window,
                 resolver,
             );
         }
     }
+}
+
+/// `Some(v)` if `v` is non-empty, otherwise `None`. Mirrors the historical
+/// `Option<Vec<_>>` semantics of `OutputServerConfig`/`SenderServerConfig`
+/// where "no endpoints configured" was modelled as `None`, not `Some(vec![])`.
+fn nonempty<T>(v: Vec<T>) -> Option<Vec<T>> {
+    (!v.is_empty()).then_some(v)
 }
 
 trait StartHostListeners {
@@ -534,28 +275,21 @@ impl StartPortListener for Vec<u16> {
 }
 
 impl SenderServerConfig {
-    fn new(
-        send_udp: Option<&Vec<String>>,
-        send_tcp: Option<&Vec<String>>,
-        serve_tcp: Option<&Vec<u16>>,
-        serve_zmq: Option<&Vec<u16>>,
+    fn from_io(
+        io: &ProtocolIo,
         max_udp_packet_size: u64,
         udp_dns_cache_seconds: f64,
+        resolver: Arc<dns::Resolver>,
     ) -> Self {
         Self {
-            send_udp: send_udp.cloned(),
-            send_tcp: send_tcp.cloned(),
-            serve_tcp: serve_tcp.cloned(),
-            serve_zmq: serve_zmq.cloned(),
+            send_udp: nonempty(io.send_udp.clone()),
+            send_tcp: nonempty(io.send_tcp.clone()),
+            serve_tcp: nonempty(io.serve_tcp.clone()),
+            serve_zmq: nonempty(io.serve_zmq.clone()),
             max_udp_packet_size: usize::try_from(max_udp_packet_size).unwrap_or(usize::MAX),
             udp_dns_cache_seconds,
-            resolver: None,
+            resolver: Some(resolver),
         }
-    }
-
-    fn with_resolver(mut self, resolver: Arc<dns::Resolver>) -> Self {
-        self.resolver = Some(resolver);
-        self
     }
 
     async fn start_senders(self, rx_processed: Receiver<AcarsVdlm2Message>, server_type: &str) {

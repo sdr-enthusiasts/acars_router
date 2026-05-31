@@ -24,7 +24,7 @@ impl Protocol {
     /// All protocols, in canonical order.
     pub const ALL: [Self; 5] = [Self::Acars, Self::Vdlm2, Self::Hfdl, Self::Imsl, Self::Irdm];
 
-    /// Short lowercase name used in logs and metric labels.
+    /// Short lowercase slug, suitable for metric labels and tracing fields.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -35,11 +35,27 @@ impl Protocol {
             Self::Irdm => "irdm",
         }
     }
+
+    /// Human-facing acronym used in log lines and queue identifiers.
+    ///
+    /// Note: `Vdlm2` resolves to `"VDLM"` to preserve compatibility with
+    /// pre-existing log output and the `MessageHandlerConfig::queue_type`
+    /// value historically passed by `service_init`.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Acars => "ACARS",
+            Self::Vdlm2 => "VDLM",
+            Self::Hfdl => "HFDL",
+            Self::Imsl => "IMSL",
+            Self::Irdm => "IRDM",
+        }
+    }
 }
 
 impl fmt::Display for Protocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+        f.write_str(self.label())
     }
 }
 

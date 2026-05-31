@@ -8,11 +8,10 @@ pub mod tcp_services;
 pub mod udp_services;
 pub mod zmq_services;
 
+use acars_config::Protocol;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use sdre_stubborn_io::ReconnectOptions;
 use std::collections::HashMap;
-use std::fmt;
-use std::fmt::Formatter;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -40,15 +39,6 @@ pub(crate) struct Shared {
     pub(crate) peers: HashMap<SocketAddr, Tx>,
 }
 
-#[derive(Debug, Clone)]
-pub(crate) enum ServerType {
-    Acars,
-    Vdlm2,
-    Hfdl,
-    Imsl,
-    Irdm,
-}
-
 #[derive(Debug, Clone, Default)]
 pub(crate) struct SenderServerConfig {
     pub(crate) send_udp: Option<Vec<String>>,
@@ -68,7 +58,7 @@ pub(crate) struct OutputServerConfig {
     pub(crate) receive_tcp: Option<Vec<String>>,
     pub(crate) receive_zmq: Option<Vec<String>>,
     pub(crate) reassembly_window: f64,
-    pub(crate) output_server_type: ServerType,
+    pub(crate) output_server_type: Protocol,
     pub(crate) resolver: Option<std::sync::Arc<dns::Resolver>>,
 }
 
@@ -97,16 +87,4 @@ fn get_our_standard_reconnect_strategy() -> DurationIterator {
     let repeat = std::iter::repeat(Duration::from_secs(60));
 
     Box::new(initial_attempts.chain(repeat))
-}
-
-impl fmt::Display for ServerType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Acars => write!(f, "ACARS"),
-            Self::Vdlm2 => write!(f, "VDLM"),
-            Self::Hfdl => write!(f, "HFDL"),
-            Self::Imsl => write!(f, "IMSL"),
-            Self::Irdm => write!(f, "IRDM"),
-        }
-    }
 }
