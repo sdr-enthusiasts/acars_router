@@ -4,7 +4,6 @@ pub mod sanity_checker;
 
 use clap::Parser;
 use log::debug;
-use sdre_rust_logging::SetupLogging;
 
 #[derive(Parser, Debug, Clone, Default)]
 #[command(name = "ACARS Router", author, version, about, long_about = None)]
@@ -270,68 +269,7 @@ pub struct Input {
 
 impl Input {
     pub fn print_values(&self) {
-        debug!("The Following configuration values were loaded:");
-        debug!("AR_LISTEN_UDP_ACARS: {:?}", self.listen_udp_acars);
-        debug!("AR_LISTEN_TCP_ACARS: {:?}", self.listen_tcp_acars);
-        debug!("AR_RECV_TCP_ACARS: {:?}", self.receive_tcp_acars);
-        debug!("AR_RECV_ZMQ_ACARS: {:?}", self.receive_zmq_acars);
-        debug!("AR_LISTEN_UDP_VDLM2: {:?}", self.listen_udp_vdlm2);
-        debug!("AR_LISTEN_TCP_VDLM2: {:?}", self.listen_tcp_vdlm2);
-        debug!("AR_RECV_TCP_VDLM2: {:?}", self.receive_tcp_vdlm2);
-        debug!("AR_RECV_ZMQ_VDLM2: {:?}", self.receive_zmq_vdlm2);
-        debug!("AR_SEND_UDP_ACARS: {:?}", self.send_udp_acars);
-        debug!("AR_SEND_TCP_ACARS: {:?}", self.send_tcp_acars);
-        debug!("AR_SERVE_TCP_ACARS: {:?}", self.serve_tcp_acars);
-        debug!("AR_SERVE_ZMQ_ACARS: {:?}", self.serve_zmq_acars);
-        debug!("AR_VERBOSE: {:?}", self.verbose.clone().set_logging_level());
-        debug!("AR_ADD_PROXY_ID: {:?}", self.add_proxy_id);
-        debug!("AR_ENABLE_DEDUPE: {:?}", self.enable_dedupe);
-        debug!("AR_DEDUPE_WINDOW: {:?}", self.dedupe_window);
-        debug!("AR_SKEW_WINDOW: {:?}", self.skew_window);
-        debug!("AR_STATS_EVERY: {:?}", self.stats_every);
-        debug!("AR_OVERRIDE_STATION_NAME: {:?}", self.override_station_name);
-        debug!("AR_SEND_UDP_VDLM2: {:?}", self.send_udp_vdlm2);
-        debug!("AR_SEND_TCP_VDLM2: {:?}", self.send_tcp_vdlm2);
-        debug!("AR_SERVE_TCP_VDLM2: {:?}", self.serve_tcp_vdlm2);
-        debug!("AR_SERVE_ZMQ_VDLM2: {:?}", self.serve_zmq_vdlm2);
-        debug!("AR_MAX_UDP_PACKET_SIZE: {:?}", self.max_udp_packet_size);
-        debug!("AR_UDP_DNS_CACHE_SECONDS: {:?}", self.udp_dns_cache_seconds);
-        debug!("AR_REASSEMBLY_WINDOW: {:?}", self.reassembly_window);
-        debug!("AR_STATS_VERBOSE: {:?}", self.stats_verbose);
-        debug!("AR_LISTEN_UDP_HFDL: {:?}", self.listen_udp_hfdl);
-        debug!("AR_LISTEN_TCP_HFDL: {:?}", self.listen_tcp_hfdl);
-        debug!("AR_RECV_TCP_HFDL: {:?}", self.receive_tcp_hfdl);
-        debug!("AR_RECV_ZMQ_HFDL: {:?}", self.receive_zmq_hfdl);
-        debug!("AR_SEND_UDP_HFDL: {:?}", self.send_udp_hfdl);
-        debug!("AR_SEND_TCP_HFDL: {:?}", self.send_tcp_hfdl);
-        debug!("AR_SERVE_TCP_HFDL: {:?}", self.serve_tcp_hfdl);
-        debug!("AR_SERVE_ZMQ_HFDL: {:?}", self.serve_zmq_hfdl);
-        debug!("AR_LISTEN_ZMQ_ACARS: {:?}", self.listen_zmq_acars);
-        debug!("AR_LISTEN_ZMQ_VDLM2: {:?}", self.listen_zmq_vdlm2);
-        debug!("AR_LISTEN_ZMQ_HFDL: {:?}", self.listen_zmq_hfdl);
-        debug!("AR_LISTEN_UDP_IMSL: {:?}", self.listen_udp_imsl);
-        debug!("AR_LISTEN_TCP_IMSL: {:?}", self.listen_tcp_imsl);
-        debug!("AR_RECV_TCP_IMSL: {:?}", self.receive_tcp_imsl);
-        debug!("AR_RECV_ZMQ_IMSL: {:?}", self.receive_zmq_imsl);
-        debug!("AR_SEND_UDP_IMSL: {:?}", self.send_udp_imsl);
-        debug!("AR_SEND_TCP_IMSL: {:?}", self.send_tcp_imsl);
-        debug!("AR_SERVE_TCP_IMSL: {:?}", self.serve_tcp_imsl);
-        debug!("AR_SERVE_ZMQ_IMSL: {:?}", self.serve_zmq_imsl);
-        debug!("AR_LISTEN_ZMQ_IMSL: {:?}", self.listen_zmq_imsl);
-        debug!("AR_LISTEN_UDP_IRDM: {:?}", self.listen_udp_irdm);
-        debug!("AR_LISTEN_TCP_IRDM: {:?}", self.listen_tcp_irdm);
-        debug!("AR_RECV_TCP_IRDM: {:?}", self.receive_tcp_irdm);
-        debug!("AR_RECV_ZMQ_IRDM: {:?}", self.receive_zmq_irdm);
-        debug!("AR_SEND_UDP_IRDM: {:?}", self.send_udp_irdm);
-        debug!("AR_SEND_TCP_IRDM: {:?}", self.send_tcp_irdm);
-        debug!("AR_SERVE_TCP_IRDM: {:?}", self.serve_tcp_irdm);
-        debug!("AR_SERVE_ZMQ_IRDM: {:?}", self.serve_zmq_irdm);
-        debug!("AR_LISTEN_ZMQ_IRDM: {:?}", self.listen_zmq_irdm);
-        debug!("AR_DISABLE_ACARS: {:?}", self.disable_acars);
-        debug!("AR_DISABLE_VDLM2: {:?}", self.disable_vdlm2);
-        debug!("AR_DISABLE_HFDL: {:?}", self.disable_hfdl);
-        debug!("AR_DISABLE_IMSL: {:?}", self.disable_imsl);
-        debug!("AR_DISABLE_IRDM: {:?}", self.disable_irdm);
+        debug!("Configuration: {self:#?}");
     }
 
     #[must_use]

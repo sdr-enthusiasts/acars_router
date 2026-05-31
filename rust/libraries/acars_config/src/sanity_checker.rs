@@ -16,7 +16,7 @@ use crate::Input;
 use log::{error, trace};
 use std::collections::HashSet;
 use std::hash::Hash;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 impl Input {
@@ -60,14 +60,31 @@ impl Input {
         let udp_sources: Vec<Option<&Vec<u16>>> = vec![
             self.listen_udp_acars.as_ref(),
             self.listen_udp_vdlm2.as_ref(),
+            self.listen_udp_hfdl.as_ref(),
+            self.listen_udp_imsl.as_ref(),
+            self.listen_udp_irdm.as_ref(),
         ];
         let tcp_zmq_sources: Vec<Option<&Vec<u16>>> = vec![
             self.listen_tcp_acars.as_ref(),
             self.listen_tcp_vdlm2.as_ref(),
+            self.listen_tcp_hfdl.as_ref(),
+            self.listen_tcp_imsl.as_ref(),
+            self.listen_tcp_irdm.as_ref(),
+            self.listen_zmq_acars.as_ref(),
+            self.listen_zmq_vdlm2.as_ref(),
+            self.listen_zmq_hfdl.as_ref(),
+            self.listen_zmq_imsl.as_ref(),
+            self.listen_zmq_irdm.as_ref(),
             self.serve_tcp_acars.as_ref(),
             self.serve_tcp_vdlm2.as_ref(),
+            self.serve_tcp_hfdl.as_ref(),
+            self.serve_tcp_imsl.as_ref(),
+            self.serve_tcp_irdm.as_ref(),
             self.serve_zmq_acars.as_ref(),
             self.serve_zmq_vdlm2.as_ref(),
+            self.serve_zmq_hfdl.as_ref(),
+            self.serve_zmq_imsl.as_ref(),
+            self.serve_zmq_irdm.as_ref(),
         ];
 
         ports_udp.get_all_ports(&udp_sources);
@@ -91,10 +108,22 @@ impl Input {
             self.receive_zmq_acars.as_ref(),
             self.receive_tcp_vdlm2.as_ref(),
             self.receive_zmq_vdlm2.as_ref(),
+            self.receive_tcp_hfdl.as_ref(),
+            self.receive_zmq_hfdl.as_ref(),
+            self.receive_tcp_imsl.as_ref(),
+            self.receive_zmq_imsl.as_ref(),
+            self.receive_tcp_irdm.as_ref(),
+            self.receive_zmq_irdm.as_ref(),
             self.send_tcp_acars.as_ref(),
             self.send_udp_acars.as_ref(),
             self.send_tcp_vdlm2.as_ref(),
             self.send_udp_vdlm2.as_ref(),
+            self.send_tcp_hfdl.as_ref(),
+            self.send_udp_hfdl.as_ref(),
+            self.send_tcp_imsl.as_ref(),
+            self.send_udp_imsl.as_ref(),
+            self.send_tcp_irdm.as_ref(),
+            self.send_udp_irdm.as_ref(),
         ];
 
         all_hosts.get_all_hosts(&check_entries);
@@ -117,6 +146,27 @@ impl Input {
             input_test_results
                 .push(config_hosts.check_host("--receive-zmq-vdlm2/AR_RECEIVE_ZMQ_VDLM2"));
         }
+        if let Some(config_hosts) = config.receive_tcp_hfdl {
+            input_test_results.push(config_hosts.check_host("--receive-tcp-hfdl/AR_RECV_TCP_HFDL"));
+        }
+        if let Some(config_hosts) = config.receive_zmq_hfdl {
+            input_test_results
+                .push(config_hosts.check_host("--receive-zmq-hfdl/AR_RECEIVE_ZMQ_HFDL"));
+        }
+        if let Some(config_hosts) = config.receive_tcp_imsl {
+            input_test_results.push(config_hosts.check_host("--receive-tcp-imsl/AR_RECV_TCP_IMSL"));
+        }
+        if let Some(config_hosts) = config.receive_zmq_imsl {
+            input_test_results
+                .push(config_hosts.check_host("--receive-zmq-imsl/AR_RECEIVE_ZMQ_IMSL"));
+        }
+        if let Some(config_hosts) = config.receive_tcp_irdm {
+            input_test_results.push(config_hosts.check_host("--receive-tcp-irdm/AR_RECV_TCP_IRDM"));
+        }
+        if let Some(config_hosts) = config.receive_zmq_irdm {
+            input_test_results
+                .push(config_hosts.check_host("--receive-zmq-irdm/AR_RECEIVE_ZMQ_IRDM"));
+        }
         if let Some(config_hosts) = config.send_tcp_acars {
             input_test_results.push(config_hosts.check_host("--send-tcp-acars/AR_SEND_TCP_ACARS"));
         }
@@ -129,6 +179,24 @@ impl Input {
         if let Some(config_hosts) = config.send_udp_vdlm2 {
             input_test_results.push(config_hosts.check_host("--send-udp-vdlm2/AR_SEND_UDP_VDLM2"));
         }
+        if let Some(config_hosts) = config.send_tcp_hfdl {
+            input_test_results.push(config_hosts.check_host("--send-tcp-hfdl/AR_SEND_TCP_HFDL"));
+        }
+        if let Some(config_hosts) = config.send_udp_hfdl {
+            input_test_results.push(config_hosts.check_host("--send-udp-hfdl/AR_SEND_UDP_HFDL"));
+        }
+        if let Some(config_hosts) = config.send_tcp_imsl {
+            input_test_results.push(config_hosts.check_host("--send-tcp-imsl/AR_SEND_TCP_IMSL"));
+        }
+        if let Some(config_hosts) = config.send_udp_imsl {
+            input_test_results.push(config_hosts.check_host("--send-udp-imsl/AR_SEND_UDP_IMSL"));
+        }
+        if let Some(config_hosts) = config.send_tcp_irdm {
+            input_test_results.push(config_hosts.check_host("--send-tcp-irdm/AR_SEND_TCP_IRDM"));
+        }
+        if let Some(config_hosts) = config.send_udp_irdm {
+            input_test_results.push(config_hosts.check_host("--send-udp-irdm/AR_SEND_UDP_IRDM"));
+        }
 
         input_test_results.validate_results()
     }
@@ -136,30 +204,61 @@ impl Input {
     fn check_port_validity(&self) -> bool {
         // Create our mutable vector of bool. All check results will come into here.
         let input_test_results: Vec<bool> = vec![
-            // Make sure the ports for AR_LISTEN_UDP_ACARS are valid.
+            // ACARS
             self.listen_udp_acars
                 .check_ports_are_valid("AR_LISTEN_UDP_ACARS/--listen-udp-acars"),
-            // Make sure that the ports for AR_LISTEN_TCP_ACARS are valid.
             self.listen_tcp_acars
                 .check_ports_are_valid("AR_LISTEN_TCP_ACARS/--listen-tcp-acars"),
-            // Make sure that the ports for AR_LISTEN_UDP_VDLM2 are valid.
-            self.listen_udp_vdlm2
-                .check_ports_are_valid("AR_LISTEN_UDP_VDLM2/--listen-udp-vdlm2"),
-            // Make sure that the ports for AR_LISTEN_TCP_VDLM2 are valid.
-            self.listen_tcp_vdlm2
-                .check_ports_are_valid("AR_LISTEN_TCP_VDLM2/--listen-tcp-vdlm2"),
-            // Make sure that the ports for AR_SERVE_TCP_ACARS are valid.
+            self.listen_zmq_acars
+                .check_ports_are_valid("AR_LISTEN_ZMQ_ACARS/--listen-zmq-acars"),
             self.serve_tcp_acars
                 .check_ports_are_valid("AR_SERVE_TCP_ACARS/--serve-tcp-acars"),
-            // Make sure that the ports for AR_SERVE_TCP_VDLM2 are valid.
-            self.serve_tcp_vdlm2
-                .check_ports_are_valid("AR_SERVE_TCP_VDLM2/--serve-tcp-vdlm2"),
-            // Make sure that the ports for AR_SERVE_ZMQ_ACARS are valid.
             self.serve_zmq_acars
                 .check_ports_are_valid("AR_SERVE_ZMQ_ACARS/--serve-zmq-acars"),
-            // Make sure that the ports for AR_SERVE_ZMQ_VDLM2 are valid.
+            // VDLM2
+            self.listen_udp_vdlm2
+                .check_ports_are_valid("AR_LISTEN_UDP_VDLM2/--listen-udp-vdlm2"),
+            self.listen_tcp_vdlm2
+                .check_ports_are_valid("AR_LISTEN_TCP_VDLM2/--listen-tcp-vdlm2"),
+            self.listen_zmq_vdlm2
+                .check_ports_are_valid("AR_LISTEN_ZMQ_VDLM2/--listen-zmq-vdlm2"),
+            self.serve_tcp_vdlm2
+                .check_ports_are_valid("AR_SERVE_TCP_VDLM2/--serve-tcp-vdlm2"),
             self.serve_zmq_vdlm2
                 .check_ports_are_valid("AR_SERVE_ZMQ_VDLM2/--serve-zmq-vdlm2"),
+            // HFDL
+            self.listen_udp_hfdl
+                .check_ports_are_valid("AR_LISTEN_UDP_HFDL/--listen-udp-hfdl"),
+            self.listen_tcp_hfdl
+                .check_ports_are_valid("AR_LISTEN_TCP_HFDL/--listen-tcp-hfdl"),
+            self.listen_zmq_hfdl
+                .check_ports_are_valid("AR_LISTEN_ZMQ_HFDL/--listen-zmq-hfdl"),
+            self.serve_tcp_hfdl
+                .check_ports_are_valid("AR_SERVE_TCP_HFDL/--serve-tcp-hfdl"),
+            self.serve_zmq_hfdl
+                .check_ports_are_valid("AR_SERVE_ZMQ_HFDL/--serve-zmq-hfdl"),
+            // IMSL
+            self.listen_udp_imsl
+                .check_ports_are_valid("AR_LISTEN_UDP_IMSL/--listen-udp-imsl"),
+            self.listen_tcp_imsl
+                .check_ports_are_valid("AR_LISTEN_TCP_IMSL/--listen-tcp-imsl"),
+            self.listen_zmq_imsl
+                .check_ports_are_valid("AR_LISTEN_ZMQ_IMSL/--listen-zmq-imsl"),
+            self.serve_tcp_imsl
+                .check_ports_are_valid("AR_SERVE_TCP_IMSL/--serve-tcp-imsl"),
+            self.serve_zmq_imsl
+                .check_ports_are_valid("AR_SERVE_ZMQ_IMSL/--serve-zmq-imsl"),
+            // IRDM
+            self.listen_udp_irdm
+                .check_ports_are_valid("AR_LISTEN_UDP_IRDM/--listen-udp-irdm"),
+            self.listen_tcp_irdm
+                .check_ports_are_valid("AR_LISTEN_TCP_IRDM/--listen-tcp-irdm"),
+            self.listen_zmq_irdm
+                .check_ports_are_valid("AR_LISTEN_ZMQ_IRDM/--listen-zmq-irdm"),
+            self.serve_tcp_irdm
+                .check_ports_are_valid("AR_SERVE_TCP_IRDM/--serve-tcp-irdm"),
+            self.serve_zmq_irdm
+                .check_ports_are_valid("AR_SERVE_ZMQ_IRDM/--serve-zmq-irdm"),
         ];
 
         input_test_results.validate_results()
@@ -168,30 +267,51 @@ impl Input {
     fn check_host_validity(&self) -> bool {
         // Create our mutable vector of bool. All check results will come into here.
         let input_test_results: Vec<bool> = vec![
-            // Make sure that the provided hosts for AR_RECEIVE_TCP_ACARS are valid.
+            // ACARS
             self.receive_tcp_acars
                 .check_host_is_valid("AR_RECEIVE_TCP_ACARS/--receive-tcp-acars"),
-            // Make sure that the provided hosts for AR_RECEIVE_TCP_VDLM2 are valid.
-            self.receive_tcp_vdlm2
-                .check_host_is_valid("AR_RECEIVE_TCP_VDLM2/--receive-tcp-vdlm2"),
-            // Make sure that the provided hosts for AR_SEND_UDP_ACARS are valid.
-            self.send_udp_acars
-                .check_host_is_valid("AR_SEND_UDP_ACARS/--send-udp-acars"),
-            // Make sure that the provided hosts for AR_SEND_UDP_VDLM2 are valid.
-            self.send_udp_vdlm2
-                .check_host_is_valid("AR_SEND_UDP_VDLM2/--send-udp-vdlm2"),
-            // Make sure that the provided hosts for AR_SEND_TCP_ACARS are valid.
-            self.send_tcp_acars
-                .check_host_is_valid("AR_SEND_TCP_ACARS/--send-tcp-acars"),
-            // Make sure that the provided hosts for AR_SEND_TCP_VDLM2 are valid.
-            self.send_tcp_vdlm2
-                .check_host_is_valid("AR_SEND_TCP_VDLM2/--send-tcp-vdlm2"),
-            // Make sure that the provided hosts for AR_RECEIVE_ZMQ_VDLM2 are valid.
-            self.receive_zmq_vdlm2
-                .check_host_is_valid("AR_RECEIVE_ZMQ_VDLM2/--receive-zmq-vdlm2"),
-            // Make sure that the provided hosts for AR_RECEIVE_ZMQ_ACARS are valid.
             self.receive_zmq_acars
                 .check_host_is_valid("AR_RECEIVE_ZMQ_ACARS/--receive-zmq-acars"),
+            self.send_udp_acars
+                .check_host_is_valid("AR_SEND_UDP_ACARS/--send-udp-acars"),
+            self.send_tcp_acars
+                .check_host_is_valid("AR_SEND_TCP_ACARS/--send-tcp-acars"),
+            // VDLM2
+            self.receive_tcp_vdlm2
+                .check_host_is_valid("AR_RECEIVE_TCP_VDLM2/--receive-tcp-vdlm2"),
+            self.receive_zmq_vdlm2
+                .check_host_is_valid("AR_RECEIVE_ZMQ_VDLM2/--receive-zmq-vdlm2"),
+            self.send_udp_vdlm2
+                .check_host_is_valid("AR_SEND_UDP_VDLM2/--send-udp-vdlm2"),
+            self.send_tcp_vdlm2
+                .check_host_is_valid("AR_SEND_TCP_VDLM2/--send-tcp-vdlm2"),
+            // HFDL
+            self.receive_tcp_hfdl
+                .check_host_is_valid("AR_RECEIVE_TCP_HFDL/--receive-tcp-hfdl"),
+            self.receive_zmq_hfdl
+                .check_host_is_valid("AR_RECEIVE_ZMQ_HFDL/--receive-zmq-hfdl"),
+            self.send_udp_hfdl
+                .check_host_is_valid("AR_SEND_UDP_HFDL/--send-udp-hfdl"),
+            self.send_tcp_hfdl
+                .check_host_is_valid("AR_SEND_TCP_HFDL/--send-tcp-hfdl"),
+            // IMSL
+            self.receive_tcp_imsl
+                .check_host_is_valid("AR_RECEIVE_TCP_IMSL/--receive-tcp-imsl"),
+            self.receive_zmq_imsl
+                .check_host_is_valid("AR_RECEIVE_ZMQ_IMSL/--receive-zmq-imsl"),
+            self.send_udp_imsl
+                .check_host_is_valid("AR_SEND_UDP_IMSL/--send-udp-imsl"),
+            self.send_tcp_imsl
+                .check_host_is_valid("AR_SEND_TCP_IMSL/--send-tcp-imsl"),
+            // IRDM
+            self.receive_tcp_irdm
+                .check_host_is_valid("AR_RECEIVE_TCP_IRDM/--receive-tcp-irdm"),
+            self.receive_zmq_irdm
+                .check_host_is_valid("AR_RECEIVE_ZMQ_IRDM/--receive-zmq-irdm"),
+            self.send_udp_irdm
+                .check_host_is_valid("AR_SEND_UDP_IRDM/--send-udp-irdm"),
+            self.send_tcp_irdm
+                .check_host_is_valid("AR_SEND_TCP_IRDM/--send-tcp-irdm"),
         ];
 
         input_test_results.validate_results()
@@ -298,65 +418,76 @@ impl ValidateHosts for Option<Vec<String>> {
                 return false;
             }
             for socket in sockets {
-                // check and see if there are alpha characters in the string
-                if socket.chars().any(char::is_alphabetic) {
-                    // split the string on ':'
-                    let socket_parts = socket.split(':').collect::<Vec<_>>();
-                    match socket_parts.len() {
-                        1 => {
-                            error!("{name} has no port specified for: {socket}");
-                            return false;
-                        }
-                        2 => {
-                            let port = socket_parts[1];
-                            // validate the port is numeric and between 1-65535
-                            if !port.chars().all(char::is_numeric) {
-                                error!("{name} Port is not numeric for: {socket}");
-                                return false;
-                            }
-                            match port.parse::<u16>() {
-                                Ok(0) => {
-                                    error!(
-                                        "{name}: Socket address is valid, but the port provided is zero: {socket}"
-                                    );
-                                    return false;
-                                }
-                                Ok(_) => {
-                                    trace!("{socket} is a valid socket address");
-                                }
-                                Err(_) => {
-                                    error!("{name} Port is invalid for: {socket}");
-                                    return false;
-                                }
-                            }
-                        }
-                        _ => {
-                            error!(
-                                "{name} has an address with more than one colon in it: {socket}"
-                            );
-                            return false;
-                        }
+                if socket.is_empty() {
+                    error!("{name} has been provided, but there are no socket addresses");
+                    return false;
+                }
+                // First attempt: parse as a `SocketAddr` literal. This handles
+                // both `1.2.3.4:port` and bracketed IPv6 (`[::1]:port`).
+                if let Ok(parsed_addr) = SocketAddr::from_str(socket) {
+                    if parsed_addr.port() == 0 {
+                        error!(
+                            "{name}: Socket address is valid, but the port provided is zero: {socket}"
+                        );
+                        return false;
                     }
-                } else {
-                    let parse_socket = SocketAddr::from_str(socket);
-                    match parse_socket {
-                        Err(parse_error) => {
-                            error!(
-                                "{name}: Failed to validate that {socket} is a properly formatted socket: {parse_error}"
-                            );
-                            return false;
-                        }
-                        Ok(parsed_addr) => {
-                            if parsed_addr.port().eq(&0) {
-                                error!(
-                                    "{name}: Socket address is valid, but the port provided is zero: {socket}"
-                                );
-                                return false;
-                            }
-                            trace!("{socket} is a valid socket address");
-                        }
+                    trace!("{socket} is a valid socket address");
+                    continue;
+                }
+
+                // Otherwise, treat as `host:port` where host is a DNS name (or
+                // bracketed IPv6 that somehow slipped through). Split from the
+                // right so an unbracketed IPv6 literal without a port falls
+                // through to a "no port" error rather than parsing one of its
+                // hextets as the port.
+                let Some((host, port_str)) = socket.rsplit_once(':') else {
+                    error!("{name} has no port specified for: {socket}");
+                    return false;
+                };
+
+                // Validate the port.
+                let Ok(port) = port_str.parse::<u16>() else {
+                    error!("{name} Port is invalid for: {socket}");
+                    return false;
+                };
+                if port == 0 {
+                    error!(
+                        "{name}: Socket address is valid, but the port provided is zero: {socket}"
+                    );
+                    return false;
+                }
+
+                // Validate the host portion. We intentionally do NOT perform DNS
+                // resolution here; only cheap structural checks.
+                if host.is_empty() {
+                    error!("{name} has an empty host for: {socket}");
+                    return false;
+                }
+                if host.chars().any(|c| c.is_whitespace() || c == '/') {
+                    error!("{name} has an invalid host for: {socket}");
+                    return false;
+                }
+                // An unbracketed host portion must not itself contain ':'. Any
+                // raw IPv6 literal would need brackets to disambiguate from the
+                // port separator.
+                let bracketed = host.starts_with('[') && host.ends_with(']') && host.len() >= 2;
+                if !bracketed && host.contains(':') {
+                    error!("{name} has an address with more than one colon in it: {socket}");
+                    return false;
+                }
+
+                // Belt-and-suspenders: if the host is bracketed it must contain
+                // a valid IP literal inside. `SocketAddr::from_str` above should
+                // already have accepted bracketed-IPv6 + port forms.
+                if bracketed {
+                    let stripped = &host[1..host.len() - 1];
+                    if IpAddr::from_str(stripped).is_err() {
+                        error!("{name} has an invalid bracketed host for: {socket}");
+                        return false;
                     }
                 }
+
+                trace!("{socket} is a valid socket address");
             }
         }
         true
@@ -383,7 +514,6 @@ mod test {
             "localhost".to_string(),
             "alpha.go".to_string(),
             "localhost:65536".to_string(),
-            "123:456".to_string(),
             "abc:12three".to_string(),
             "host:123:456".to_string(),
         ]);
@@ -431,6 +561,84 @@ mod test {
 
         assert!(valid_ports_test, "Expected valid ports to pass");
         assert!(!invalid_ports_test, "Expected invalid ports to fail");
+
+        // HFDL/ACARS cross-protocol TCP listen port collision.
+        let hfdl_collision: Input = Input {
+            listen_tcp_acars: Some(vec![8008]),
+            listen_tcp_hfdl: Some(vec![8008]),
+            ..Input::default()
+        };
+        assert!(
+            !hfdl_collision.check_no_duplicate_ports(),
+            "Expected HFDL/ACARS TCP collision to fail",
+        );
+    }
+
+    #[test]
+    fn test_check_no_duplicate_ports_imsl_irdm() {
+        // IMSL listen_zmq collides with IRDM serve_zmq.
+        let imsl_irdm_zmq: Input = Input {
+            listen_zmq_imsl: Some(vec![9001]),
+            serve_zmq_irdm: Some(vec![9001]),
+            ..Input::default()
+        };
+        assert!(
+            !imsl_irdm_zmq.check_no_duplicate_ports(),
+            "Expected IMSL/IRDM ZMQ collision to fail",
+        );
+
+        // IMSL listen_udp collides with IRDM listen_udp.
+        let imsl_irdm_udp: Input = Input {
+            listen_udp_imsl: Some(vec![5550]),
+            listen_udp_irdm: Some(vec![5550]),
+            ..Input::default()
+        };
+        assert!(
+            !imsl_irdm_udp.check_no_duplicate_ports(),
+            "Expected IMSL/IRDM UDP collision to fail",
+        );
+
+        // Different ports across all protocols should pass.
+        let no_collisions: Input = Input {
+            listen_udp_imsl: Some(vec![5550]),
+            listen_udp_irdm: Some(vec![5551]),
+            serve_tcp_imsl: Some(vec![5552]),
+            serve_tcp_irdm: Some(vec![5553]),
+            listen_zmq_imsl: Some(vec![5554]),
+            serve_zmq_irdm: Some(vec![5555]),
+            ..Input::default()
+        };
+        assert!(
+            no_collisions.check_no_duplicate_ports(),
+            "Expected non-colliding ports to pass",
+        );
+    }
+
+    #[test]
+    fn test_check_host_is_valid_ipv6() {
+        let valid: Option<Vec<String>> = Some(vec![
+            "[::1]:8080".to_string(),
+            "[2001:db8::1]:443".to_string(),
+            "example.com:8080".to_string(),
+        ]);
+        assert!(valid.check_host_is_valid("valid_v6"));
+
+        let cases_expected_invalid: &[&str] = &[
+            "[::1]:0",
+            "fe80::1",
+            "[::1]",
+            "example.com",
+            ":8080",
+            "example.com:0",
+            "example.com:abc",
+        ];
+        for case in cases_expected_invalid {
+            let v: Option<Vec<String>> = Some(vec![(*case).to_string()]);
+            assert!(
+                !v.check_host_is_valid("invalid_v6"),
+                "expected {case} to be rejected",
+            );
+        }
     }
 
     #[test]
@@ -467,6 +675,54 @@ mod test {
             send_udp_vdlm2: Some(vec![
                 "test.com:8087".to_string(),
                 "192.168.1.1:8087".to_string(),
+            ]),
+            receive_tcp_hfdl: Some(vec![
+                "test.com:8088".to_string(),
+                "192.168.1.1:8088".to_string(),
+            ]),
+            receive_zmq_hfdl: Some(vec![
+                "test.com:8089".to_string(),
+                "192.168.1.1:8089".to_string(),
+            ]),
+            send_tcp_hfdl: Some(vec![
+                "test.com:8090".to_string(),
+                "192.168.1.1:8090".to_string(),
+            ]),
+            send_udp_hfdl: Some(vec![
+                "test.com:8091".to_string(),
+                "192.168.1.1:8091".to_string(),
+            ]),
+            receive_tcp_imsl: Some(vec![
+                "test.com:8092".to_string(),
+                "192.168.1.1:8092".to_string(),
+            ]),
+            receive_zmq_imsl: Some(vec![
+                "test.com:8093".to_string(),
+                "192.168.1.1:8093".to_string(),
+            ]),
+            send_tcp_imsl: Some(vec![
+                "test.com:8094".to_string(),
+                "192.168.1.1:8094".to_string(),
+            ]),
+            send_udp_imsl: Some(vec![
+                "test.com:8095".to_string(),
+                "192.168.1.1:8095".to_string(),
+            ]),
+            receive_tcp_irdm: Some(vec![
+                "test.com:8096".to_string(),
+                "192.168.1.1:8096".to_string(),
+            ]),
+            receive_zmq_irdm: Some(vec![
+                "test.com:8097".to_string(),
+                "192.168.1.1:8097".to_string(),
+            ]),
+            send_tcp_irdm: Some(vec![
+                "test.com:8098".to_string(),
+                "192.168.1.1:8098".to_string(),
+            ]),
+            send_udp_irdm: Some(vec![
+                "test.com:8099".to_string(),
+                "192.168.1.1:8099".to_string(),
             ]),
             ..Input::default()
         };

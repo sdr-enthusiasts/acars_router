@@ -11,19 +11,23 @@
 
 ## Remediation status
 
-| PR                                                                          | Audit refs                                                                   | Status   | Commit        |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------------- |
-| PR1: edition 2024 + workspace lints + clippy clean                          | §2.1, §2.2, §2.3, §2.4, §2.6 (`SocketListenerServer`), §5 (mechanical sweep) | **Done** | `56d1d7b`     |
-| PR2: residual cleanups (commented git deps, reconnect-strategy nit)         | §2.5 partial, §8 nit                                                         | **Done** | (this commit) |
-| PR3: sanity checker fixes + HFDL/IMSL/IRDM coverage + `Input` enum refactor | §3.1, §3.2, §4.3                                                             | Pending  |
-| PR4: unified DNS resolver                                                   | §3.3, §3.4                                                                   | Pending  |
-| PR5: `Protocol` enum / `ProtocolIo` refactor + SIO 0.7 migration            | §4.1, §4.2, §4.4, §4.5, Appendix A                                           | Pending  |
-| PR6: `broadcast` + `JoinSet` + `CancellationToken`                          | §3.5, §3.6, §3.12, §4.9                                                      | Pending  |
-| PR7: `packet_handler` rewrite                                               | §3.7, §4.8                                                                   | Pending  |
-| PR8: dedupe / counters / freq table polish                                  | §3.8, §3.10, §3.11                                                           | Pending  |
-| PR9: tests + docs                                                           | §6                                                                           | Pending  |
+| PR                                                                                                | Audit refs                                                                   | Status   | Commit        |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------------- |
+| PR1: edition 2024 + workspace lints + clippy clean                                                | §2.1, §2.2, §2.3, §2.4, §2.6 (`SocketListenerServer`), §5 (mechanical sweep) | **Done** | `56d1d7b`     |
+| PR2: residual cleanups (commented git deps, reconnect-strategy nit)                               | §2.5 partial, §8 nit                                                         | **Done** | `39753f8`     |
+| PR3: sanity checker fixes + HFDL/IMSL/IRDM coverage + `print_values` collapse                     | §3.1, §3.2, §3.13 (`print_values`)                                           | **Done** | (this commit) |
+| PR4: unified DNS resolver                                                                         | §3.3, §3.4                                                                   | Pending  |
+| PR5: `Protocol` enum / `ProtocolIo` refactor + `Input::*_configured` collapse + SIO 0.7 migration | §4.1, §4.2, §4.3, §4.4, §4.5, Appendix A                                     | Pending  |
+| PR6: `broadcast` + `JoinSet` + `CancellationToken`                                                | §3.5, §3.6, §3.12, §4.9                                                      | Pending  |
+| PR7: `packet_handler` rewrite                                                                     | §3.7, §4.8                                                                   | Pending  |
+| PR8: dedupe / counters / freq table polish                                                        | §3.8, §3.10, §3.11                                                           | Pending  |
+| PR9: tests + docs                                                                                 | §6                                                                           | Pending  |
 
 **Open strategic question:** `log` vs `tracing` (audit §4.6). `tokio` already has the `tracing` feature enabled but the codebase uses `log` via `sdre-rust-logging` (which is `env_logger`-based). Switching is a workspace-wide change touching every log macro and would drop `sdre-rust-logging`. Decision deferred pending owner input.
+
+**Bugs found mid-stream (not addressed in their discovery PR):**
+
+- `Input::{acars,vdlm,hfdl,imsl,irdm}_configured` (`acars_config/src/lib.rs`) do **not** consult `listen_zmq_*` when deciding whether a protocol is configured. A protocol configured _only_ via `--listen-zmq-<proto>` will be reported as not configured and silently dropped. Discovered during PR3; fix folded into PR5 (`ProtocolIo::is_configured`).
 
 ---
 
@@ -126,6 +130,8 @@ Workspace deps are pinned to the patch (`tokio = "1.52.2"`, `serde = "1.0.228"`,
 
 ### 3.1 Sanity checker silently skips HFDL/IMSL/IRDM
 
+> **Status:** resolved in PR3. All four checker functions now enumerate every protocol × every category (including `listen_zmq_*`, which was missing across the board). Cross-protocol port-collision tests added.
+
 `rust/libraries/acars_config/src/sanity_checker.rs:49-196`
 
 `check_port_validity`, `check_host_validity`, `check_no_duplicate_ports`, and `check_no_duplicate_hosts` only list ACARS and VDLM2 sources. HFDL, IMSL, and IRDM (added later) are **not validated**, **not deduplicated against each other**, and **not deduplicated against ACARS/VDLM2**. A user can:
@@ -136,6 +142,8 @@ Workspace deps are pinned to the patch (`tokio = "1.52.2"`, `serde = "1.0.228"`,
 This is the single most user-visible bug in the audit. The fix is to refactor `Input` so the checker iterates over `Protocol::iter()` (§4).
 
 ### 3.2 DNS validator rejects IPv6 _and_ doesn't actually validate hosts
+
+> **Status:** structural validation resolved in PR3 — `check_host_is_valid` now tries `SocketAddr::from_str` first (handles IPv4 + bracketed IPv6), falls back to `rsplit_once(':')` for hostname:port, validates port as non-zero `u16`, and rejects empty / whitespace / `/` / unbracketed-colon hosts. Bracketed contents are re-validated via `IpAddr::from_str`. **Active DNS resolution at sanity-check time still not done** — deferred to PR4 alongside the unified resolver.
 
 `sanity_checker.rs:294-364`:
 
@@ -284,7 +292,7 @@ Replace with:
 - `udp_services.rs:241-285`: sender sleeps 100ms between MTU-sized chunks. That's not backpressure; it's a fixed cap on output rate per destination. If a message is split into N fragments you'll spend `(N-1)*100ms` regardless of network. Use socket backpressure (`send_to` returns when kernel buffer empties).
 - `message_handler.rs:147-150`: `match SystemTime::now().duration_since(UNIX_EPOCH) { Ok(n) => n.as_secs_f64(), Err(_) => f64::default() }` — silently treats a clock skew error as time = 0.0, which then causes every message to look ancient and get rejected by the skew check. Just `.expect("system clock before unix epoch")` or propagate.
 - `message_handler.rs:485-488`: same pattern, returns 0 on error → `current_time - timestamp` underflows on `u64`. Panic in debug, wraparound in release.
-- `Input::print_values` (`acars_config/src/lib.rs:274-337`): 64 hand-maintained `debug!` lines. `#[derive(Debug)]` already exists on `Input`; just `debug!("Config: {self:#?}")`. The hand-maintained list is also already drifting from the field list (no `AR_DISABLE_*` for some, etc.).
+- `Input::print_values` (`acars_config/src/lib.rs:274-337`): 64 hand-maintained `debug!` lines. `#[derive(Debug)]` already exists on `Input`; just `debug!("Config: {self:#?}")`. The hand-maintained list is also already drifting from the field list (no `AR_DISABLE_*` for some, etc.). **Status: resolved in PR3** — collapsed to `debug!("Configuration: {self:#?}");`.
 
 ---
 
