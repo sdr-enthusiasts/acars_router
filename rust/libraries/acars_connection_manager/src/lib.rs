@@ -81,34 +81,19 @@ pub fn reconnect_options(host: &str) -> ReconnectOptions {
 }
 
 fn get_our_standard_reconnect_strategy() -> DurationIterator {
-    let initial_attempts = vec![
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
-        Duration::from_secs(5),
+    // 14× 5s, then a backoff ramp, then 60s forever.
+    let initial_attempts = std::iter::repeat_n(Duration::from_secs(5), 14).chain([
         Duration::from_secs(10),
         Duration::from_secs(20),
         Duration::from_secs(30),
         Duration::from_secs(40),
         Duration::from_secs(50),
         Duration::from_secs(60),
-    ];
+    ]);
 
     let repeat = std::iter::repeat(Duration::from_secs(60));
 
-    let forever_iterator = initial_attempts.into_iter().chain(repeat);
-
-    Box::new(forever_iterator)
+    Box::new(initial_attempts.chain(repeat))
 }
 
 impl fmt::Display for ServerType {

@@ -648,7 +648,7 @@ impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
             for sender_server in self.lock().await.iter() {
                 match sender_server.send(message.clone()).await {
                     Ok(()) => {
-                        debug!("[CHANNEL SENDER {name}] Successfully sent the {name} message")
+                        debug!("[CHANNEL SENDER {name}] Successfully sent the {name} message");
                     }
                     Err(e) => error!("[CHANNEL SENDER {name}]: Error sending message: {e}"),
                 }
