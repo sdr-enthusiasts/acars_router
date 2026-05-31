@@ -7,12 +7,13 @@
 
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
 use async_trait::async_trait;
+use log::{debug, error, info, trace};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc::Sender;
 
 pub struct PacketHandler {
     name: String,
@@ -45,20 +46,20 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
                 let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
                 match parsed_msg {
                     Err(parse_error) => {
-                        error!("[{listener_type} Listener Server: {proto_name}] {parse_error}")
+                        error!("[{listener_type} Listener Server: {proto_name}] {parse_error}");
                     }
                     Ok(msg) => {
                         trace!(
                             "[{listener_type} Listener SERVER: {proto_name}] Received message: {msg:?}"
                         );
                         match channel.send(msg).await {
-                            Ok(_) => debug!(
+                            Ok(()) => debug!(
                                 "[{listener_type} Listener SERVER: {proto_name}] Message sent to channel"
                             ),
                             Err(e) => error!(
                                 "[{listener_type} Listener SERVER: {proto_name}] sending message to channel: {e}"
                             ),
-                        };
+                        }
                     }
                 }
             }
@@ -68,8 +69,9 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
 }
 
 impl PacketHandler {
-    pub fn new(name: &str, listener_type: &str, reassembly_window: f64) -> PacketHandler {
-        PacketHandler {
+    #[must_use]
+    pub fn new(name: &str, listener_type: &str, reassembly_window: f64) -> Self {
+        Self {
             name: name.to_string(),
             queue: Arc::new(Mutex::new(HashMap::new())),
             listener_type: listener_type.to_string(),
@@ -122,47 +124,41 @@ impl PacketHandler {
                     // Below we use the FIRST non-reasssembled time to base the expiration of the entire queue off of.
                     output_message = Some(msg_deserialized);
                 }
-            };
+            }
         }
 
-        match output_message {
-            Some(_) => {
-                self.queue.lock().await.remove(&peer);
+        if output_message.is_some() {
+            self.queue.lock().await.remove(&peer);
+        } else {
+            // If the len is 0 then it's the first non-reassembled message, so we'll save the new message in to the queue
+            // Otherwise message_for_peer should already have the old messages + the new one already in it.
+            if message_for_peer.is_empty() {
+                message_for_peer = new_message_string;
             }
-            None => {
-                // If the len is 0 then it's the first non-reassembled message, so we'll save the new message in to the queue
-                // Otherwise message_for_peer should already have the old messages + the new one already in it.
-                if message_for_peer.is_empty() {
-                    message_for_peer = new_message_string;
-                }
 
-                // We want the peer's message queue to expire once the FIRST message received from the peer is older
-                // than the reassembly window. Therefore we use the old_time we grabbed from the queue above, or if it's the first
-                // message we get the current time.
+            // We want the peer's message queue to expire once the FIRST message received from the peer is older
+            // than the reassembly window. Therefore we use the old_time we grabbed from the queue above, or if it's the first
+            // message we get the current time.
 
-                let message_queue_time: f64 = match old_time {
-                    Some(t) => t,
-                    None => match SystemTime::now().duration_since(UNIX_EPOCH) {
-                        Ok(n) => n.as_secs_f64(),
-                        Err(_) => 0.0,
-                    },
-                };
+            let message_queue_time: f64 = old_time.unwrap_or_else(|| {
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map_or(0.0, |n| n.as_secs_f64())
+            });
 
-                self.queue
-                    .lock()
-                    .await
-                    .insert(peer, (message_queue_time, message_for_peer));
-            }
+            self.queue
+                .lock()
+                .await
+                .insert(peer, (message_queue_time, message_for_peer));
         }
 
         output_message
     }
 
     pub async fn clean_queue(&self) {
-        let current_time: f64 = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(n) => n.as_secs_f64(),
-            Err(_) => 0.0,
-        };
+        let current_time: f64 = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0.0, |n| n.as_secs_f64());
 
         if current_time == 0.0 {
             error!(

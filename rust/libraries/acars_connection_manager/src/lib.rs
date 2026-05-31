@@ -1,15 +1,4 @@
-#[macro_use]
-extern crate log;
-extern crate acars_config;
-extern crate acars_vdlm2_parser;
-extern crate async_trait;
-extern crate futures;
-extern crate sdre_stubborn_io;
-extern crate tmq;
-pub extern crate tokio as tokio;
-extern crate tokio_stream;
-extern crate tokio_util;
-extern crate zmq;
+pub use tokio;
 
 pub mod message_handler;
 pub mod packet_handler;
@@ -48,21 +37,6 @@ pub(crate) struct SenderServer<T> {
 #[derive(Debug, Default)]
 pub(crate) struct Shared {
     pub(crate) peers: HashMap<SocketAddr, Tx>,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct SocketListenerServer {
-    pub(crate) proto_name: String,
-    pub(crate) port: u16,
-    pub(crate) reassembly_window: f64,
-    pub(crate) socket_type: SocketType,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub(crate) enum SocketType {
-    Tcp,
-    Udp,
 }
 
 #[derive(Debug, Clone)]
@@ -140,20 +114,11 @@ fn get_our_standard_reconnect_strategy() -> DurationIterator {
 impl fmt::Display for ServerType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ServerType::Acars => write!(f, "ACARS"),
-            ServerType::Vdlm2 => write!(f, "VDLM"),
-            ServerType::Hfdl => write!(f, "HFDL"),
-            ServerType::Imsl => write!(f, "IMSL"),
-            ServerType::Irdm => write!(f, "IRDM"),
-        }
-    }
-}
-
-impl fmt::Display for SocketType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            SocketType::Tcp => write!(f, "TCP"),
-            SocketType::Udp => write!(f, "UDP"),
+            Self::Acars => write!(f, "ACARS"),
+            Self::Vdlm2 => write!(f, "VDLM"),
+            Self::Hfdl => write!(f, "HFDL"),
+            Self::Imsl => write!(f, "IMSL"),
+            Self::Irdm => write!(f, "IRDM"),
         }
     }
 }

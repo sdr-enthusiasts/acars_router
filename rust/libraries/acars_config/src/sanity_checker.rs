@@ -13,6 +13,7 @@
 // Will always be a valid number because the Clap parser will die if the input is bad
 
 use crate::Input;
+use log::{error, trace};
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::net::SocketAddr;
@@ -37,12 +38,13 @@ impl Input {
             self.check_no_duplicate_hosts(),
         ];
         // Now, see if we have any failures, and how many of them. If there are any failures, throw back an `Err()`
-        match is_input_sane.contains(&false) {
-            true => Err(format!(
+        if is_input_sane.contains(&false) {
+            Err(format!(
                 "Config option sanity check failed, with {} total errors",
                 is_input_sane.iter().filter(|&n| !(*n)).count()
-            )),
-            false => Ok(()),
+            ))
+        } else {
+            Ok(())
         }
     }
 
@@ -80,7 +82,7 @@ impl Input {
     fn check_no_duplicate_hosts(&self) -> bool {
         // We want to verify that no hosts are duplicated for an input
         // AR_RECV, AR_SEND are checked
-        let config: Input = self.clone();
+        let config: Self = self.clone();
         let mut input_test_results: Vec<bool> = Vec::new();
         let mut all_hosts: Vec<String> = Vec::new();
 
@@ -230,13 +232,13 @@ impl HostDuplicateCheck for Vec<String> {
         let hosts_group = hosts_group.to_vec();
         for config_hosts in hosts_group.into_iter().flatten() {
             for host in config_hosts {
-                self.push(host.to_string());
+                self.push(host.clone());
             }
         }
     }
 
     fn check_host(self, check_type: &str) -> bool {
-        let unique_hosts = has_unique_elements(self.to_vec());
+        let unique_hosts = has_unique_elements(self.clone());
         if !unique_hosts {
             error!("Duplicate host in {check_type} configuration!\nContents: {self:?}");
         }
@@ -255,12 +257,9 @@ trait ReturnValidity {
 /// If there is, it will return false, as we have a check that has failed.
 impl ReturnValidity for Vec<bool> {
     fn validate_results(self) -> bool {
-        match self.contains(&false) {
-            // The logic here is "Did a test return false?"
-            // If it did, the config has an error and the return should be false.
-            true => false,
-            false => true,
-        }
+        // The logic here is "Did a test return false?"
+        // If it did, the config has an error and the return should be false.
+        !self.contains(&false)
     }
 }
 
@@ -300,7 +299,7 @@ impl ValidateHosts for Option<Vec<String>> {
             }
             for socket in sockets {
                 // check and see if there are alpha characters in the string
-                if socket.chars().any(|c| c.is_alphabetic()) {
+                if socket.chars().any(char::is_alphabetic) {
                     // split the string on ':'
                     let socket_parts = socket.split(':').collect::<Vec<_>>();
                     match socket_parts.len() {
@@ -311,23 +310,23 @@ impl ValidateHosts for Option<Vec<String>> {
                         2 => {
                             let port = socket_parts[1];
                             // validate the port is numeric and between 1-65535
-                            if !port.chars().all(|c| c.is_numeric()) {
+                            if !port.chars().all(char::is_numeric) {
                                 error!("{name} Port is not numeric for: {socket}");
                                 return false;
-                            } else {
-                                match port.parse::<u16>() {
-                                    Ok(parsed_socket) => {
-                                        if parsed_socket == 0 {
-                                            error!("{name}: Socket address is valid, but the port provided is zero: {socket}");
-                                            return false;
-                                        } else {
-                                            trace!("{socket} is a valid socket address");
-                                        }
-                                    }
-                                    Err(_) => {
-                                        error!("{name} Port is invalid for: {socket}");
-                                        return false;
-                                    }
+                            }
+                            match port.parse::<u16>() {
+                                Ok(0) => {
+                                    error!(
+                                        "{name}: Socket address is valid, but the port provided is zero: {socket}"
+                                    );
+                                    return false;
+                                }
+                                Ok(_) => {
+                                    trace!("{socket} is a valid socket address");
+                                }
+                                Err(_) => {
+                                    error!("{name} Port is invalid for: {socket}");
+                                    return false;
                                 }
                             }
                         }
@@ -347,13 +346,14 @@ impl ValidateHosts for Option<Vec<String>> {
                             );
                             return false;
                         }
-                        Ok(parsed_socket) => {
-                            if parsed_socket.port().eq(&0) {
-                                error!("{name}: Socket address is valid, but the port provided is zero: {socket}");
+                        Ok(parsed_addr) => {
+                            if parsed_addr.port().eq(&0) {
+                                error!(
+                                    "{name}: Socket address is valid, but the port provided is zero: {socket}"
+                                );
                                 return false;
-                            } else {
-                                trace!("{socket} is a valid socket address");
                             }
+                            trace!("{socket} is a valid socket address");
                         }
                     }
                 }

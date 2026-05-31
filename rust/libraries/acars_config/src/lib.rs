@@ -1,11 +1,9 @@
-pub extern crate clap as clap;
-#[macro_use]
-extern crate log;
-extern crate sdre_rust_logging;
+pub use clap;
 
 pub mod sanity_checker;
 
 use clap::Parser;
+use log::debug;
 use sdre_rust_logging::SetupLogging;
 
 #[derive(Parser, Debug, Clone, Default)]
@@ -336,7 +334,8 @@ impl Input {
         debug!("AR_DISABLE_IRDM: {:?}", self.disable_irdm);
     }
 
-    pub fn acars_configured(&self) -> bool {
+    #[must_use]
+    pub const fn acars_configured(&self) -> bool {
         !self.disable_acars
             && (self.receive_tcp_acars.is_some()
                 || self.listen_udp_acars.is_some()
@@ -348,7 +347,8 @@ impl Input {
                 || self.serve_zmq_acars.is_some())
     }
 
-    pub fn vdlm_configured(&self) -> bool {
+    #[must_use]
+    pub const fn vdlm_configured(&self) -> bool {
         !self.disable_vdlm2
             && (self.receive_tcp_vdlm2.is_some()
                 || self.listen_udp_vdlm2.is_some()
@@ -360,7 +360,8 @@ impl Input {
                 || self.serve_zmq_vdlm2.is_some())
     }
 
-    pub fn hfdl_configured(&self) -> bool {
+    #[must_use]
+    pub const fn hfdl_configured(&self) -> bool {
         !self.disable_hfdl
             && (self.receive_tcp_hfdl.is_some()
                 || self.listen_udp_hfdl.is_some()
@@ -372,7 +373,8 @@ impl Input {
                 || self.serve_zmq_hfdl.is_some())
     }
 
-    pub fn imsl_configured(&self) -> bool {
+    #[must_use]
+    pub const fn imsl_configured(&self) -> bool {
         !self.disable_imsl
             && (self.receive_tcp_imsl.is_some()
                 || self.listen_udp_imsl.is_some()
@@ -384,7 +386,8 @@ impl Input {
                 || self.serve_zmq_imsl.is_some())
     }
 
-    pub fn irdm_configured(&self) -> bool {
+    #[must_use]
+    pub const fn irdm_configured(&self) -> bool {
         !self.disable_irdm
             && (self.receive_tcp_irdm.is_some()
                 || self.listen_udp_irdm.is_some()

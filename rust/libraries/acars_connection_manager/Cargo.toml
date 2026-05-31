@@ -2,6 +2,16 @@
 name = "acars_connection_manager"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -21,3 +31,6 @@ tmq.workspace = true
 socket2.workspace = true
 #acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.2.1" }
 #acars_vdlm2_parser = { git = "https://github.com/fredclausen/acars_vdlm2_parser", branch = "hfdl-and-dependency-updates" }
+
+[lints]
+workspace = true

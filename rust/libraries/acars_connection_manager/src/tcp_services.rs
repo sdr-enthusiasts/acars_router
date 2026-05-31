@@ -7,8 +7,9 @@
 
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use futures::SinkExt;
-use sdre_stubborn_io::tokio::StubbornIo;
+use log::{debug, error, info, trace};
 use sdre_stubborn_io::StubbornTcpStream;
+use sdre_stubborn_io::tokio::StubbornIo;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
@@ -19,12 +20,12 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::{mpsc, Mutex, MutexGuard};
+use tokio::sync::{Mutex, MutexGuard, mpsc};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
 
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
-use crate::{reconnect_options, Rx, SenderServer, Shared};
+use crate::{Rx, SenderServer, Shared, reconnect_options};
 
 /// TCP Listener server. This is used to listen for incoming TCP connections and process them.
 /// Used for incoming TCP data for ACARS Router to process
@@ -36,10 +37,10 @@ pub(crate) struct TCPListenerServer {
 /// TCP Listener server. This is used to listen for incoming TCP connections and process them.
 /// Used for incoming TCP data for ACARS Router to process
 impl TCPListenerServer {
-    pub(crate) fn new(proto_name: &str, reassembly_window: &f64) -> Self {
+    pub(crate) fn new(proto_name: &str, reassembly_window: f64) -> Self {
         Self {
             proto_name: proto_name.to_string(),
-            reassembly_window: *reassembly_window,
+            reassembly_window,
         }
     }
 
@@ -71,22 +72,22 @@ impl TCPListenerServer {
             );
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
-                match process_tcp_sockets(
+                match Box::pin(process_tcp_sockets(
                     stream,
                     &new_proto_name,
                     new_channel,
                     addr,
                     self.reassembly_window,
-                )
+                ))
                 .await
                 {
-                    Ok(_) => debug!("[TCP Listener SERVER: {new_proto_name}] connection closed"),
+                    Ok(()) => debug!("[TCP Listener SERVER: {new_proto_name}] connection closed"),
                     Err(e) => error!(
                         "[TCP Listener SERVER: {}] connection error: {}",
                         new_proto_name.clone(),
                         e
                     ),
-                };
+                }
             });
         }
     }
@@ -267,12 +268,17 @@ impl TCPReceiverServer {
                                 Ok(msg) => {
                                     trace!(
                                         "[TCP Receiver Server {}] Received message: {}",
-                                        self.proto_name,
-                                        msg
+                                        self.proto_name, msg
                                     );
                                     match channel.send(msg).await {
-                                        Ok(_) => trace!("[TCP SERVER {}] Message sent to channel", self.proto_name),
-                                        Err(e) => error!("[TCP Receiver Server {}]Error sending message to channel: {}", self.proto_name, e)
+                                        Ok(()) => trace!(
+                                            "[TCP SERVER {}] Message sent to channel",
+                                            self.proto_name
+                                        ),
+                                        Err(e) => error!(
+                                            "[TCP Receiver Server {}]Error sending message to channel: {}",
+                                            self.proto_name, e
+                                        ),
                                     }
                                 }
                             }
@@ -290,7 +296,7 @@ impl TCPReceiverServer {
 /// TCP Sender server. This is used to connect to a remote TCP server and send the messages.
 /// Used for outgoing TCP data for ACARS Router to a client
 impl SenderServer<StubbornIo<TcpStream, String>> {
-    pub async fn send_message(mut self) {
+    pub(crate) fn send_message(mut self) {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 match message.to_bytes_newline() {
@@ -299,7 +305,7 @@ impl SenderServer<StubbornIo<TcpStream, String>> {
                         self.proto_name, encode_error
                     ),
                     Ok(encoded_message) => match self.socket.write_all(&encoded_message).await {
-                        Ok(_) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
+                        Ok(()) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
                         Err(e) => error!(
                             "[TCP SENDER {}]: Error sending message: {}",
                             self.proto_name, e
@@ -337,15 +343,15 @@ struct Peer {
 impl Shared {
     /// Create a new, empty, instance of `Shared`.
     pub(crate) fn new() -> Self {
-        Shared {
+        Self {
             peers: HashMap::new(),
         }
     }
 
     /// Send a `LineCodec` encoded message to every peer, except
     /// for the sender.
-    async fn broadcast(&mut self, message: &str) {
-        for peer in self.peers.iter_mut() {
+    fn broadcast(&mut self, message: &str) {
+        for peer in &mut self.peers {
             let _ = peer.1.send(message.into());
         }
     }
@@ -356,7 +362,7 @@ impl Peer {
     async fn new(
         state: Arc<Mutex<Shared>>,
         lines: Framed<TcpStream, LinesCodec>,
-    ) -> io::Result<Peer> {
+    ) -> io::Result<Self> {
         // Get the client socket address
         let addr: SocketAddr = lines.get_ref().peer_addr()?;
 
@@ -366,7 +372,7 @@ impl Peer {
         // Add an entry for this `Peer` in the shared state map.
         state.lock().await.peers.insert(addr, tx);
 
-        Ok(Peer { lines, rx })
+        Ok(Self { lines, rx })
     }
 }
 
@@ -387,7 +393,7 @@ impl TCPServeServer {
         let new_state: Arc<Mutex<Shared>> = Arc::clone(state);
         tokio::spawn(async move { handle_message(new_state, channel).await });
         loop {
-            let new_proto: String = self.proto_name.to_string();
+            let new_proto: String = self.proto_name.clone();
             match self.socket.accept().await {
                 Ok((stream, addr)) => {
                     // Clone a handle to the `Shared` state for the new connection.
@@ -403,9 +409,8 @@ impl TCPServeServer {
                 }
                 Err(e) => {
                     error!("[TCP SERVER {new_proto}]: Error accepting connection: {e}");
-                    continue;
                 }
-            };
+            }
         }
     }
 }
@@ -416,9 +421,9 @@ async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<AcarsVd
             // state.lock().await.broadcast(&format!("{}\n",received_message)).await;
             match received_message.to_string_newline() {
                 Err(message_parse_error) => {
-                    error!("Failed to parse message to string: {message_parse_error}")
+                    error!("Failed to parse message to string: {message_parse_error}");
                 }
-                Ok(message) => state.lock().await.broadcast(&message).await,
+                Ok(message) => state.lock().await.broadcast(&message),
             }
         }
     }
@@ -444,13 +449,13 @@ async fn process(
             // A message was received from a peer. Send it to the current user.
             Some(msg) = peer.rx.recv() => {
                 match peer.lines.send(&msg).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         debug!("[TCP SERVER {addr}]: Sent message");
                     }
                     Err(e) => {
                         error!("[TCP SERVER {addr}]: Error sending message: {e}");
                     }
-                };
+                }
             }
             result = peer.lines.next() => match result {
                 // We received a message on this socket. Why? Dunno. Do nothing.
@@ -466,10 +471,9 @@ async fn process(
             },
         }
     }
-    {
-        info!("[TCP SERVER {addr}]: Client disconnected");
-        let mut state: MutexGuard<Shared> = state.lock().await;
-        state.peers.remove(&addr);
-        Ok(())
-    }
+    info!("[TCP SERVER {addr}]: Client disconnected");
+    let mut state: MutexGuard<'_, Shared> = state.lock().await;
+    state.peers.remove(&addr);
+    drop(state);
+    Ok(())
 }

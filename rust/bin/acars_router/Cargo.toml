@@ -10,6 +10,8 @@ repository.workspace = true
 readme.workspace = true
 license.workspace = true
 rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 acars_config = { path = "../../libraries/acars_config" }
@@ -20,3 +22,6 @@ serde.workspace = true
 serde_json.workspace = true
 sdre-rust-logging.workspace = true
 socket2.workspace = true
+
+[lints]
+workspace = true

@@ -7,15 +7,17 @@
 
 use acars_config::Input;
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
+use log::{debug, error, info, trace};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::vec_deque::VecDeque;
 use std::env;
+use std::fmt::Write as _;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration};
+use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::time::{Duration, sleep};
 
 pub struct FrequencyCount {
     freq: String,
@@ -37,31 +39,30 @@ pub struct MessageHandlerConfig {
 
 impl MessageHandlerConfig {
     pub(crate) fn new(args: &Input, queue_type: &str) -> Self {
-        if let Some(station_name) = &args.override_station_name {
-            Self {
-                add_proxy_id: args.add_proxy_id,
-                dedupe: args.enable_dedupe,
-                dedupe_window: args.dedupe_window,
-                skew_window: args.skew_window,
-                queue_type: queue_type.to_string(),
-                should_override_station_name: args.override_station_name.is_some(),
-                station_name: station_name.to_string(),
-                stats_every: args.stats_every,
-                stats_verbose: args.stats_verbose,
-            }
-        } else {
-            Self {
+        args.override_station_name.as_ref().map_or_else(
+            || Self {
                 add_proxy_id: args.add_proxy_id,
                 dedupe: args.enable_dedupe,
                 dedupe_window: args.dedupe_window,
                 skew_window: args.skew_window,
                 queue_type: queue_type.to_string(),
                 should_override_station_name: false,
-                station_name: Default::default(),
+                station_name: String::default(),
                 stats_every: args.stats_every,
                 stats_verbose: args.stats_verbose,
-            }
-        }
+            },
+            |station_name| Self {
+                add_proxy_id: args.add_proxy_id,
+                dedupe: args.enable_dedupe,
+                dedupe_window: args.dedupe_window,
+                skew_window: args.skew_window,
+                queue_type: queue_type.to_string(),
+                should_override_station_name: true,
+                station_name: station_name.clone(),
+                stats_every: args.stats_every,
+                stats_verbose: args.stats_verbose,
+            },
+        )
     }
 
     pub(crate) async fn watch_message_queue(
@@ -134,8 +135,7 @@ impl MessageHandlerConfig {
 
             trace!(
                 "[Message Handler {}] GOT: {:?}",
-                self.queue_type,
-                parse_message
+                self.queue_type, parse_message
             );
 
             match parse_message {
@@ -144,10 +144,9 @@ impl MessageHandlerConfig {
                     self.queue_type, parse_error, message_content
                 ),
                 Ok(mut message) => {
-                    let current_time: f64 = match SystemTime::now().duration_since(UNIX_EPOCH) {
-                        Ok(n) => n.as_secs_f64(),
-                        Err(_) => f64::default(),
-                    };
+                    let current_time: f64 = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map_or_else(|_| f64::default(), |n| n.as_secs_f64());
 
                     // See if the frequency is in the list of frequencies we've seen
                     // If not, add it to the list and log it
@@ -223,7 +222,7 @@ impl MessageHandlerConfig {
                             if let Some(frequency) = &m.freq {
                                 let mut found: bool = false;
                                 for freq in all_frequencies_logged.lock().await.iter_mut() {
-                                    if freq.freq == *frequency.to_string() {
+                                    if freq.freq == *frequency {
                                         freq.count += 1;
                                         found = true;
                                         break;
@@ -232,7 +231,7 @@ impl MessageHandlerConfig {
 
                                 if !found {
                                     let new_frequency: FrequencyCount = FrequencyCount {
-                                        freq: frequency.to_string(),
+                                        freq: frequency.clone(),
                                         count: 1,
                                     };
                                     all_frequencies_logged.lock().await.push(new_frequency);
@@ -244,7 +243,7 @@ impl MessageHandlerConfig {
                             if let Some(frequency) = &m.freq {
                                 let mut found: bool = false;
                                 for freq in all_frequencies_logged.lock().await.iter_mut() {
-                                    if freq.freq == *frequency.to_string() {
+                                    if freq.freq == frequency.to_string() {
                                         freq.count += 1;
                                         found = true;
                                         break;
@@ -266,21 +265,42 @@ impl MessageHandlerConfig {
 
                     match get_message_time {
                         None => {
-                            error!("[Message Handler {}] Message has no timestamp field. Skipping message.", self.queue_type);
-                            continue;
+                            error!(
+                                "[Message Handler {}] Message has no timestamp field. Skipping message.",
+                                self.queue_type
+                            );
                         }
                         Some(mut message_time) => {
+                            let skew = Duration::from_secs(self.skew_window);
                             if message_time > current_time {
-                                if (message_time - current_time) > self.skew_window as f64 {
-                                    error!("[Message Handler {}] Message is from the future. Skipping. Current time {}, Message time {}. Difference {}", self.queue_type, current_time, message_time, message_time - current_time);
+                                if Duration::from_secs_f64(message_time - current_time) > skew {
+                                    error!(
+                                        "[Message Handler {}] Message is from the future. Skipping. Current time {}, Message time {}. Difference {}",
+                                        self.queue_type,
+                                        current_time,
+                                        message_time,
+                                        message_time - current_time
+                                    );
                                     continue;
                                 }
-                                trace!("[Message Handler {}] Message is from the future. Current time {}, Message time {}. Difference {}", self.queue_type, current_time, message_time, message_time - current_time);
+                                trace!(
+                                    "[Message Handler {}] Message is from the future. Current time {}, Message time {}. Difference {}",
+                                    self.queue_type,
+                                    current_time,
+                                    message_time,
+                                    message_time - current_time
+                                );
                                 message_time = current_time;
                             }
                             // If the message is older than the skew window, reject it
-                            else if (current_time - message_time) > self.skew_window as f64 {
-                                error!("[Message Handler {}] Message is {} seconds old. Time in message {}. Skipping message. {}", self.queue_type, current_time - message_time, message_time, self.skew_window);
+                            else if Duration::from_secs_f64(current_time - message_time) > skew {
+                                error!(
+                                    "[Message Handler {}] Message is {} seconds old. Time in message {}. Skipping message. {}",
+                                    self.queue_type,
+                                    current_time - message_time,
+                                    message_time,
+                                    self.skew_window
+                                );
                                 continue;
                             }
 
@@ -295,16 +315,23 @@ impl MessageHandlerConfig {
                                 Ok(hashed_value) => {
                                     if self.dedupe {
                                         let mut rejected: bool = false;
+                                        let dedupe_window = Duration::from_secs(self.dedupe_window);
+                                        let current_time_dur =
+                                            Duration::from_secs_f64(current_time);
                                         for (time, hashed_value_saved) in
                                             dedupe_queue_loop.lock().await.iter()
                                         {
-                                            let f64_time: f64 = *time as f64;
+                                            let saved_dur = Duration::from_secs(*time);
                                             if *hashed_value_saved == hashed_value
-                                                && current_time - f64_time
-                                                    < self.dedupe_window as f64
+                                                && current_time_dur
+                                                    .checked_sub(saved_dur)
+                                                    .is_some_and(|d| d < dedupe_window)
                                             // Both the time and hash have to be equal to reject the message
                                             {
-                                                info!("[Message Handler {}] Message is a duplicate. Skipping message.", self.queue_type);
+                                                info!(
+                                                    "[Message Handler {}] Message is a duplicate. Skipping message.",
+                                                    self.queue_type
+                                                );
                                                 rejected = true;
                                                 break;
                                             }
@@ -312,19 +339,17 @@ impl MessageHandlerConfig {
 
                                         if rejected {
                                             continue;
-                                        } else {
-                                            dedupe_queue_loop
-                                                .lock()
-                                                .await
-                                                .push_back((message_time as u64, hashed_value));
                                         }
+                                        dedupe_queue_loop.lock().await.push_back((
+                                            Duration::from_secs_f64(message_time).as_secs(),
+                                            hashed_value,
+                                        ));
                                     }
 
                                     if self.should_override_station_name {
                                         trace!(
                                             "[Message Handler {}] Overriding station name to {}",
-                                            self.queue_type,
-                                            self.station_name
+                                            self.queue_type, self.station_name
                                         );
                                         message.set_station_name(&self.station_name);
                                     }
@@ -343,18 +368,22 @@ impl MessageHandlerConfig {
                                     );
                                     trace!(
                                         "[Message Handler {}] Hashed value: {}",
-                                        self.queue_type,
-                                        hashed_value
+                                        self.queue_type, hashed_value
                                     );
                                     trace!(
                                         "[Message Handler {}] Final message: {:?}",
-                                        self.queue_type,
-                                        message
+                                        self.queue_type, message
                                     );
 
                                     match output_queue.send(message).await {
-                                        Ok(_) => debug!("[Message Handler {}] Message sent to output queue", self.queue_type),
-                                        Err(e) => error!("[Message Handler {}] Error sending message to output queue: {}", self.queue_type, e)
+                                        Ok(()) => debug!(
+                                            "[Message Handler {}] Message sent to output queue",
+                                            self.queue_type
+                                        ),
+                                        Err(e) => error!(
+                                            "[Message Handler {}] Error sending message to output queue: {}",
+                                            self.queue_type, e
+                                        ),
                                     }
                                     // let parse_final_message: MessageResult<String> = message.to_string();
                                     // match parse_final_message {
@@ -378,6 +407,7 @@ impl MessageHandlerConfig {
     }
 }
 
+#[must_use]
 pub fn print_formatted_stats(
     total_all_time: i32,
     total_since_last: i32,
@@ -387,16 +417,17 @@ pub fn print_formatted_stats(
     has_counted_freqs: bool,
 ) -> String {
     let mut output: String = String::new();
-    output.push_str(&format!(
-            "{queue_type} in the last {stats_minutes} minute(s):\nTotal messages processed: {total_all_time}\nTotal messages processed since last update: {total_since_last}\n"
-        ));
+    let _ = write!(
+        output,
+        "{queue_type} in the last {stats_minutes} minute(s):\nTotal messages processed: {total_all_time}\nTotal messages processed since last update: {total_since_last}\n"
+    );
 
     if has_counted_freqs && frequencies.is_some() {
         output
             .push_str(format!("{queue_type} Frequencies logged since container start:\n").as_str());
         if let Some(freqs) = frequencies {
-            for freq in freqs.iter() {
-                let percentage: f64 = (freq.count as f64 / total_all_time as f64) * 100.0;
+            for freq in &freqs {
+                let percentage: f64 = (f64::from(freq.count) / f64::from(total_all_time)) * 100.0;
                 output.push_str(
                     format!(
                         "\n{} {}: {}/{} ({:.2}%)",
@@ -434,7 +465,7 @@ pub async fn print_stats(
         if let Some(f) = &frequencies {
             // sort the frequencies by count
             if let Some(f) = &frequencies {
-                f.lock().await.sort_by(|a, b| b.count.cmp(&a.count));
+                f.lock().await.sort_by_key(|b| std::cmp::Reverse(b.count));
             }
 
             if !has_counted_freqs && !f.lock().await.is_empty() {
@@ -442,10 +473,8 @@ pub async fn print_stats(
             }
         }
 
-        let mut freqs_locked = None;
-
         // TODO: This thing is ugly and bad
-        if let Some(f) = &frequencies {
+        let freqs_locked = if let Some(f) = &frequencies {
             // copy the contents of the frequencies vector into a new vector
             let mut freqs: Vec<FrequencyCount> = Vec::new();
             for freq in f.lock().await.iter() {
@@ -455,8 +484,10 @@ pub async fn print_stats(
                 });
             }
 
-            freqs_locked = Some(freqs);
-        }
+            Some(freqs)
+        } else {
+            None
+        };
 
         info!(
             "{}",
@@ -482,10 +513,9 @@ pub async fn clean_up_dedupe_queue(
         // Remove old messages from the dedupe_queue
         if !dedupe_queue.lock().await.is_empty() {
             // iterate through dedupe_que and remove old messages
-            let current_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
-                Ok(n) => n.as_secs(),
-                Err(_) => 0,
-            };
+            let current_time = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |n| n.as_secs());
 
             dedupe_queue.lock().await.retain(|message| {
                 let (timestamp, _) = message;

@@ -9,14 +9,15 @@
 
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use acars_vdlm2_parser::AcarsVdlm2Message;
+use log::{debug, error, info, trace, warn};
 use std::io;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{sleep, Duration, Instant};
+use tokio::time::{Duration, Instant, sleep};
 
-/// UDPListenerServer is a struct that contains the configuration for a UDP server
+/// `UDPListenerServer` is a struct that contains the configuration for a UDP server
 /// that will listen for incoming UDP packets and process them
 #[derive(Debug, Clone)]
 pub(crate) struct UDPListenerServer {
@@ -31,7 +32,7 @@ struct ResolvedAddr {
     last_success: Instant,
 }
 
-/// UDPSenderServer is a struct that contains the configuration for a UDP server
+/// `UDPSenderServer` is a struct that contains the configuration for a UDP server
 /// that will send out UDP packets
 #[derive(Debug)]
 pub(crate) struct UDPSenderServer {
@@ -43,13 +44,13 @@ pub(crate) struct UDPSenderServer {
     dns_cache_duration: Duration,
 }
 
-/// UDPListenerServer is a struct that contains the configuration for a UDP server
+/// `UDPListenerServer` is a struct that contains the configuration for a UDP server
 /// that will listen for incoming UDP packets and process them
 impl UDPListenerServer {
-    pub(crate) fn new(proto_name: &str, reassembly_window: &f64) -> Self {
+    pub(crate) fn new(proto_name: &str, reassembly_window: f64) -> Self {
         Self {
             proto_name: proto_name.to_string(),
-            reassembly_window: *reassembly_window,
+            reassembly_window,
         }
     }
 
@@ -80,15 +81,12 @@ impl UDPListenerServer {
 
                 loop {
                     if let Some((size, peer)) = to_send {
-                        let msg_string = match std::str::from_utf8(buf[..size].as_ref()) {
-                            Ok(s) => s,
-                            Err(_) => {
-                                warn!(
-                                    "[UDP SERVER: {}] Invalid message received from {}",
-                                    self.proto_name, peer
-                                );
-                                continue;
-                            }
+                        let Ok(msg_string) = std::str::from_utf8(buf[..size].as_ref()) else {
+                            warn!(
+                                "[UDP SERVER: {}] Invalid message received from {}",
+                                self.proto_name, peer
+                            );
+                            continue;
                         };
                         let split_messages_by_newline: Vec<&str> =
                             msg_string.split_terminator('\n').collect();
@@ -112,7 +110,10 @@ impl UDPListenerServer {
                                 {
                                     let final_message = if count == 0 {
                                         // First case is the first element, which should only ever need a single closing bracket
-                                        trace!("[UDP SERVER: {}] Multiple messages received in a packet.", self.proto_name);
+                                        trace!(
+                                            "[UDP SERVER: {}] Multiple messages received in a packet.",
+                                            self.proto_name
+                                        );
                                         format!("{}{}", "}", msg_by_brackets)
                                     } else if count == split_messages_by_brackets.len() - 1 {
                                         // This case is for the last element, which should only ever need a single opening bracket
@@ -141,26 +142,26 @@ impl UDPListenerServer {
                     to_send = Some(socket.recv_from(&mut buf).await?);
                 }
             }
-        };
+        }
         Ok(())
     }
 }
 
-/// UDPSenderServer is a struct that contains the configuration for a UDP server
+/// `UDPSenderServer` is a struct that contains the configuration for a UDP server
 /// that will send out UDP packets
 impl UDPSenderServer {
     pub(crate) fn new(
         send_udp: &[String],
         server_type: &str,
         socket: UdpSocket,
-        max_udp_packet_size: &usize,
+        max_udp_packet_size: usize,
         dns_cache_seconds: f64,
         rx_processed: Receiver<AcarsVdlm2Message>,
     ) -> Self {
         let mut resolved_addrs: Vec<ResolvedAddr> = Vec::new();
         for addr in send_udp {
             resolved_addrs.push(ResolvedAddr {
-                addr: addr.to_string(),
+                addr: addr.clone(),
                 resopt: None,
                 last_success: Instant::now(),
             });
@@ -168,7 +169,7 @@ impl UDPSenderServer {
         Self {
             proto_name: server_type.to_string(),
             socket,
-            max_udp_packet_size: *max_udp_packet_size,
+            max_udp_packet_size,
             channel: rx_processed,
             resolved_addrs,
             dns_cache_duration: Duration::from_secs_f64(dns_cache_seconds),
@@ -240,13 +241,17 @@ impl UDPSenderServer {
         for (addr, resolved) in &use_addrs {
             let mut keep_sending: bool = true;
             let mut buffer_position: usize = 0;
-            let mut buffer_end: usize = match message_as_bytes.len() < self.max_udp_packet_size {
-                true => message_as_bytes.len(),
-                false => self.max_udp_packet_size,
+            let mut buffer_end: usize = if message_as_bytes.len() < self.max_udp_packet_size {
+                message_as_bytes.len()
+            } else {
+                self.max_udp_packet_size
             };
 
             while keep_sending {
-                trace!("[UDP SENDER {}] Sending {buffer_position} to {buffer_end} of {message_size} to {addr} ({resolved})", self.proto_name);
+                trace!(
+                    "[UDP SENDER {}] Sending {buffer_position} to {buffer_end} of {message_size} to {addr} ({resolved})",
+                    self.proto_name
+                );
 
                 let bytes_sent = self
                     .socket
@@ -268,9 +273,10 @@ impl UDPSenderServer {
                     keep_sending = false;
                 } else {
                     buffer_position = buffer_end;
-                    buffer_end = match buffer_position + self.max_udp_packet_size < message_size {
-                        true => buffer_position + self.max_udp_packet_size,
-                        false => message_size,
+                    buffer_end = if buffer_position + self.max_udp_packet_size < message_size {
+                        buffer_position + self.max_udp_packet_size
+                    } else {
+                        message_size
                     };
 
                     // Slow the sender down!
@@ -278,9 +284,7 @@ impl UDPSenderServer {
                 }
                 trace!(
                     "[UDP SENDER {}] New buffer start: {}, end: {}",
-                    self.proto_name,
-                    buffer_position,
-                    buffer_end
+                    self.proto_name, buffer_position, buffer_end
                 );
             }
         }

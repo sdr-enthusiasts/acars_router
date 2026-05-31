@@ -5,17 +5,10 @@
 // Full license information available in the project LICENSE file.
 //
 
-#[macro_use]
-extern crate log;
-extern crate acars_config;
-extern crate acars_connection_manager;
-extern crate sdre_rust_logging;
-extern crate serde;
-extern crate serde_json;
-
-use acars_config::clap::Parser;
 use acars_config::Input;
+use acars_config::clap::Parser;
 use acars_connection_manager::service_init::start_processes;
+use log::{error, trace};
 use sdre_rust_logging::SetupLogging;
 use std::error::Error;
 use std::process;
@@ -25,7 +18,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args: Input = Input::parse();
     args.verbose.enable_logging();
     match args.check_config_option_sanity() {
-        Ok(_) => {
+        Ok(()) => {
             trace!("Config options are sane");
         }
         Err(e) => {

@@ -11,8 +11,9 @@ use crate::SenderServer;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use futures::SinkExt;
 use futures::StreamExt;
+use log::{debug, error, trace};
 use tmq::publish::Publish;
-use tmq::{subscribe, Context, Result};
+use tmq::{Context, Result, subscribe};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 /// ZMQ Receiver server. This is used to connect to a remote ZMQ server and process the messages.
@@ -48,8 +49,7 @@ impl ZMQReceiverServer {
                 .join(" ");
             trace!(
                 "[ZMQ RECEIVER SERVER {}] Received: {}",
-                self.proto_name,
-                composed_message
+                self.proto_name, composed_message
             );
             let stripped = composed_message
                 .strip_suffix("\r\n")
@@ -57,7 +57,7 @@ impl ZMQReceiverServer {
                 .unwrap_or(&composed_message);
 
             match channel.send(stripped.to_string()).await {
-                Ok(_) => trace!(
+                Ok(()) => trace!(
                     "[ZMQ RECEIVER SERVER {}] Message sent to channel",
                     self.proto_name
                 ),
@@ -80,6 +80,7 @@ pub struct ZMQListenerServer {
 /// ZMQ Listener server. This is used to listen for incoming ZMQ data for ACARS Router to process
 /// Used for incoming ZMQ data for ACARS Router to process
 impl ZMQListenerServer {
+    #[must_use]
     pub fn new(proto_name: &str) -> Self {
         Self {
             proto_name: proto_name.to_string(),
@@ -98,19 +99,17 @@ impl ZMQListenerServer {
             match msg {
                 Ok(message) => {
                     for item in message {
-                        let composed_message = item
-                            .as_str()
-                            .unwrap_or("invalid text")
+                        let item_text = item.as_str().unwrap_or("invalid text");
+                        let composed_message = item_text
                             .strip_suffix("\r\n")
-                            .or_else(|| item.as_str().unwrap_or("invalid text").strip_suffix('\n'))
-                            .unwrap_or(item.as_str().unwrap_or("invalid text"));
+                            .or_else(|| item_text.strip_suffix('\n'))
+                            .unwrap_or(item_text);
                         trace!(
                             "[ZMQ LISTENER SERVER {}] Received: {}",
-                            self.proto_name,
-                            composed_message
+                            self.proto_name, composed_message
                         );
                         match channel.send(composed_message.to_string()).await {
-                            Ok(_) => trace!(
+                            Ok(()) => trace!(
                                 "[ZMQ LISTENER SERVER {}] Message sent to channel",
                                 self.proto_name
                             ),
@@ -145,12 +144,12 @@ impl SenderServer<Publish> {
             channel,
         }
     }
-    pub async fn send_message(mut self) {
+    pub(crate) fn send_message(mut self) {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {
                 match message.to_string_newline() {
                     Err(decode_error) => {
-                        error!("[ZMQ SENDER]: Error parsing message to string: {decode_error}")
+                        error!("[ZMQ SENDER]: Error parsing message to string: {decode_error}");
                     }
                     // For some Subscribers it appears that a "blank" topic causes it to never receive the message
                     // This needs more investigation...
@@ -159,9 +158,9 @@ impl SenderServer<Publish> {
                     // zmq implementations not getting the message if the topic is blank.
                     // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
                     Ok(payload) => match self.socket.send(vec![&payload]).await {
-                        Ok(_) => (),
+                        Ok(()) => (),
                         Err(e) => {
-                            error!("[ZMQ SENDER]: Error sending message on 'acars' topic: {e:?}")
+                            error!("[ZMQ SENDER]: Error sending message on 'acars' topic: {e:?}");
                         }
                     },
                 }
