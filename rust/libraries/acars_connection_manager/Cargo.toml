@@ -29,6 +29,7 @@ async-trait.workspace = true
 zmq.workspace = true
 tmq.workspace = true
 socket2.workspace = true
+hickory-resolver.workspace = true
 
 [lints]
 workspace = true

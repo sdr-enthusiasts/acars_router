@@ -15,8 +15,8 @@
 | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------------- |
 | PR1: edition 2024 + workspace lints + clippy clean                                                | §2.1, §2.2, §2.3, §2.4, §2.6 (`SocketListenerServer`), §5 (mechanical sweep) | **Done** | `56d1d7b`     |
 | PR2: residual cleanups (commented git deps, reconnect-strategy nit)                               | §2.5 partial, §8 nit                                                         | **Done** | `39753f8`     |
-| PR3: sanity checker fixes + HFDL/IMSL/IRDM coverage + `print_values` collapse                     | §3.1, §3.2, §3.13 (`print_values`)                                           | **Done** | (this commit) |
-| PR4: unified DNS resolver                                                                         | §3.3, §3.4                                                                   | Pending  |
+| PR3: sanity checker fixes + HFDL/IMSL/IRDM coverage + `print_values` collapse                     | §3.1, §3.2, §3.13 (`print_values`)                                           | **Done** | `f5e6666`     |
+| PR4: unified async DNS resolver (hickory)                                                         | §3.3, §3.4                                                                   | **Done** | (this commit) |
 | PR5: `Protocol` enum / `ProtocolIo` refactor + `Input::*_configured` collapse + SIO 0.7 migration | §4.1, §4.2, §4.3, §4.4, §4.5, Appendix A                                     | Pending  |
 | PR6: `broadcast` + `JoinSet` + `CancellationToken`                                                | §3.5, §3.6, §3.12, §4.9                                                      | Pending  |
 | PR7: `packet_handler` rewrite                                                                     | §3.7, §4.8                                                                   | Pending  |
@@ -155,6 +155,8 @@ Plus: it never resolves the hostname (even a sanity-check resolution would help)
 
 ### 3.3 TCP receiver hard-fails on every hostname
 
+> **Status:** resolved in PR4. `TCPReceiverServer::run` now resolves `host:port` through the shared `hickory_resolver::TokioResolver` before handing the `SocketAddr` to `StubbornTcpStream::connect_with_options`.
+
 `rust/libraries/acars_connection_manager/src/tcp_services.rs:177`:
 
 ```rust
@@ -170,6 +172,8 @@ let addr = match self.host.parse::<SocketAddr>() {
 `SocketAddr::from_str` does **not** resolve hostnames. So `--receive-tcp-acars host.example.com:8080` silently exits the task with a logged error, never connects, and the user never finds out why no data is flowing. Compare with the UDP sender, which goes through `to_socket_addrs()` (also wrong, see §3.4) at least _some_ of the time. Fix: `tokio::net::lookup_host(&self.host).await?.next()`, or better, a real resolver (§3.5).
 
 ### 3.4 Blocking DNS on the tokio runtime (your point c)
+
+> **Status:** resolved in PR4. `UDPSenderServer::send_bytes` now calls the async `dns::resolve_host_port` instead of the blocking `std::net::ToSocketAddrs::to_socket_addrs()`. The existing per-target TTL cache (`last_success` / `dns_cache_duration`) is preserved and runs in front of hickory's own internal cache.
 
 `rust/libraries/acars_connection_manager/src/udp_services.rs:204` calls `ra.addr.to_socket_addrs()` — that's `std::net::ToSocketAddrs::to_socket_addrs`, which is **blocking** and goes through the system resolver. This is called from `send_bytes`, which is an `async fn` executed on the tokio worker pool. Every cache miss therefore blocks a runtime worker for however long getaddrinfo takes (can be many seconds under failure).
 

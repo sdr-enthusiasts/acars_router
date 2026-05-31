@@ -1,5 +1,6 @@
 pub use tokio;
 
+pub mod dns;
 pub mod message_handler;
 pub mod packet_handler;
 pub mod service_init;
@@ -56,6 +57,7 @@ pub(crate) struct SenderServerConfig {
     pub(crate) serve_zmq: Option<Vec<u16>>,
     pub(crate) max_udp_packet_size: usize,
     pub(crate) udp_dns_cache_seconds: f64,
+    pub(crate) resolver: Option<std::sync::Arc<dns::Resolver>>,
 }
 
 #[derive(Debug, Clone)]
@@ -67,6 +69,7 @@ pub(crate) struct OutputServerConfig {
     pub(crate) receive_zmq: Option<Vec<String>>,
     pub(crate) reassembly_window: f64,
     pub(crate) output_server_type: ServerType,
+    pub(crate) resolver: Option<std::sync::Arc<dns::Resolver>>,
 }
 
 // create ReconnectOptions. We want the TCP stuff that goes out and connects to clients

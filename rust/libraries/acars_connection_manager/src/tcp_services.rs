@@ -25,7 +25,7 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
 
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
-use crate::{Rx, SenderServer, Shared, reconnect_options};
+use crate::{Rx, SenderServer, Shared, dns, reconnect_options};
 
 /// TCP Listener server. This is used to listen for incoming TCP connections and process them.
 /// Used for incoming TCP data for ACARS Router to process
@@ -159,28 +159,37 @@ pub struct TCPReceiverServer {
     pub host: String,
     pub proto_name: String,
     pub reassembly_window: f64,
+    pub resolver: Arc<dns::Resolver>,
 }
 
 /// TCP Receiver server. This is used to connect to a remote TCP server and process the messages.
 /// Used for incoming TCP data for ACARS Router to process
 impl TCPReceiverServer {
-    pub(crate) fn new(server_host: &str, proto_name: &str, reassembly_window: f64) -> Self {
+    pub(crate) fn new(
+        server_host: &str,
+        proto_name: &str,
+        reassembly_window: f64,
+        resolver: Arc<dns::Resolver>,
+    ) -> Self {
         Self {
             host: server_host.to_string(),
             proto_name: proto_name.to_string(),
             reassembly_window,
+            resolver,
         }
     }
 
     pub async fn run(self, channel: Sender<String>) -> Result<(), Box<dyn Error>> {
         trace!("[TCP Receiver Server {}] Starting", self.proto_name);
-        // create a SocketAddr from host
-        let addr = match self.host.parse::<SocketAddr>() {
+        // Resolve `host:port` via the shared async resolver. The previous
+        // implementation called `self.host.parse::<SocketAddr>()`, which
+        // rejected every hostname (and even some IPv6 literals).
+        let addr = match dns::resolve_host_port(&self.resolver, &self.host).await {
             Ok(addr) => addr,
             Err(e) => {
                 error!(
-                    "[TCP Receiver Server {}] Error parsing host: {}",
-                    self.proto_name, e
+                    "[TCP Receiver Server {}] Error resolving host `{}`: {}",
+                    self.proto_name, self.host, e
                 );
                 return Ok(());
             }

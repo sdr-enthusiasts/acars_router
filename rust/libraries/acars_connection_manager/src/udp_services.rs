@@ -7,12 +7,13 @@
 
 // Server used to receive UDP data
 
+use crate::dns;
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use log::{debug, error, info, trace, warn};
 use std::io;
 use std::net::SocketAddr;
-use std::net::ToSocketAddrs;
+use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::{Duration, Instant, sleep};
@@ -42,6 +43,7 @@ pub(crate) struct UDPSenderServer {
     pub(crate) channel: Receiver<AcarsVdlm2Message>,
     resolved_addrs: Vec<ResolvedAddr>,
     dns_cache_duration: Duration,
+    resolver: Arc<dns::Resolver>,
 }
 
 /// `UDPListenerServer` is a struct that contains the configuration for a UDP server
@@ -157,6 +159,7 @@ impl UDPSenderServer {
         max_udp_packet_size: usize,
         dns_cache_seconds: f64,
         rx_processed: Receiver<AcarsVdlm2Message>,
+        resolver: Arc<dns::Resolver>,
     ) -> Self {
         let mut resolved_addrs: Vec<ResolvedAddr> = Vec::new();
         for addr in send_udp {
@@ -173,6 +176,7 @@ impl UDPSenderServer {
             channel: rx_processed,
             resolved_addrs,
             dns_cache_duration: Duration::from_secs_f64(dns_cache_seconds),
+            resolver,
         }
     }
 
@@ -200,29 +204,26 @@ impl UDPSenderServer {
         for ra in &mut self.resolved_addrs {
             //debug!("{:?}", ra);
             if ra.resopt.is_none() || ra.last_success.elapsed() > self.dns_cache_duration {
-                let mut res_option: Option<SocketAddr> = None;
-
-                match ra.addr.to_socket_addrs() {
-                    Ok(results) => {
-                        for res in results {
-                            if res.is_ipv4() {
-                                res_option = Some(res);
-                                break;
-                            }
-                        }
-                        if let Some(resolved) = res_option {
-                            debug!(
-                                "[UDP SENDER {}] Resolved: {} --> {}",
-                                self.proto_name, ra.addr, resolved
-                            );
-                            ra.resopt = Some(resolved);
-                            ra.last_success = Instant::now();
-                        } else {
-                            warn!(
-                                "[UDP SENDER {}] {} could not be resolved to an IPv4 address",
-                                self.proto_name, ra.addr
-                            );
-                        }
+                // Use the shared async resolver. The previous implementation
+                // invoked `std::net::ToSocketAddrs::to_socket_addrs()`, which
+                // performs a blocking libc DNS lookup on the tokio runtime.
+                // The per-target TTL cache below (`last_success` /
+                // `dns_cache_duration`) is independent of hickory's own cache
+                // and is preserved verbatim.
+                match dns::resolve_host_port(&self.resolver, &ra.addr).await {
+                    Ok(resolved) if resolved.is_ipv4() => {
+                        debug!(
+                            "[UDP SENDER {}] Resolved: {} --> {}",
+                            self.proto_name, ra.addr, resolved
+                        );
+                        ra.resopt = Some(resolved);
+                        ra.last_success = Instant::now();
+                    }
+                    Ok(_) => {
+                        warn!(
+                            "[UDP SENDER {}] {} could not be resolved to an IPv4 address",
+                            self.proto_name, ra.addr
+                        );
                     }
                     Err(e) => {
                         warn!(

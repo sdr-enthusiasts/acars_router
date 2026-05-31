@@ -10,7 +10,8 @@ use crate::tcp_services::{TCPListenerServer, TCPReceiverServer, TCPServeServer};
 use crate::udp_services::{UDPListenerServer, UDPSenderServer};
 use crate::zmq_services::{ZMQListenerServer, ZMQReceiverServer};
 use crate::{
-    OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared, reconnect_options,
+    OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared, dns,
+    reconnect_options,
 };
 use acars_config::Input;
 use acars_vdlm2_parser::AcarsVdlm2Message;
@@ -46,6 +47,10 @@ pub async fn start_processes(args: Input) {
 
     debug!("Starting the message handler tasks");
 
+    // Build the shared async DNS resolver. Cloning this `Arc` is cheap and we
+    // hand a clone to every receiver/sender that performs hostname lookups.
+    let resolver = dns::new_shared_resolver();
+
     if args.acars_configured() {
         let message_handler_config_acars: MessageHandlerConfig =
             MessageHandlerConfig::new(&args, "ACARS");
@@ -66,7 +71,8 @@ pub async fn start_processes(args: Input) {
             args.receive_zmq_acars.as_ref(),
             args.reassembly_window,
             ServerType::Acars,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
         tokio::spawn(async move {
             acars_input_config.start_listeners(tx_receivers_acars);
         });
@@ -79,7 +85,8 @@ pub async fn start_processes(args: Input) {
             args.serve_zmq_acars.as_ref(),
             args.max_udp_packet_size,
             args.udp_dns_cache_seconds,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
 
         tokio::spawn(async move {
             acars_output_config
@@ -117,7 +124,8 @@ pub async fn start_processes(args: Input) {
             args.receive_zmq_vdlm2.as_ref(),
             args.reassembly_window,
             ServerType::Vdlm2,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
         tokio::spawn(async move {
             vdlm_input_config.start_listeners(tx_receivers_vdlm);
         });
@@ -130,7 +138,8 @@ pub async fn start_processes(args: Input) {
             args.serve_zmq_vdlm2.as_ref(),
             args.max_udp_packet_size,
             args.udp_dns_cache_seconds,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
 
         tokio::spawn(async move {
             vdlm_output_config
@@ -168,7 +177,8 @@ pub async fn start_processes(args: Input) {
             args.receive_zmq_hfdl.as_ref(),
             args.reassembly_window,
             ServerType::Hfdl,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
 
         tokio::spawn(async move {
             hfdl_input_config.start_listeners(tx_receivers_hfdl);
@@ -182,7 +192,8 @@ pub async fn start_processes(args: Input) {
             args.serve_zmq_hfdl.as_ref(),
             args.max_udp_packet_size,
             args.udp_dns_cache_seconds,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
 
         tokio::spawn(async move {
             hfdl_output_config
@@ -220,7 +231,8 @@ pub async fn start_processes(args: Input) {
             args.receive_zmq_imsl.as_ref(),
             args.reassembly_window,
             ServerType::Imsl,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
 
         tokio::spawn(async move {
             imsl_input_config.start_listeners(tx_receivers_imsl);
@@ -234,7 +246,8 @@ pub async fn start_processes(args: Input) {
             args.serve_zmq_imsl.as_ref(),
             args.max_udp_packet_size,
             args.udp_dns_cache_seconds,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
 
         tokio::spawn(async move {
             imsl_output_config
@@ -272,7 +285,8 @@ pub async fn start_processes(args: Input) {
             args.receive_zmq_irdm.as_ref(),
             args.reassembly_window,
             ServerType::Irdm,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
 
         tokio::spawn(async move {
             irdm_input_config.start_listeners(tx_receivers_irdm);
@@ -286,7 +300,8 @@ pub async fn start_processes(args: Input) {
             args.serve_zmq_irdm.as_ref(),
             args.max_udp_packet_size,
             args.udp_dns_cache_seconds,
-        );
+        )
+        .with_resolver(Arc::clone(&resolver));
 
         tokio::spawn(async move {
             irdm_output_config
@@ -332,7 +347,13 @@ impl OutputServerConfig {
             receive_zmq: receive_zmq.cloned(),
             reassembly_window,
             output_server_type,
+            resolver: None,
         }
+    }
+
+    fn with_resolver(mut self, resolver: Arc<dns::Resolver>) -> Self {
+        self.resolver = Some(resolver);
+        self
     }
 
     fn start_listeners(self, tx_receivers: Sender<String>) {
@@ -394,10 +415,14 @@ impl OutputServerConfig {
                 "Starting TCP Receiver servers for {}",
                 &self.output_server_type.to_string()
             );
+            let resolver = self
+                .resolver
+                .expect("TCP receivers require a shared DNS resolver");
             receive_tcp.start_tcp_receivers(
                 &self.output_server_type.to_string(),
                 tx_receivers,
                 self.reassembly_window,
+                resolver,
             );
         }
     }
@@ -410,6 +435,7 @@ trait StartHostListeners {
         decoder_type: &str,
         channel: Sender<String>,
         reassembly_window: f64,
+        resolver: Arc<dns::Resolver>,
     );
 }
 
@@ -443,14 +469,16 @@ impl StartHostListeners for Vec<String> {
         decoder_type: &str,
         channel: Sender<String>,
         reassembly_window: f64,
+        resolver: Arc<dns::Resolver>,
     ) {
         for host in self {
             let new_channel: Sender<String> = channel.clone();
             let proto_name: String = format!("{decoder_type}_TCP_RECEIVER_{host}");
             let server_host: String = host.clone();
+            let resolver = Arc::clone(&resolver);
             tokio::spawn(async move {
                 let tcp_receiver_server: TCPReceiverServer =
-                    TCPReceiverServer::new(&server_host, &proto_name, reassembly_window);
+                    TCPReceiverServer::new(&server_host, &proto_name, reassembly_window, resolver);
                 match Box::pin(tcp_receiver_server.run(new_channel)).await {
                     Ok(()) => debug!("{proto_name} connection closed"),
                     Err(e) => error!("{proto_name} connection error: {e}"),
@@ -521,7 +549,13 @@ impl SenderServerConfig {
             serve_zmq: serve_zmq.cloned(),
             max_udp_packet_size: usize::try_from(max_udp_packet_size).unwrap_or(usize::MAX),
             udp_dns_cache_seconds,
+            resolver: None,
         }
+    }
+
+    fn with_resolver(mut self, resolver: Arc<dns::Resolver>) -> Self {
+        self.resolver = Some(resolver);
+        self
     }
 
     async fn start_senders(self, rx_processed: Receiver<AcarsVdlm2Message>, server_type: &str) {
@@ -535,6 +569,10 @@ impl SenderServerConfig {
         if let Some(send_udp) = self.send_udp {
             // Start the UDP sender servers for {server_type}
             info!("Starting {server_type} UDP Sender");
+            let resolver = self
+                .resolver
+                .clone()
+                .expect("UDP sender requires a shared DNS resolver");
             match UdpSocket::bind("0.0.0.0:0".to_string()).await {
                 Err(e) => error!("[{server_type}] Failed to start UDP sender server: {e}"),
                 Ok(socket) => {
@@ -546,6 +584,7 @@ impl SenderServerConfig {
                         self.max_udp_packet_size,
                         self.udp_dns_cache_seconds,
                         rx_processed,
+                        resolver,
                     );
 
                     let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
