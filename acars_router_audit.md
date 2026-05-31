@@ -11,23 +11,25 @@
 
 ## Remediation status
 
-| PR                                                                                                | Audit refs                                                                   | Status   | Commit        |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------------- |
-| PR1: edition 2024 + workspace lints + clippy clean                                                | §2.1, §2.2, §2.3, §2.4, §2.6 (`SocketListenerServer`), §5 (mechanical sweep) | **Done** | `56d1d7b`     |
-| PR2: residual cleanups (commented git deps, reconnect-strategy nit)                               | §2.5 partial, §8 nit                                                         | **Done** | `39753f8`     |
-| PR3: sanity checker fixes + HFDL/IMSL/IRDM coverage + `print_values` collapse                     | §3.1, §3.2, §3.13 (`print_values`)                                           | **Done** | `f5e6666`     |
-| PR4: unified async DNS resolver (hickory)                                                         | §3.3, §3.4                                                                   | **Done** | (this commit) |
-| PR5: `Protocol` enum / `ProtocolIo` refactor + `Input::*_configured` collapse + SIO 0.7 migration | §4.1, §4.2, §4.3, §4.4, §4.5, Appendix A                                     | Pending  |
-| PR6: `broadcast` + `JoinSet` + `CancellationToken`                                                | §3.5, §3.6, §3.12, §4.9                                                      | Pending  |
-| PR7: `packet_handler` rewrite                                                                     | §3.7, §4.8                                                                   | Pending  |
-| PR8: dedupe / counters / freq table polish                                                        | §3.8, §3.10, §3.11                                                           | Pending  |
-| PR9: tests + docs                                                                                 | §6                                                                           | Pending  |
+| PR                                                                              | Audit refs                                                                   | Status   | Commit        |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------------- |
+| PR1: edition 2024 + workspace lints + clippy clean                              | §2.1, §2.2, §2.3, §2.4, §2.6 (`SocketListenerServer`), §5 (mechanical sweep) | **Done** | `56d1d7b`     |
+| PR2: residual cleanups (commented git deps, reconnect-strategy nit)             | §2.5 partial, §8 nit                                                         | **Done** | `39753f8`     |
+| PR3: sanity checker fixes + HFDL/IMSL/IRDM coverage + `print_values` collapse   | §3.1, §3.2, §3.13 (`print_values`)                                           | **Done** | `f5e6666`     |
+| PR4: unified async DNS resolver (hickory)                                       | §3.3, §3.4                                                                   | **Done** | `30a174e`     |
+| PR5a: `Protocol` enum + `ProtocolIo` view + `Input::*_configured` collapse      | §4.1 (partial), §4.3, listen-zmq bug                                         | **Done** | (this commit) |
+| PR5b: collapse `service_init` / `sanity_checker` / freq-table onto `ProtocolIo` | §3.1 follow-up, §4.2, §4.4, §4.5                                             | Pending  |
+| PR5c: SIO 0.7.1 migration + `CachedDnsTcp` `UnderlyingIo` impl                  | Appendix A.1.2                                                               | Pending  |
+| PR6: `broadcast` + `JoinSet` + `CancellationToken`                              | §3.5, §3.6, §3.12, §4.9                                                      | Pending  |
+| PR7: `packet_handler` rewrite                                                   | §3.7, §4.8                                                                   | Pending  |
+| PR8: dedupe / counters / freq table polish                                      | §3.8, §3.10, §3.11                                                           | Pending  |
+| PR9: tests + docs                                                               | §6                                                                           | Pending  |
 
 **Open strategic question:** `log` vs `tracing` (audit §4.6). `tokio` already has the `tracing` feature enabled but the codebase uses `log` via `sdre-rust-logging` (which is `env_logger`-based). Switching is a workspace-wide change touching every log macro and would drop `sdre-rust-logging`. Decision deferred pending owner input.
 
 **Bugs found mid-stream (not addressed in their discovery PR):**
 
-- `Input::{acars,vdlm,hfdl,imsl,irdm}_configured` (`acars_config/src/lib.rs`) do **not** consult `listen_zmq_*` when deciding whether a protocol is configured. A protocol configured _only_ via `--listen-zmq-<proto>` will be reported as not configured and silently dropped. Discovered during PR3; fix folded into PR5 (`ProtocolIo::is_configured`).
+- ~~`Input::{acars,vdlm,hfdl,imsl,irdm}_configured` (`acars_config/src/lib.rs`) do **not** consult `listen_zmq_*` when deciding whether a protocol is configured.~~ Fixed in PR5a — replaced with `ProtocolIo::is_configured()` which covers all nine endpoint fields including `listen_zmq`.
 
 ---
 

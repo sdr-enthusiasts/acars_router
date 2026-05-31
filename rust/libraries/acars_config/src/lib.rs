@@ -4,6 +4,82 @@ pub mod sanity_checker;
 
 use clap::Parser;
 use log::debug;
+use std::fmt;
+
+/// Logical protocol carried by the router. The set is fixed.
+///
+/// Order is meaningful: `as usize` indexes into the array returned by
+/// [`Input::protocols`].
+#[repr(usize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Protocol {
+    Acars = 0,
+    Vdlm2 = 1,
+    Hfdl = 2,
+    Imsl = 3,
+    Irdm = 4,
+}
+
+impl Protocol {
+    /// All protocols, in canonical order.
+    pub const ALL: [Self; 5] = [Self::Acars, Self::Vdlm2, Self::Hfdl, Self::Imsl, Self::Irdm];
+
+    /// Short lowercase name used in logs and metric labels.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Acars => "acars",
+            Self::Vdlm2 => "vdlm2",
+            Self::Hfdl => "hfdl",
+            Self::Imsl => "imsl",
+            Self::Irdm => "irdm",
+        }
+    }
+}
+
+impl fmt::Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Per-protocol I/O view derived from [`Input`].
+///
+/// Unlike `Input`, every field is a flat `Vec<_>` (never `Option`) — absence
+/// is encoded by `is_empty()`. Construct via [`Input::protocols`] or
+/// [`Input::protocol`].
+#[derive(Clone, Debug, Default)]
+pub struct ProtocolIo {
+    pub listen_udp: Vec<u16>,
+    pub listen_tcp: Vec<u16>,
+    pub listen_zmq: Vec<u16>,
+    pub receive_tcp: Vec<String>,
+    pub receive_zmq: Vec<String>,
+    pub send_udp: Vec<String>,
+    pub send_tcp: Vec<String>,
+    pub serve_tcp: Vec<u16>,
+    pub serve_zmq: Vec<u16>,
+    pub disabled: bool,
+}
+
+impl ProtocolIo {
+    /// True iff the protocol is enabled and has at least one configured
+    /// endpoint of any kind. Replaces the 5 copy-pasted `Input::*_configured`
+    /// methods and — unlike them — correctly considers `listen_zmq_*`.
+    #[must_use]
+    pub fn is_configured(&self) -> bool {
+        !self.disabled
+            && (!self.listen_udp.is_empty()
+                || !self.listen_tcp.is_empty()
+                || !self.listen_zmq.is_empty()
+                || !self.receive_tcp.is_empty()
+                || !self.receive_zmq.is_empty()
+                || !self.send_udp.is_empty()
+                || !self.send_tcp.is_empty()
+                || !self.serve_tcp.is_empty()
+                || !self.serve_zmq.is_empty())
+    }
+}
 
 #[derive(Parser, Debug, Clone, Default)]
 #[command(name = "ACARS Router", author, version, about, long_about = None)]
@@ -272,68 +348,131 @@ impl Input {
         debug!("Configuration: {self:#?}");
     }
 
+    /// Project the parsed CLI into a per-protocol view, in canonical order
+    /// (see [`Protocol::ALL`]).
     #[must_use]
-    pub const fn acars_configured(&self) -> bool {
-        !self.disable_acars
-            && (self.receive_tcp_acars.is_some()
-                || self.listen_udp_acars.is_some()
-                || self.listen_tcp_acars.is_some()
-                || self.receive_zmq_acars.is_some()
-                || self.send_udp_acars.is_some()
-                || self.send_tcp_acars.is_some()
-                || self.serve_tcp_acars.is_some()
-                || self.serve_zmq_acars.is_some())
+    pub fn protocols(&self) -> [ProtocolIo; 5] {
+        Protocol::ALL.map(|p| self.protocol(p))
     }
 
+    /// Project the parsed CLI into the view for a single protocol.
     #[must_use]
-    pub const fn vdlm_configured(&self) -> bool {
-        !self.disable_vdlm2
-            && (self.receive_tcp_vdlm2.is_some()
-                || self.listen_udp_vdlm2.is_some()
-                || self.listen_tcp_vdlm2.is_some()
-                || self.receive_zmq_vdlm2.is_some()
-                || self.send_udp_vdlm2.is_some()
-                || self.send_tcp_vdlm2.is_some()
-                || self.serve_tcp_vdlm2.is_some()
-                || self.serve_zmq_vdlm2.is_some())
+    pub fn protocol(&self, proto: Protocol) -> ProtocolIo {
+        match proto {
+            Protocol::Acars => ProtocolIo {
+                listen_udp: self.listen_udp_acars.clone().unwrap_or_default(),
+                listen_tcp: self.listen_tcp_acars.clone().unwrap_or_default(),
+                listen_zmq: self.listen_zmq_acars.clone().unwrap_or_default(),
+                receive_tcp: self.receive_tcp_acars.clone().unwrap_or_default(),
+                receive_zmq: self.receive_zmq_acars.clone().unwrap_or_default(),
+                send_udp: self.send_udp_acars.clone().unwrap_or_default(),
+                send_tcp: self.send_tcp_acars.clone().unwrap_or_default(),
+                serve_tcp: self.serve_tcp_acars.clone().unwrap_or_default(),
+                serve_zmq: self.serve_zmq_acars.clone().unwrap_or_default(),
+                disabled: self.disable_acars,
+            },
+            Protocol::Vdlm2 => ProtocolIo {
+                listen_udp: self.listen_udp_vdlm2.clone().unwrap_or_default(),
+                listen_tcp: self.listen_tcp_vdlm2.clone().unwrap_or_default(),
+                listen_zmq: self.listen_zmq_vdlm2.clone().unwrap_or_default(),
+                receive_tcp: self.receive_tcp_vdlm2.clone().unwrap_or_default(),
+                receive_zmq: self.receive_zmq_vdlm2.clone().unwrap_or_default(),
+                send_udp: self.send_udp_vdlm2.clone().unwrap_or_default(),
+                send_tcp: self.send_tcp_vdlm2.clone().unwrap_or_default(),
+                serve_tcp: self.serve_tcp_vdlm2.clone().unwrap_or_default(),
+                serve_zmq: self.serve_zmq_vdlm2.clone().unwrap_or_default(),
+                disabled: self.disable_vdlm2,
+            },
+            Protocol::Hfdl => ProtocolIo {
+                listen_udp: self.listen_udp_hfdl.clone().unwrap_or_default(),
+                listen_tcp: self.listen_tcp_hfdl.clone().unwrap_or_default(),
+                listen_zmq: self.listen_zmq_hfdl.clone().unwrap_or_default(),
+                receive_tcp: self.receive_tcp_hfdl.clone().unwrap_or_default(),
+                receive_zmq: self.receive_zmq_hfdl.clone().unwrap_or_default(),
+                send_udp: self.send_udp_hfdl.clone().unwrap_or_default(),
+                send_tcp: self.send_tcp_hfdl.clone().unwrap_or_default(),
+                serve_tcp: self.serve_tcp_hfdl.clone().unwrap_or_default(),
+                serve_zmq: self.serve_zmq_hfdl.clone().unwrap_or_default(),
+                disabled: self.disable_hfdl,
+            },
+            Protocol::Imsl => ProtocolIo {
+                listen_udp: self.listen_udp_imsl.clone().unwrap_or_default(),
+                listen_tcp: self.listen_tcp_imsl.clone().unwrap_or_default(),
+                listen_zmq: self.listen_zmq_imsl.clone().unwrap_or_default(),
+                receive_tcp: self.receive_tcp_imsl.clone().unwrap_or_default(),
+                receive_zmq: self.receive_zmq_imsl.clone().unwrap_or_default(),
+                send_udp: self.send_udp_imsl.clone().unwrap_or_default(),
+                send_tcp: self.send_tcp_imsl.clone().unwrap_or_default(),
+                serve_tcp: self.serve_tcp_imsl.clone().unwrap_or_default(),
+                serve_zmq: self.serve_zmq_imsl.clone().unwrap_or_default(),
+                disabled: self.disable_imsl,
+            },
+            Protocol::Irdm => ProtocolIo {
+                listen_udp: self.listen_udp_irdm.clone().unwrap_or_default(),
+                listen_tcp: self.listen_tcp_irdm.clone().unwrap_or_default(),
+                listen_zmq: self.listen_zmq_irdm.clone().unwrap_or_default(),
+                receive_tcp: self.receive_tcp_irdm.clone().unwrap_or_default(),
+                receive_zmq: self.receive_zmq_irdm.clone().unwrap_or_default(),
+                send_udp: self.send_udp_irdm.clone().unwrap_or_default(),
+                send_tcp: self.send_tcp_irdm.clone().unwrap_or_default(),
+                serve_tcp: self.serve_tcp_irdm.clone().unwrap_or_default(),
+                serve_zmq: self.serve_zmq_irdm.clone().unwrap_or_default(),
+                disabled: self.disable_irdm,
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression: `Input::*_configured` historically ignored `listen_zmq_*`.
+    /// A protocol configured only via `--listen-zmq-<proto>` is now reported
+    /// as configured.
+    #[test]
+    fn listen_zmq_only_is_configured() {
+        for proto in Protocol::ALL {
+            let mut input = Input::default();
+            match proto {
+                Protocol::Acars => input.listen_zmq_acars = Some(vec![5550]),
+                Protocol::Vdlm2 => input.listen_zmq_vdlm2 = Some(vec![5550]),
+                Protocol::Hfdl => input.listen_zmq_hfdl = Some(vec![5550]),
+                Protocol::Imsl => input.listen_zmq_imsl = Some(vec![5550]),
+                Protocol::Irdm => input.listen_zmq_irdm = Some(vec![5550]),
+            }
+            assert!(
+                input.protocol(proto).is_configured(),
+                "{proto}: listen_zmq alone should mark protocol configured",
+            );
+        }
     }
 
-    #[must_use]
-    pub const fn hfdl_configured(&self) -> bool {
-        !self.disable_hfdl
-            && (self.receive_tcp_hfdl.is_some()
-                || self.listen_udp_hfdl.is_some()
-                || self.listen_tcp_hfdl.is_some()
-                || self.receive_zmq_hfdl.is_some()
-                || self.send_udp_hfdl.is_some()
-                || self.send_tcp_hfdl.is_some()
-                || self.serve_tcp_hfdl.is_some()
-                || self.serve_zmq_hfdl.is_some())
+    #[test]
+    fn disabled_overrides_configured() {
+        let input = Input {
+            disable_acars: true,
+            listen_udp_acars: Some(vec![5550]),
+            ..Input::default()
+        };
+        assert!(!input.protocol(Protocol::Acars).is_configured());
     }
 
-    #[must_use]
-    pub const fn imsl_configured(&self) -> bool {
-        !self.disable_imsl
-            && (self.receive_tcp_imsl.is_some()
-                || self.listen_udp_imsl.is_some()
-                || self.listen_tcp_imsl.is_some()
-                || self.receive_zmq_imsl.is_some()
-                || self.send_udp_imsl.is_some()
-                || self.send_tcp_imsl.is_some()
-                || self.serve_tcp_imsl.is_some()
-                || self.serve_zmq_imsl.is_some())
+    #[test]
+    fn empty_input_is_not_configured() {
+        let input = Input::default();
+        for proto in Protocol::ALL {
+            assert!(!input.protocol(proto).is_configured(), "{proto}");
+        }
     }
 
-    #[must_use]
-    pub const fn irdm_configured(&self) -> bool {
-        !self.disable_irdm
-            && (self.receive_tcp_irdm.is_some()
-                || self.listen_udp_irdm.is_some()
-                || self.listen_tcp_irdm.is_some()
-                || self.receive_zmq_irdm.is_some()
-                || self.send_udp_irdm.is_some()
-                || self.send_tcp_irdm.is_some()
-                || self.serve_tcp_irdm.is_some()
-                || self.serve_zmq_irdm.is_some())
+    #[test]
+    fn empty_vec_does_not_count_as_configured() {
+        let input = Input {
+            listen_udp_acars: Some(vec![]),
+            listen_tcp_acars: Some(vec![]),
+            ..Input::default()
+        };
+        assert!(!input.protocol(Protocol::Acars).is_configured());
     }
 }

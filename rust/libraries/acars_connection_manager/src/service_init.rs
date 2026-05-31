@@ -13,7 +13,7 @@ use crate::{
     OutputServerConfig, SenderServer, SenderServerConfig, ServerType, Shared, dns,
     reconnect_options,
 };
-use acars_config::Input;
+use acars_config::{Input, Protocol};
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use async_trait::async_trait;
 use log::{debug, error, info, trace};
@@ -51,7 +51,7 @@ pub async fn start_processes(args: Input) {
     // hand a clone to every receiver/sender that performs hostname lookups.
     let resolver = dns::new_shared_resolver();
 
-    if args.acars_configured() {
+    if args.protocol(Protocol::Acars).is_configured() {
         let message_handler_config_acars: MessageHandlerConfig =
             MessageHandlerConfig::new(&args, "ACARS");
 
@@ -106,7 +106,7 @@ pub async fn start_processes(args: Input) {
         );
     }
 
-    if args.vdlm_configured() {
+    if args.protocol(Protocol::Vdlm2).is_configured() {
         let message_handler_config_vdlm: MessageHandlerConfig =
             MessageHandlerConfig::new(&args, "VDLM");
 
@@ -160,7 +160,7 @@ pub async fn start_processes(args: Input) {
         );
     }
 
-    if args.hfdl_configured() {
+    if args.protocol(Protocol::Hfdl).is_configured() {
         let message_handler_config_hfdl: MessageHandlerConfig =
             MessageHandlerConfig::new(&args, "HFDL");
         // HFDL
@@ -214,7 +214,7 @@ pub async fn start_processes(args: Input) {
         );
     }
 
-    if args.imsl_configured() {
+    if args.protocol(Protocol::Imsl).is_configured() {
         let message_handler_config_imsl: MessageHandlerConfig =
             MessageHandlerConfig::new(&args, "IMSL");
         // IMSL
@@ -268,7 +268,7 @@ pub async fn start_processes(args: Input) {
         );
     }
 
-    if args.irdm_configured() {
+    if args.protocol(Protocol::Irdm).is_configured() {
         let message_handler_config_irdm: MessageHandlerConfig =
             MessageHandlerConfig::new(&args, "IRDM");
         // IRDM
