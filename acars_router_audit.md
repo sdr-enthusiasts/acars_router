@@ -18,8 +18,8 @@
 | PR3: sanity checker fixes + HFDL/IMSL/IRDM coverage + `print_values` collapse                 | §3.1, §3.2, §3.13 (`print_values`)                                           | **Done** | `f5e6666`     |
 | PR4: unified async DNS resolver (hickory)                                                     | §3.3, §3.4                                                                   | **Done** | `30a174e`     |
 | PR5a: `Protocol` enum + `ProtocolIo` view + `Input::*_configured` collapse                    | §4.1 (partial), §4.3, listen-zmq bug                                         | **Done** | `f8b5c83`     |
-| PR5b: collapse `start_processes` onto `ProtocolIo`; delete `ServerType` (unify on `Protocol`) | §4.2                                                                         | **Done** | (this commit) |
-| PR5b2: collapse `sanity_checker` onto `ProtocolIo` iteration                                  | §3.1 follow-up, §4.4                                                         | Pending  |
+| PR5b: collapse `start_processes` onto `ProtocolIo`; delete `ServerType` (unify on `Protocol`) | §4.2                                                                         | **Done** | `d3b3c38`     |
+| PR5b2: collapse `sanity_checker` onto `ProtocolIo` iteration                                  | §3.1 follow-up, §4.4                                                         | **Done** | (this commit) |
 | PR5c: SIO 0.7.1 migration + `CachedDnsTcp` `UnderlyingIo` impl                                | Appendix A.1.2                                                               | Pending  |
 | PR6: `broadcast` + `JoinSet` + `CancellationToken`                                            | §3.5, §3.6, §3.12, §4.9                                                      | Pending  |
 | PR7: `packet_handler` rewrite                                                                 | §3.7, §4.8                                                                   | Pending  |

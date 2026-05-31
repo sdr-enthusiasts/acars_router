@@ -51,6 +51,20 @@ impl Protocol {
             Self::Irdm => "IRDM",
         }
     }
+
+    /// Uppercase slug suffix used in environment variable names
+    /// (e.g. `AR_LISTEN_UDP_VDLM2`). Unlike [`Self::label`], this preserves
+    /// the trailing digit on `Vdlm2`.
+    #[must_use]
+    pub const fn env_token(self) -> &'static str {
+        match self {
+            Self::Acars => "ACARS",
+            Self::Vdlm2 => "VDLM2",
+            Self::Hfdl => "HFDL",
+            Self::Imsl => "IMSL",
+            Self::Irdm => "IRDM",
+        }
+    }
 }
 
 impl fmt::Display for Protocol {
