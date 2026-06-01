@@ -20,14 +20,22 @@
 | PR5a: `Protocol` enum + `ProtocolIo` view + `Input::*_configured` collapse                    | §4.1 (partial), §4.3, listen-zmq bug                                         | **Done** | `f8b5c83`     |
 | PR5b: collapse `start_processes` onto `ProtocolIo`; delete `ServerType` (unify on `Protocol`) | §4.2                                                                         | **Done** | `d3b3c38`     |
 | PR5b2: collapse `sanity_checker` onto `ProtocolIo` iteration                                  | §3.1 follow-up, §4.4                                                         | **Done** | (this commit) |
-| PR5c: SIO 0.7.1 migration + `CachedDnsTcp` `UnderlyingIo` impl                                | Appendix A.1.2                                                               | Done     |
-| PR6a: `broadcast` fan-out (deletes `Mutex<Vec<Sender>>` + per-peer mpsc)                      | §3.5, §3.6                                                                   | Done     |
-| PR6b: `JoinSet` + `CancellationToken` shutdown                                                | §3.12, §4.9                                                                  | Done     |
-| PR7: `packet_handler` rewrite                                                                 | §3.7, §4.8                                                                   | Done     |
-| PR8: dedupe / counters / freq table polish                                                    | §3.8, §3.10, §3.11                                                           | Done     |
-| PR9: tests + docs                                                                             | §6                                                                           | Pending  |
+| PR5c: SIO 0.7.1 migration + `CachedDnsTcp` `UnderlyingIo` impl                                | Appendix A.1.2                                                               | Done     | `bd3c9b6`     |
+| PR6a: `broadcast` fan-out (deletes `Mutex<Vec<Sender>>` + per-peer mpsc)                      | §3.5, §3.6                                                                   | Done     | `c56fc47`     |
+| PR6b: `JoinSet` + `CancellationToken` shutdown                                                | §3.12, §4.9                                                                  | Done     | `630590e`     |
+| PR7: `packet_handler` rewrite                                                                 | §3.7, §4.8                                                                   | Done     | `735d4c0`     |
+| PR8: dedupe / counters / freq table polish                                                    | §3.8, §3.10, §3.11                                                           | Done     | `fa048bd`     |
+| PR9: tests + rustdoc cleanup                                                                  | §6                                                                           | **Done** | `7f5284e`     |
+| Version bump 1.3.1 → 0.2.0 (semver reset post-audit)                                          | —                                                                            | **Done** | `7e6d9e2`     |
+| PR10: UDP DNS cache — 30-min default TTL + failure-driven invalidation                        | §3.4 follow-up                                                               | **Done** | `c9d496a`     |
 
 **Open strategic question:** `log` vs `tracing` (audit §4.6). `tokio` already has the `tracing` feature enabled but the codebase uses `log` via `sdre-rust-logging` (which is `env_logger`-based). Switching is a workspace-wide change touching every log macro and would drop `sdre-rust-logging`. Decision deferred pending owner input.
+
+**Remaining open items:**
+
+- `log` vs `tracing` decision (§4.6).
+- Workspace-level `clippy::struct_excessive_bools = "allow"` was added to keep `Input` and `MessageHandlerConfig` compiling. Remove the workspace allow and restructure those two configs (group related bools into sub-structs or enums) once a refactor lands.
+- `udp_services.rs` retains the "if resolution fails, retry on every send" behaviour. Audit §3.4 flagged this as a pathology; owner decision (PR10) is to **keep** it: when DNS is broken, the user wants the router to retry hard so it recovers immediately on DNS restoration, not back off.
 
 **Bugs found mid-stream (not addressed in their discovery PR):**
 
@@ -177,7 +185,7 @@ let addr = match self.host.parse::<SocketAddr>() {
 
 ### 3.4 Blocking DNS on the tokio runtime (your point c)
 
-> **Status:** resolved in PR4. `UDPSenderServer::send_bytes` now calls the async `dns::resolve_host_port` instead of the blocking `std::net::ToSocketAddrs::to_socket_addrs()`. The existing per-target TTL cache (`last_success` / `dns_cache_duration`) is preserved and runs in front of hickory's own internal cache.
+> **Status:** resolved in PR4. `UDPSenderServer::send_bytes` now calls the async `dns::resolve_host_port` instead of the blocking `std::net::ToSocketAddrs::to_socket_addrs()`. The existing per-target TTL cache (`last_success` / `dns_cache_duration`) is preserved and runs in front of hickory's own internal cache. PR10 additionally bumped the default TTL from 15s → 1800s (30 min) and added failure-driven invalidation: any `sendto()` error clears that destination's cached `SocketAddr` so the next message re-resolves regardless of TTL. The "retry resolution on every send while DNS is broken" pathology noted below is **deliberately retained** per owner direction — when DNS is down the user wants recovery the moment it comes back, not a back-off.
 
 `rust/libraries/acars_connection_manager/src/udp_services.rs:204` calls `ra.addr.to_socket_addrs()` — that's `std::net::ToSocketAddrs::to_socket_addrs`, which is **blocking** and goes through the system resolver. This is called from `send_bytes`, which is an `async fn` executed on the tokio worker pool. Every cache miss therefore blocks a runtime worker for however long getaddrinfo takes (can be many seconds under failure).
 
