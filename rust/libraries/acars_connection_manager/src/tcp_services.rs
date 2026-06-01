@@ -19,6 +19,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
+use tokio_util::sync::CancellationToken;
 
 use crate::cached_dns_tcp::{CachedDnsTcp, ConnectTarget};
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
@@ -45,6 +46,7 @@ impl TCPListenerServer {
         self,
         listen_acars_udp_port: String,
         channel: Sender<String>,
+        shutdown: CancellationToken,
     ) -> Result<(), io::Error> {
         let listener: TcpListener =
             TcpListener::bind(format!("0.0.0.0:{listen_acars_udp_port}")).await?;
@@ -59,25 +61,36 @@ impl TCPListenerServer {
                 "[TCP Listener SERVER: {}]: Waiting for connection",
                 self.proto_name
             );
-            // Asynchronously wait for an inbound TcpStream.
-            let (stream, addr) = listener.accept().await?;
+            // Asynchronously wait for an inbound TcpStream, or abort on shutdown.
+            let (stream, addr) = tokio::select! {
+                () = shutdown.cancelled() => {
+                    info!(
+                        "[TCP Listener SERVER: {}] shutdown requested; closing accept loop",
+                        self.proto_name
+                    );
+                    return Ok(());
+                }
+                res = listener.accept() => res?,
+            };
             let new_channel = channel.clone();
             let new_proto_name = format!("{}:{}", self.proto_name, addr);
+            let peer_shutdown = shutdown.clone();
             info!(
                 "[TCP Listener SERVER: {}]:accepted connection from {}",
                 self.proto_name, addr
             );
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
-                match Box::pin(process_tcp_sockets(
+                let processed = Box::pin(process_tcp_sockets(
                     stream,
                     &new_proto_name,
                     new_channel,
                     addr,
                     self.reassembly_window,
+                    peer_shutdown,
                 ))
-                .await
-                {
+                .await;
+                match processed {
                     Ok(()) => debug!("[TCP Listener SERVER: {new_proto_name}] connection closed"),
                     Err(e) => error!(
                         "[TCP Listener SERVER: {}] connection error: {}",
@@ -98,12 +111,20 @@ async fn process_tcp_sockets(
     channel: Sender<String>,
     peer: SocketAddr,
     reassembly_window: f64,
+    shutdown: CancellationToken,
 ) -> Result<(), Box<dyn Error>> {
     let mut lines = Framed::new(stream, LinesCodec::new_with_max_length(8000));
 
     let packet_handler = PacketHandler::new(proto_name, "TCP", reassembly_window);
 
-    while let Some(Ok(line)) = lines.next().await {
+    loop {
+        let line = tokio::select! {
+            () = shutdown.cancelled() => return Ok(()),
+            next = lines.next() => match next {
+                Some(Ok(line)) => line,
+                Some(Err(_)) | None => return Ok(()),
+            },
+        };
         let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
 
         for msg_by_newline in split_messages_by_newline {
@@ -146,8 +167,6 @@ async fn process_tcp_sockets(
             }
         }
     }
-
-    Ok(())
 }
 
 /// TCP Receiver server. This is used to connect to a remote TCP server and process the messages.
@@ -176,7 +195,11 @@ impl TCPReceiverServer {
         }
     }
 
-    pub async fn run(self, channel: Sender<String>) -> Result<(), Box<dyn Error>> {
+    pub async fn run(
+        self,
+        channel: Sender<String>,
+        shutdown: CancellationToken,
+    ) -> Result<(), Box<dyn Error>> {
         trace!("[TCP Receiver Server {}] Starting", self.proto_name);
         // Resolve once up-front so we can attribute reassembly to a stable
         // peer address; `CachedDnsTcp` will re-resolve on every reconnect.
@@ -226,7 +249,14 @@ impl TCPReceiverServer {
         let mut lines = Framed::new(reader, LinesCodec::new());
         let packet_handler = PacketHandler::new(&self.proto_name, "TCP", self.reassembly_window);
 
-        while let Some(Ok(line)) = lines.next().await {
+        loop {
+            let line = tokio::select! {
+                () = shutdown.cancelled() => break,
+                next = lines.next() => match next {
+                    Some(Ok(line)) => line,
+                    Some(Err(_)) | None => break,
+                },
+            };
             // Clean up the line endings. This is probably unnecessary but it's here for safety.
             let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
 
@@ -359,15 +389,26 @@ impl TCPServeServer {
     pub(crate) async fn watch_for_connections(
         self,
         tx_processed: broadcast::Sender<AcarsVdlm2Message>,
+        shutdown: CancellationToken,
     ) {
         loop {
             let proto = self.proto_name.clone();
-            match self.socket.accept().await {
+            let accepted = tokio::select! {
+                () = shutdown.cancelled() => {
+                    info!("[TCP SERVER {proto}] shutdown requested; closing accept loop");
+                    return;
+                }
+                res = self.socket.accept() => res,
+            };
+            match accepted {
                 Ok((stream, addr)) => {
                     let mut rx = tx_processed.subscribe();
+                    let peer_shutdown = shutdown.clone();
                     tokio::spawn(async move {
                         info!("[TCP SERVER {proto}] accepted connection from {addr}");
-                        if let Err(e) = forward_to_peer(stream, addr, &proto, &mut rx).await {
+                        if let Err(e) =
+                            forward_to_peer(stream, addr, &proto, &mut rx, peer_shutdown).await
+                        {
                             info!("[TCP SERVER {proto}] peer {addr} disconnected; error = {e:?}");
                         } else {
                             info!("[TCP SERVER {proto}] peer {addr} disconnected");
@@ -391,10 +432,15 @@ async fn forward_to_peer(
     addr: SocketAddr,
     proto: &str,
     rx: &mut broadcast::Receiver<AcarsVdlm2Message>,
+    shutdown: CancellationToken,
 ) -> Result<(), Box<dyn Error>> {
     let mut stream = stream;
     loop {
-        match rx.recv().await {
+        let recv = tokio::select! {
+            () = shutdown.cancelled() => return Ok(()),
+            r = rx.recv() => r,
+        };
+        match recv {
             Ok(message) => match message.to_string_newline() {
                 Ok(payload) => {
                     if let Err(e) = stream.write_all(payload.as_bytes()).await {

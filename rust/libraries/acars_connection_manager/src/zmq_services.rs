@@ -11,10 +11,11 @@ use crate::SenderServer;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use futures::SinkExt;
 use futures::StreamExt;
-use log::{debug, error, trace};
+use log::{debug, error, info, trace};
 use tmq::publish::Publish;
 use tmq::{Context, Result, subscribe};
 use tokio::sync::mpsc::Sender;
+use tokio_util::sync::CancellationToken;
 
 /// ZMQ Receiver server. This is used to connect to a remote ZMQ server and process the messages.
 /// Used for incoming ZMQ data for ACARS Router to process
@@ -26,14 +27,24 @@ pub struct ZMQReceiverServer {
 /// ZMQ Receiver server. This is used to connect to a remote ZMQ server and process the messages.
 /// Used for incoming ZMQ data for ACARS Router to process
 impl ZMQReceiverServer {
-    pub async fn run(self, channel: Sender<String>) -> Result<()> {
+    pub async fn run(self, channel: Sender<String>, shutdown: CancellationToken) -> Result<()> {
         debug!("[ZMQ RECEIVER SERVER {}] Starting", self.proto_name);
         let address = format!("tcp://{}", self.host);
         let mut socket = subscribe(&Context::new())
             .connect(&address)?
             .subscribe(b"")?;
 
-        while let Some(msg) = socket.next().await {
+        loop {
+            let msg = tokio::select! {
+                () = shutdown.cancelled() => {
+                    info!("[ZMQ RECEIVER SERVER {}] shutdown requested", self.proto_name);
+                    return Ok(());
+                }
+                next = socket.next() => match next {
+                    Some(m) => m,
+                    None => return Ok(()),
+                },
+            };
             let message = match msg {
                 Ok(message) => message,
                 Err(e) => {
@@ -67,7 +78,6 @@ impl ZMQReceiverServer {
                 ),
             }
         }
-        Ok(())
     }
 }
 
@@ -86,7 +96,12 @@ impl ZMQListenerServer {
             proto_name: proto_name.to_string(),
         }
     }
-    pub async fn run(self, listen_acars_zmq_port: String, channel: Sender<String>) -> Result<()> {
+    pub async fn run(
+        self,
+        listen_acars_zmq_port: String,
+        channel: Sender<String>,
+        shutdown: CancellationToken,
+    ) -> Result<()> {
         debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
         let address = format!("tcp://0.0.0.0:{listen_acars_zmq_port}");
         debug!(
@@ -95,7 +110,17 @@ impl ZMQListenerServer {
         );
         let mut socket = subscribe(&Context::new()).bind(&address)?.subscribe(b"")?;
 
-        while let Some(msg) = socket.next().await {
+        loop {
+            let msg = tokio::select! {
+                () = shutdown.cancelled() => {
+                    info!("[ZMQ LISTENER SERVER {}] shutdown requested", self.proto_name);
+                    return Ok(());
+                }
+                next = socket.next() => match next {
+                    Some(m) => m,
+                    None => return Ok(()),
+                },
+            };
             match msg {
                 Ok(message) => {
                     for item in message {
@@ -123,8 +148,6 @@ impl ZMQListenerServer {
                 Err(e) => error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e),
             }
         }
-
-        Ok(())
     }
 }
 

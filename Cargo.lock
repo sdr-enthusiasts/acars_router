@@ -42,6 +42,7 @@ dependencies = [
  "serde_json",
  "socket2",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

@@ -8,10 +8,12 @@
 use acars_config::Input;
 use acars_config::clap::Parser;
 use acars_connection_manager::service_init::start_processes;
-use log::{error, trace};
+use log::{error, info, trace};
 use sdre_rust_logging::SetupLogging;
 use std::error::Error;
 use std::process;
+use tokio::signal;
+use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -26,6 +28,40 @@ async fn main() -> Result<(), Box<dyn Error>> {
             process::exit(1);
         }
     }
-    start_processes(args).await;
+
+    let shutdown = CancellationToken::new();
+    let shutdown_signal = shutdown.clone();
+    tokio::spawn(async move {
+        wait_for_shutdown_signal().await;
+        info!("Shutdown signal received, asking tasks to stop");
+        shutdown_signal.cancel();
+    });
+
+    start_processes(args, shutdown).await;
+    info!("Shutdown complete");
     Ok(())
+}
+
+/// Resolves on the first of: Ctrl-C, SIGTERM (Unix). On non-Unix only
+/// Ctrl-C is observed; SIGTERM has no portable equivalent in `tokio::signal`.
+async fn wait_for_shutdown_signal() {
+    #[cfg(unix)]
+    {
+        let mut sigterm = match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to install SIGTERM handler: {e}; falling back to Ctrl-C only");
+                let _ = signal::ctrl_c().await;
+                return;
+            }
+        };
+        tokio::select! {
+            _ = signal::ctrl_c() => {}
+            _ = sigterm.recv() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = signal::ctrl_c().await;
+    }
 }

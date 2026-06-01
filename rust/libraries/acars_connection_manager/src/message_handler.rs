@@ -19,6 +19,7 @@ use tokio::sync::Mutex;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use tokio::time::{Duration, sleep};
+use tokio_util::sync::CancellationToken;
 
 pub struct FrequencyCount {
     freq: String,
@@ -70,6 +71,7 @@ impl MessageHandlerConfig {
         self,
         mut input_queue: Receiver<String>,
         output_queue: broadcast::Sender<AcarsVdlm2Message>,
+        shutdown: CancellationToken,
     ) {
         let dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>> =
             Arc::new(Mutex::new(VecDeque::with_capacity(100)));
@@ -96,6 +98,7 @@ impl MessageHandlerConfig {
             None
         };
 
+        let stats_shutdown = shutdown.clone();
         tokio::spawn(async move {
             print_stats(
                 stats_total_messages_context,
@@ -103,6 +106,7 @@ impl MessageHandlerConfig {
                 stats_frequency_context,
                 stats_every,
                 queue_type_stats.as_str(),
+                stats_shutdown,
             )
             .await;
         });
@@ -113,18 +117,33 @@ impl MessageHandlerConfig {
         if self.dedupe {
             let dedupe_queue_context: Arc<Mutex<VecDeque<(u64, u64)>>> = Arc::clone(&dedupe_queue);
             let dedupe_window: u64 = self.dedupe_window;
+            let dedupe_shutdown = shutdown.clone();
 
             tokio::spawn(async move {
                 clean_up_dedupe_queue(
                     dedupe_queue_context,
                     dedupe_window,
                     queue_type_dedupe.as_str(),
+                    dedupe_shutdown,
                 )
                 .await;
             });
         }
 
-        while let Some(message_content) = input_queue.recv().await {
+        loop {
+            let message_content = tokio::select! {
+                () = shutdown.cancelled() => {
+                    info!(
+                        "[Message Handler {}] shutdown requested; closing input loop",
+                        self.queue_type
+                    );
+                    return;
+                }
+                msg = input_queue.recv() => match msg {
+                    Some(m) => m,
+                    None => return,
+                },
+            };
             // Grab the mutexes for the stats counter and increment the total messages processed by the message handler.
             let parse_message: MessageResult<AcarsVdlm2Message> = message_content.decode_message();
             let stats_total_loop_context: Arc<Mutex<i32>> = Arc::clone(&total_messages_processed);
@@ -455,11 +474,15 @@ pub async fn print_stats(
     frequencies: Option<Arc<Mutex<Vec<FrequencyCount>>>>,
     stats_every: u64,
     queue_type: &str,
+    shutdown: CancellationToken,
 ) {
     let stats_minutes = stats_every / 60;
     let mut has_counted_freqs = false;
     loop {
-        sleep(Duration::from_secs(stats_every)).await;
+        tokio::select! {
+            () = shutdown.cancelled() => return,
+            () = sleep(Duration::from_secs(stats_every)) => {}
+        }
         let total_all_time_locked = *total_all_time.lock().await;
         let total_since_last_locked = *total_since_last.lock().await;
 
@@ -512,9 +535,13 @@ pub async fn clean_up_dedupe_queue(
     dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>>,
     dedupe_window: u64,
     queue_type: &str,
+    shutdown: CancellationToken,
 ) {
     loop {
-        sleep(Duration::from_secs(dedupe_window)).await;
+        tokio::select! {
+            () = shutdown.cancelled() => return,
+            () = sleep(Duration::from_secs(dedupe_window)) => {}
+        }
         // Remove old messages from the dedupe_queue
         if !dedupe_queue.lock().await.is_empty() {
             // iterate through dedupe_que and remove old messages

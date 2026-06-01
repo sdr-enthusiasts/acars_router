@@ -18,6 +18,7 @@ use tokio::net::UdpSocket;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{Duration, Instant, sleep};
+use tokio_util::sync::CancellationToken;
 
 /// `UDPListenerServer` is a struct that contains the configuration for a UDP server
 /// that will listen for incoming UDP packets and process them
@@ -61,6 +62,7 @@ impl UDPListenerServer {
         self,
         listen_udp_port: &str,
         channel: Sender<String>,
+        shutdown: CancellationToken,
     ) -> Result<(), io::Error> {
         let mut buf: Vec<u8> = vec![0; 5000];
         let mut to_send: Option<(usize, SocketAddr)> = None;
@@ -142,7 +144,16 @@ impl UDPListenerServer {
                             }
                         }
                     }
-                    to_send = Some(socket.recv_from(&mut buf).await?);
+                    to_send = Some(tokio::select! {
+                        () = shutdown.cancelled() => {
+                            info!(
+                                "[UDP SERVER: {}] shutdown requested; closing recv loop",
+                                self.proto_name
+                            );
+                            return Ok(());
+                        }
+                        res = socket.recv_from(&mut buf) => res?,
+                    });
                 }
             }
         }
