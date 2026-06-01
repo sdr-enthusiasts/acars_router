@@ -54,9 +54,13 @@
               # Packages that git-hooks.nix / mkCheck say we need
               corePkgs = chk.enabledPackages or [ ];
 
-              # Extra Rust / tooling packages (NO extra rustc here)
+              # Extra Rust / tooling packages (NO extra rustc here).
+              # `chk.passthru.devPackages` is intentionally NOT listed here —
+              # it is a list, and embedding it inline produces a nested list
+              # in `buildInputs` (deprecated as of nixpkgs 26.05). It is
+              # already pulled in via `extraDev` below and concatenated with
+              # `++` in `buildInputs`.
               extraRustTools = [
-                chk.passthru.devPackages
                 pkgs.cargo-deny
                 pkgs.cargo-machete
                 pkgs.cargo-make
@@ -75,7 +79,7 @@
             in
             {
               default = pkgs.mkShell {
-                buildInputs = extraRustTools ++ corePkgs ++ extraDev;
+                buildInputs = extraDev ++ corePkgs ++ extraRustTools;
 
                 LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libPkgs;
 
