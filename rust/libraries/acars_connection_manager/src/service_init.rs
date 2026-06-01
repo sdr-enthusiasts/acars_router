@@ -94,6 +94,7 @@ pub async fn start_processes(args: Input, shutdown: CancellationToken) {
 }
 
 /// Wire one protocol's listener/handler/sender trio onto the runtime.
+#[tracing::instrument(name = "pipeline", skip_all, fields(proto = %proto))]
 fn spawn_protocol_pipeline(
     pipelines: &mut JoinSet<()>,
     proto: Protocol,

@@ -104,6 +104,11 @@ impl MessageHandlerConfig {
         }
     }
 
+    #[tracing::instrument(
+        name = "message_handler",
+        skip_all,
+        fields(proto = %self.queue_type),
+    )]
     pub(crate) async fn watch_message_queue(
         self,
         mut input_queue: Receiver<String>,

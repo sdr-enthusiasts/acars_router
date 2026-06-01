@@ -37,6 +37,11 @@ pub struct ZMQReceiverServer {
 }
 
 impl ZMQReceiverServer {
+    #[tracing::instrument(
+        name = "zmq_receiver",
+        skip_all,
+        fields(proto = %self.proto_name, host = %self.host),
+    )]
     pub async fn run(self, channel: Sender<String>, shutdown: CancellationToken) -> Result<()> {
         debug!("[ZMQ RECEIVER SERVER {}] Starting", self.proto_name);
         let address = format!("tcp://{}", self.host);
@@ -104,6 +109,11 @@ impl ZMQListenerServer {
             proto_name: proto_name.to_string(),
         }
     }
+    #[tracing::instrument(
+        name = "zmq_listener",
+        skip_all,
+        fields(proto = %self.proto_name, port = %listen_acars_zmq_port),
+    )]
     pub async fn run(
         self,
         listen_acars_zmq_port: String,

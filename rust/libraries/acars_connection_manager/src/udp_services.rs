@@ -70,6 +70,11 @@ impl UDPListenerServer {
         }
     }
 
+    #[tracing::instrument(
+        name = "udp_listener",
+        skip_all,
+        fields(proto = %self.proto_name, port = %listen_udp_port),
+    )]
     pub(crate) async fn run(
         self,
         listen_udp_port: &str,
@@ -202,6 +207,7 @@ impl UDPSenderServer {
         }
     }
 
+    #[tracing::instrument(name = "udp_sender", skip_all, fields(proto = %self.proto_name))]
     pub(crate) async fn send_message(mut self) {
         // send the message to the socket
         // Loop through all of the sockets in the host list

@@ -60,6 +60,11 @@ impl TCPListenerServer {
         }
     }
 
+    #[tracing::instrument(
+        name = "tcp_listener",
+        skip_all,
+        fields(proto = %self.proto_name, port = %listen_acars_udp_port),
+    )]
     pub(crate) async fn run(
         self,
         listen_acars_udp_port: String,
@@ -216,6 +221,11 @@ impl TCPReceiverServer {
         }
     }
 
+    #[tracing::instrument(
+        name = "tcp_receiver",
+        skip_all,
+        fields(proto = %self.proto_name, host = %self.host),
+    )]
     pub async fn run(
         self,
         channel: Sender<String>,
@@ -408,6 +418,7 @@ impl TCPServeServer {
     /// its own [`broadcast::Receiver`]. Eliminates the previous
     /// `Mutex<HashMap<peer, Sender>>` + per-peer `mpsc::unbounded_channel`
     /// fan-out (and the `broadcast()` method that walked it inside a lock).
+    #[tracing::instrument(name = "tcp_serve", skip_all, fields(proto = %self.proto_name))]
     pub(crate) async fn watch_for_connections(
         self,
         tx_processed: broadcast::Sender<AcarsVdlm2Message>,
