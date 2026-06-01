@@ -28,13 +28,14 @@
 | PR9: tests + rustdoc cleanup                                                                  | §6                                                                           | **Done** | `7f5284e`     |
 | Version bump 1.3.1 → 0.2.0 (semver reset post-audit)                                          | —                                                                            | **Done** | `7e6d9e2`     |
 | PR10: UDP DNS cache — 30-min default TTL + failure-driven invalidation                        | §3.4 follow-up                                                               | **Done** | `c9d496a`     |
+| PR11: `MessageHandlerConfig` Option/sub-struct refactor + workspace allow removal             | §3.13 (`struct_excessive_bools`)                                             | **Done** | `8e594e0`     |
 
 **Open strategic question:** `log` vs `tracing` (audit §4.6). `tokio` already has the `tracing` feature enabled but the codebase uses `log` via `sdre-rust-logging` (which is `env_logger`-based). Switching is a workspace-wide change touching every log macro and would drop `sdre-rust-logging`. Decision deferred pending owner input.
 
 **Remaining open items:**
 
 - `log` vs `tracing` decision (§4.6).
-- Workspace-level `clippy::struct_excessive_bools = "allow"` was added to keep `Input` and `MessageHandlerConfig` compiling. Remove the workspace allow and restructure those two configs (group related bools into sub-structs or enums) once a refactor lands.
+- ~~Workspace-level `clippy::struct_excessive_bools = "allow"` was added to keep `Input` and `MessageHandlerConfig` compiling. Remove the workspace allow and restructure those two configs (group related bools into sub-structs or enums) once a refactor lands.~~ Fixed in PR11: `MessageHandlerConfig` reshaped into `Option<DedupeOpts>` / `Option<String>` station override / `StatsOpts` sub-struct (`add_proxy_id` + `stats.verbose` are the only remaining bools, both load-bearing). `Input` carries a site-local `#[allow(clippy::struct_excessive_bools)]` with a justifying comment: every bool is a documented `--flag` + `AR_*` env var; substructs would just push the lint into the substruct. Workspace allow removed.
 - `udp_services.rs` retains the "if resolution fails, retry on every send" behaviour. Audit §3.4 flagged this as a pathology; owner decision (PR10) is to **keep** it: when DNS is broken, the user wants the router to retry hard so it recovers immediately on DNS restoration, not back off.
 
 **Bugs found mid-stream (not addressed in their discovery PR):**
