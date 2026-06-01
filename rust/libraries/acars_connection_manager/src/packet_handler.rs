@@ -21,13 +21,13 @@
 //! `contains_key` and `get`.
 
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
-use log::{debug, error, info, trace};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::Sender;
+use tracing::{debug, error, info, trace};
 
 /// Per-peer fragment reassembly state. One instance is owned by each
 /// inbound TCP/UDP connection (see `tcp_services` / `udp_services`).

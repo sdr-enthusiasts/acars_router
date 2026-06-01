@@ -11,11 +11,11 @@
 //! new protocol or field is a one-line change.
 
 use crate::{Input, Protocol, ProtocolIo};
-use log::{error, trace};
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
+use tracing::{error, trace};
 
 impl Input {
     /// Validate user-supplied configuration.

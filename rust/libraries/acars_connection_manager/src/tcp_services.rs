@@ -24,7 +24,6 @@
 //! fragment reassembly logic itself lives in [`crate::packet_handler`].
 
 use acars_vdlm2_parser::AcarsVdlm2Message;
-use log::{debug, error, info, trace};
 use sdre_stubborn_io::tokio::StubbornIo;
 use std::error::Error;
 use std::io;
@@ -38,6 +37,7 @@ use tokio::sync::mpsc::Sender;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, trace};
 
 use crate::cached_dns_tcp::{CachedDnsTcp, ConnectTarget};
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
@@ -316,33 +316,32 @@ impl TCPReceiverServer {
                         );
                         final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
                     }
-                    match packet_handler
+                    if let Some(encoded_msg) = packet_handler
                         .attempt_message_reassembly(final_message, addr)
                         .await
                     {
-                        Some(encoded_msg) => {
-                            let parse_msg = encoded_msg.to_string();
-                            match parse_msg {
-                                Err(parse_error) => error!("{parse_error}"),
-                                Ok(msg) => {
-                                    trace!(
-                                        "[TCP Receiver Server {}] Received message: {}",
-                                        self.proto_name, msg
-                                    );
-                                    match channel.send(msg).await {
-                                        Ok(()) => trace!(
-                                            "[TCP SERVER {}] Message sent to channel",
-                                            self.proto_name
-                                        ),
-                                        Err(e) => error!(
-                                            "[TCP Receiver Server {}]Error sending message to channel: {}",
-                                            self.proto_name, e
-                                        ),
-                                    }
+                        let parse_msg = encoded_msg.to_string();
+                        match parse_msg {
+                            Err(parse_error) => error!("{parse_error}"),
+                            Ok(msg) => {
+                                trace!(
+                                    "[TCP Receiver Server {}] Received message: {}",
+                                    self.proto_name, msg
+                                );
+                                match channel.send(msg).await {
+                                    Ok(()) => trace!(
+                                        "[TCP SERVER {}] Message sent to channel",
+                                        self.proto_name
+                                    ),
+                                    Err(e) => error!(
+                                        "[TCP Receiver Server {}]Error sending message to channel: {}",
+                                        self.proto_name, e
+                                    ),
                                 }
                             }
                         }
-                        None => trace!("[TCP Receiver Server {}] Invalid Message", self.proto_name),
+                    } else {
+                        trace!("[TCP Receiver Server {}] Invalid Message", self.proto_name);
                     }
                 }
             }
@@ -364,7 +363,7 @@ impl SenderServer<StubbornIo<CachedDnsTcp>> {
                     Ok(m) => m,
                     Err(broadcast::error::RecvError::Closed) => break,
                     Err(broadcast::error::RecvError::Lagged(n)) => {
-                        log::warn!(
+                        tracing::warn!(
                             "[TCP SENDER {}]: broadcast lagged; {n} message(s) dropped",
                             self.proto_name
                         );

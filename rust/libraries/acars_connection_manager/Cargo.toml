@@ -20,7 +20,7 @@ acars_vdlm2_parser.workspace = true
 acars_config = { path = "../acars_config" }
 sdre-stubborn-io.workspace = true
 #sdre-stubborn-io = "0.4.4"
-log.workspace = true
+tracing.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tokio-stream.workspace = true

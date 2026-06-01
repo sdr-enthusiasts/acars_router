@@ -16,7 +16,6 @@ use crate::{
 };
 use acars_config::{Input, Protocol, ProtocolIo};
 use acars_vdlm2_parser::AcarsVdlm2Message;
-use log::{debug, error, info, warn};
 use sdre_stubborn_io::tokio::StubbornIo;
 use std::io;
 use std::sync::Arc;
@@ -28,6 +27,7 @@ use tokio::sync::mpsc::{self, Sender};
 use tokio::task::JoinSet;
 use tokio::time::{Duration, timeout};
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, warn};
 
 /// How long we wait after cancellation for top-level pipeline tasks to drain
 /// before we drop them and let the runtime shut down.
@@ -78,16 +78,17 @@ pub async fn start_processes(args: Input, shutdown: CancellationToken) {
     shutdown.cancelled().await;
     info!("Draining {} pipeline task(s)", pipelines.len());
 
-    match timeout(SHUTDOWN_GRACE, async {
+    let drained = timeout(SHUTDOWN_GRACE, async {
         while pipelines.join_next().await.is_some() {}
     })
-    .await
-    {
-        Ok(()) => info!("All pipeline tasks drained cleanly"),
-        Err(_) => warn!(
+    .await;
+    if drained.is_ok() {
+        info!("All pipeline tasks drained cleanly");
+    } else {
+        warn!(
             "Pipeline tasks did not drain within {SHUTDOWN_GRACE:?}; aborting remaining {} task(s)",
             pipelines.len()
-        ),
+        );
     }
     pipelines.shutdown().await;
 }

@@ -22,11 +22,11 @@ use crate::SenderServer;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use futures::SinkExt;
 use futures::StreamExt;
-use log::{debug, error, info, trace};
 use tmq::publish::Publish;
 use tmq::{Context, Result, subscribe};
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, trace};
 
 /// Outbound-connecting ZMQ subscriber: `connect()`s to a remote `PUB`
 /// socket and pushes each message into the per-protocol mpsc input
@@ -183,7 +183,7 @@ impl SenderServer<Publish> {
                     Ok(m) => m,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        log::warn!(
+                        tracing::warn!(
                             "[ZMQ SENDER {}]: broadcast lagged; {n} message(s) dropped",
                             self.proto_name
                         );

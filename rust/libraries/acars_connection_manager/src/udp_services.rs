@@ -22,7 +22,6 @@
 use crate::dns;
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use acars_vdlm2_parser::AcarsVdlm2Message;
-use log::{debug, error, info, trace, warn};
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -31,6 +30,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{Duration, Instant, sleep};
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, trace, warn};
 
 /// Inbound UDP listener: binds a port and feeds the per-protocol mpsc
 /// input channel through [`PacketHandler`] reassembly.

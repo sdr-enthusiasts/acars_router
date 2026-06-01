@@ -26,7 +26,7 @@ use std::sync::Arc;
 use hickory_resolver::TokioResolver;
 use hickory_resolver::config::{CLOUDFLARE, ResolverConfig, ResolverOpts};
 use hickory_resolver::net::runtime::TokioRuntimeProvider;
-use log::warn;
+use tracing::warn;
 
 /// The concrete resolver type used throughout the crate.
 pub type Resolver = TokioResolver;

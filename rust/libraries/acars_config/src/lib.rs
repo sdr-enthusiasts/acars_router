@@ -3,8 +3,8 @@ pub use clap;
 pub mod sanity_checker;
 
 use clap::Parser;
-use log::debug;
 use std::fmt;
+use tracing::debug;
 
 /// Logical protocol carried by the router. The set is fixed.
 ///

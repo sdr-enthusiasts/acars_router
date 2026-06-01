@@ -17,8 +17,7 @@ categories.workspace = true
 
 [dependencies]
 clap.workspace = true
-log.workspace = true
-sdre-rust-logging.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

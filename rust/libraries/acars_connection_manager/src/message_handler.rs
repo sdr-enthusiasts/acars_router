@@ -24,7 +24,6 @@
 
 use acars_config::Input;
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
-use log::{debug, error, info, trace};
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::env;
@@ -38,6 +37,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use tokio::time::{Duration, sleep};
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, trace};
 
 /// One (frequency, count) pair as rendered in stats output. Kept as a
 /// named struct so the snapshot-and-sort step in [`print_stats`] stays
@@ -280,17 +280,19 @@ impl MessageHandlerConfig {
                 self.queue_type
             );
 
-            match output_queue.send(message) {
-                Ok(n) => debug!(
+            if let Ok(n) = output_queue.send(message) {
+                debug!(
                     "[Message Handler {}] Message sent to {n} sender(s)",
                     self.queue_type
-                ),
-                // `Err` only when no receivers are subscribed; common during
-                // startup (no outputs configured) — debug, not error.
-                Err(_) => debug!(
+                );
+            } else {
+                // `Err` only when no receivers are subscribed; common
+                // during startup (no outputs configured) — debug, not
+                // error.
+                debug!(
                     "[Message Handler {}] No active senders; message dropped",
                     self.queue_type
-                ),
+                );
             }
         }
     }
