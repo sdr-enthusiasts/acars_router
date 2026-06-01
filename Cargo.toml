@@ -33,7 +33,6 @@ socket2 = "0.6.3"
 tokio-util = { version = "0.7.18", features = ["full"] }
 tokio-stream = "0.1.18"
 futures = "0.3.32"
-async-trait = "0.1.89"
 zmq = "0.10.0"
 tmq = "0.5.0"
 acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.4.0" }

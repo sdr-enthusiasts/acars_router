@@ -23,7 +23,7 @@
 | PR5c: SIO 0.7.1 migration + `CachedDnsTcp` `UnderlyingIo` impl                                | Appendix A.1.2                                                               | Done     |
 | PR6a: `broadcast` fan-out (deletes `Mutex<Vec<Sender>>` + per-peer mpsc)                      | §3.5, §3.6                                                                   | Done     |
 | PR6b: `JoinSet` + `CancellationToken` shutdown                                                | §3.12, §4.9                                                                  | Done     |
-| PR7: `packet_handler` rewrite                                                                 | §3.7, §4.8                                                                   | Pending  |
+| PR7: `packet_handler` rewrite                                                                 | §3.7, §4.8                                                                   | Done     |
 | PR8: dedupe / counters / freq table polish                                                    | §3.8, §3.10, §3.11                                                           | Pending  |
 | PR9: tests + docs                                                                             | §6                                                                           | Pending  |
 

@@ -25,7 +25,6 @@ tokio.workspace = true
 tokio-util.workspace = true
 tokio-stream.workspace = true
 futures.workspace = true
-async-trait.workspace = true
 zmq.workspace = true
 tmq.workspace = true
 socket2.workspace = true

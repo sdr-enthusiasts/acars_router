@@ -5,12 +5,26 @@
 // Full license information available in the project LICENSE file.
 //
 
+//! Per-peer message reassembly.
+//!
+//! Inbound TCP/UDP fragments may split a single ACARS/VDLM2 JSON object
+//! across multiple packets. `PacketHandler` buffers the most recent
+//! partial fragment per peer and tries to decode it concatenated with each
+//! new fragment. Successfully-decoded fragments drop the buffer entry;
+//! buffers older than `reassembly_window` seconds are pruned lazily on the
+//! next call from any peer.
+//!
+//! Locking discipline: every public entry point acquires the single
+//! `tokio::sync::Mutex` over the queue at most once and never re-locks
+//! while still holding a guard. The pre-PR7 implementation re-locked up
+//! to four times per call and had a TOCTOU `.unwrap()` panic between
+//! `contains_key` and `get`.
+
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
-use async_trait::async_trait;
 use log::{debug, error, info, trace};
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::Sender;
@@ -18,22 +32,20 @@ use tokio::sync::mpsc::Sender;
 pub struct PacketHandler {
     name: String,
     listener_type: String,
-    // Hashmap key is peer, stores a tuple of time and message
-    queue: Arc<Mutex<HashMap<SocketAddr, (f64, String)>>>,
+    /// Per-peer (first-seen-unix-seconds, partial-fragment) buffer.
+    queue: Mutex<HashMap<SocketAddr, (f64, String)>>,
     reassembly_window: f64,
 }
 
-#[async_trait]
 pub trait ProcessAssembly {
-    async fn process_reassembly(
+    fn process_reassembly(
         &self,
         proto_name: &str,
         channel: &Sender<String>,
         listener_type: &str,
-    );
+    ) -> impl std::future::Future<Output = ()> + Send;
 }
 
-#[async_trait]
 impl ProcessAssembly for Option<AcarsVdlm2Message> {
     async fn process_reassembly(
         &self,
@@ -41,29 +53,26 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
         channel: &Sender<String>,
         listener_type: &str,
     ) {
-        match self {
-            Some(reassembled_msg) => {
-                let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
-                match parsed_msg {
-                    Err(parse_error) => {
-                        error!("[{listener_type} Listener Server: {proto_name}] {parse_error}");
-                    }
-                    Ok(msg) => {
-                        trace!(
-                            "[{listener_type} Listener SERVER: {proto_name}] Received message: {msg:?}"
-                        );
-                        match channel.send(msg).await {
-                            Ok(()) => debug!(
-                                "[{listener_type} Listener SERVER: {proto_name}] Message sent to channel"
-                            ),
-                            Err(e) => error!(
-                                "[{listener_type} Listener SERVER: {proto_name}] sending message to channel: {e}"
-                            ),
-                        }
-                    }
+        let Some(reassembled_msg) = self else {
+            trace!("[{listener_type} Listener SERVER: {proto_name}] Invalid Message");
+            return;
+        };
+        let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
+        match parsed_msg {
+            Err(parse_error) => {
+                error!("[{listener_type} Listener Server: {proto_name}] {parse_error}");
+            }
+            Ok(msg) => {
+                trace!("[{listener_type} Listener SERVER: {proto_name}] Received message: {msg:?}");
+                match channel.send(msg).await {
+                    Ok(()) => debug!(
+                        "[{listener_type} Listener SERVER: {proto_name}] Message sent to channel"
+                    ),
+                    Err(e) => error!(
+                        "[{listener_type} Listener SERVER: {proto_name}] sending message to channel: {e}"
+                    ),
                 }
             }
-            None => trace!("[{listener_type} Listener SERVER: {proto_name}] Invalid Message"),
         }
     }
 }
@@ -73,111 +82,200 @@ impl PacketHandler {
     pub fn new(name: &str, listener_type: &str, reassembly_window: f64) -> Self {
         Self {
             name: name.to_string(),
-            queue: Arc::new(Mutex::new(HashMap::new())),
             listener_type: listener_type.to_string(),
+            queue: Mutex::new(HashMap::new()),
             reassembly_window,
         }
     }
 
+    /// Try to decode `new_message_string` either standalone or concatenated
+    /// with whatever partial fragment we already hold for `peer`.
+    ///
+    /// Returns `Some(msg)` on a successful decode (the peer's buffer, if
+    /// any, is cleared). Returns `None` when the new fragment is not yet a
+    /// complete message; the buffer is then updated (or seeded) and the
+    /// caller is expected to feed the next fragment.
+    ///
+    /// Holds the queue lock exactly once. Cannot panic on missing entries.
+    //
+    // significant_drop_tightening: clippy doesn't recognise the borrow
+    // into prune_expired as a second usage of the guard, so it suggests
+    // collapsing each call site to a one-shot `.lock().await.op()` chain.
+    // That would split the critical section in half and reintroduce the
+    // very race this rewrite removes.
+    #[allow(clippy::significant_drop_tightening)]
     pub async fn attempt_message_reassembly(
         &self,
         new_message_string: String,
         peer: SocketAddr,
     ) -> Option<AcarsVdlm2Message> {
-        // FIXME: This is a hack to get this concept working. Ideally we aren't cleaning the queue while
-        // Processing a message
-        self.clean_queue().await;
-        // FIXME: Ideally this entire function should not lock the mutex all the time
+        let now = unix_time_secs();
 
+        // Fast path: the fragment is itself a complete message. Take the
+        // lock briefly to evict any stale partial buffer for this peer and
+        // to opportunistically prune expired entries.
         if let Ok(msg) = new_message_string.decode_message() {
-            self.queue.lock().await.remove(&peer);
+            let mut queue = self.queue.lock().await;
+            queue.remove(&peer);
+            self.prune_expired(&mut queue, now);
             return Some(msg);
         }
 
-        let mut output_message: Option<AcarsVdlm2Message> = None;
-        let mut message_for_peer: String = String::new();
-        let mut old_time: Option<f64> = None; // Save the time of the first message for this peer
+        // Slow path: maybe a fragment. Single lock acquisition for the
+        // remainder of the function; no `.await` between operations.
+        let mut queue = self.queue.lock().await;
+        self.prune_expired(&mut queue, now);
 
-        // TODO: Handle message reassembly for out of sequence messages
-        // TODO: Handle message reassembly for a peer where the peer is sending multiple fragmented messages
-        // Maybe on those two? This could get really tricky to know if the message we've reassembled is all the same message
-        // Because we could end up in a position where the packet splits in the same spot and things look right but the packets belong to different messages
-
-        if self.queue.lock().await.contains_key(&peer) {
-            info!(
-                "[{} SERVER: {}] Message received from {} is being reassembled",
-                self.listener_type, self.name, peer
-            );
-            let (time, message_to_test) = self.queue.lock().await.get(&peer).unwrap().clone();
-            old_time = Some(time); // We have a good peer, save the time
-            message_for_peer = format!("{message_to_test}{new_message_string}");
-            match message_for_peer.decode_message() {
-                Err(e) => info!("{e}"),
-                Ok(msg_deserialized) => {
+        match queue.entry(peer) {
+            Entry::Occupied(mut occ) => {
+                let (first_seen, existing) = occ.get();
+                let first_seen = *first_seen;
+                let combined = format!("{existing}{new_message_string}");
+                if let Ok(msg) = combined.decode_message() {
                     info!(
                         "[{} SERVER: {}] Reassembled a message from peer {}",
                         self.listener_type, self.name, peer
                     );
-                    // The default skew_window and are the same (1 second, but it doesn't matter)
-                    // So we shouldn't see any weird issues where the message is reassembled
-                    // BUT the time is off and causes the message to be rejected
-                    // Below we use the FIRST non-reasssembled time to base the expiration of the entire queue off of.
-                    output_message = Some(msg_deserialized);
+                    occ.remove();
+                    Some(msg)
+                } else {
+                    // Still incomplete: replace the stored buffer but
+                    // preserve the original `first_seen` so the
+                    // reassembly window measures wall-clock age from
+                    // the *first* fragment we ever saw.
+                    debug!(
+                        "[{} SERVER: {}] Buffering fragment from peer {} ({} bytes total)",
+                        self.listener_type,
+                        self.name,
+                        peer,
+                        combined.len()
+                    );
+                    occ.insert((first_seen, combined));
+                    None
                 }
             }
-        }
-
-        if output_message.is_some() {
-            self.queue.lock().await.remove(&peer);
-        } else {
-            // If the len is 0 then it's the first non-reassembled message, so we'll save the new message in to the queue
-            // Otherwise message_for_peer should already have the old messages + the new one already in it.
-            if message_for_peer.is_empty() {
-                message_for_peer = new_message_string;
+            Entry::Vacant(vac) => {
+                debug!(
+                    "[{} SERVER: {}] New fragment buffered from peer {}",
+                    self.listener_type, self.name, peer
+                );
+                vac.insert((now, new_message_string));
+                None
             }
-
-            // We want the peer's message queue to expire once the FIRST message received from the peer is older
-            // than the reassembly window. Therefore we use the old_time we grabbed from the queue above, or if it's the first
-            // message we get the current time.
-
-            let message_queue_time: f64 = old_time.unwrap_or_else(|| {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_or(0.0, |n| n.as_secs_f64())
-            });
-
-            self.queue
-                .lock()
-                .await
-                .insert(peer, (message_queue_time, message_for_peer));
         }
-
-        output_message
     }
 
-    pub async fn clean_queue(&self) {
-        let current_time: f64 = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0.0, |n| n.as_secs_f64());
-
-        if current_time == 0.0 {
+    /// Drop buffers older than `reassembly_window` seconds. Called while
+    /// the queue lock is already held; not exposed publicly because there
+    /// is no longer a use case for forcing a sweep from outside.
+    fn prune_expired(&self, queue: &mut HashMap<SocketAddr, (f64, String)>, now: f64) {
+        if now == 0.0 {
             error!(
                 "[{} SERVER: {}] Error getting current time",
                 self.listener_type, self.name
             );
             return;
         }
-
-        self.queue.lock().await.retain(|peer, old_messages| {
-            let (time, _) = old_messages;
-            let time_diff: f64 = current_time - *time;
-            if time_diff > self.reassembly_window {
-                debug!("[{} SERVER {}] Peer {peer} has been idle for {time_diff} seconds, removing from queue", self.listener_type, self.name);
+        queue.retain(|peer, (first_seen, _)| {
+            let age = now - *first_seen;
+            if age > self.reassembly_window {
+                debug!(
+                    "[{} SERVER {}] Peer {peer} has been idle for {age} seconds, removing from queue",
+                    self.listener_type, self.name
+                );
                 false
             } else {
-                debug!("[{} SERVER {}] Peer {peer} has been idle for {time_diff} seconds, keeping in queue", self.listener_type, self.name);
                 true
             }
         });
+    }
+}
+
+fn unix_time_secs() -> f64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0.0, |n| n.as_secs_f64())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    fn peer(port: u16) -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)
+    }
+
+    /// A minimal, syntactically valid ACARS JSON object the parser will
+    /// accept. We deliberately split it in half to exercise the fragment
+    /// reassembly path.
+    const COMPLETE_MSG: &str = r#"{"timestamp":1700000000.0,"freq":131.55,"channel":0,"level":-20.0,"error":0,"mode":"2","label":"H1","block_id":"1","ack":"!","tail":"N12345","flight":"AB1234","msgno":"M01A","text":"HELLO"}"#;
+
+    #[tokio::test]
+    async fn standalone_message_returns_decoded() {
+        let h = PacketHandler::new("test", "TCP", 5.0);
+        let out = h
+            .attempt_message_reassembly(COMPLETE_MSG.to_string(), peer(1))
+            .await;
+        assert!(out.is_some());
+        assert!(h.queue.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn two_fragments_reassemble() {
+        let h = PacketHandler::new("test", "TCP", 5.0);
+        let (a, b) = COMPLETE_MSG.split_at(COMPLETE_MSG.len() / 2);
+
+        let first = h.attempt_message_reassembly(a.to_string(), peer(2)).await;
+        assert!(first.is_none(), "first fragment must not decode");
+        assert_eq!(h.queue.lock().await.len(), 1);
+
+        let second = h.attempt_message_reassembly(b.to_string(), peer(2)).await;
+        assert!(second.is_some(), "concatenated fragments must decode");
+        assert!(
+            h.queue.lock().await.is_empty(),
+            "successful reassembly must drop the buffer"
+        );
+    }
+
+    #[tokio::test]
+    async fn expired_buffer_is_pruned() {
+        let h = PacketHandler::new("test", "TCP", 0.0);
+        let (a, _) = COMPLETE_MSG.split_at(COMPLETE_MSG.len() / 2);
+
+        let _ = h.attempt_message_reassembly(a.to_string(), peer(3)).await;
+        assert_eq!(h.queue.lock().await.len(), 1);
+
+        // Any subsequent call prunes entries whose age exceeds the
+        // zero-second window before processing the new fragment.
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        let _ = h
+            .attempt_message_reassembly("garbage".to_string(), peer(4))
+            .await;
+        // peer(3) pruned; peer(4) seeded.
+        let (had_3, had_4) = {
+            let q = h.queue.lock().await;
+            (q.contains_key(&peer(3)), q.contains_key(&peer(4)))
+        };
+        assert!(!had_3);
+        assert!(had_4);
+    }
+
+    #[tokio::test]
+    async fn standalone_decode_clears_existing_buffer() {
+        let h = PacketHandler::new("test", "TCP", 60.0);
+        let (a, _) = COMPLETE_MSG.split_at(COMPLETE_MSG.len() / 2);
+
+        let _ = h.attempt_message_reassembly(a.to_string(), peer(5)).await;
+        assert_eq!(h.queue.lock().await.len(), 1);
+
+        // A fresh, fully-formed message from the same peer must purge the
+        // stale partial fragment — otherwise we'd attempt to glue old
+        // garbage onto the next fragment we receive.
+        let out = h
+            .attempt_message_reassembly(COMPLETE_MSG.to_string(), peer(5))
+            .await;
+        assert!(out.is_some());
+        assert!(h.queue.lock().await.is_empty());
     }
 }
