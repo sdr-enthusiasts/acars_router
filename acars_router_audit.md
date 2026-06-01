@@ -24,7 +24,7 @@
 | PR6a: `broadcast` fan-out (deletes `Mutex<Vec<Sender>>` + per-peer mpsc)                      | §3.5, §3.6                                                                   | Done     |
 | PR6b: `JoinSet` + `CancellationToken` shutdown                                                | §3.12, §4.9                                                                  | Done     |
 | PR7: `packet_handler` rewrite                                                                 | §3.7, §4.8                                                                   | Done     |
-| PR8: dedupe / counters / freq table polish                                                    | §3.8, §3.10, §3.11                                                           | Pending  |
+| PR8: dedupe / counters / freq table polish                                                    | §3.8, §3.10, §3.11                                                           | Done     |
 | PR9: tests + docs                                                                             | §6                                                                           | Pending  |
 
 **Open strategic question:** `log` vs `tracing` (audit §4.6). `tokio` already has the `tracing` feature enabled but the codebase uses `log` via `sdre-rust-logging` (which is `env_logger`-based). Switching is a workspace-wide change touching every log macro and would drop `sdre-rust-logging`. Decision deferred pending owner input.
