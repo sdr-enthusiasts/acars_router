@@ -113,6 +113,16 @@ impl ProtocolIo {
 
 #[derive(Parser, Debug, Clone, Default)]
 #[command(name = "ACARS Router", author, version, about, long_about = None)]
+// `Input` is the clap-derived CLI surface. Each bool here is a distinct,
+// documented user-facing flag (`--enable-dedupe`, `--add-proxy-id`,
+// `--stats-verbose`) or per-protocol disable switch
+// (`--disable-acars`/`AR_DISABLE_ACARS` ... `--disable-irdm`/`AR_DISABLE_IRDM`).
+// Restructuring into substructs would either break the existing CLI /
+// env-var contract or just push the lint into the substruct, with no
+// real readability win. The downstream `MessageHandlerConfig` has been
+// reshaped into option/struct fields (see `message_handler.rs`); this
+// CLI struct is the one legitimate exception.
+#[allow(clippy::struct_excessive_bools)]
 pub struct Input {
     // Output Options
     /// Set the log level. debug, trace, info are valid options.

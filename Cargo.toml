@@ -62,10 +62,3 @@ multiple_crate_versions = "allow"
 # (e.g. linear top-level orchestration in `main`). All other lints must
 # be fixed, not silenced.
 too_many_lines          = "allow"
-# Temporary: PR3 will refactor `Input` (clap CLI struct, 8 bools) and the
-# downstream `MessageHandlerConfig` (4 bools) into proper protocol enums /
-# sets. Once that refactor lands, this workspace allow must be removed; any
-# remaining call sites where bools are genuinely the right shape may take a
-# narrowly-scoped `#[allow(clippy::struct_excessive_bools)]` with a comment
-# explaining the rationale.
-struct_excessive_bools  = "allow"

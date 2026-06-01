@@ -47,49 +47,60 @@ pub struct FrequencyCount {
     pub count: u64,
 }
 
+/// Hash-based dedupe configuration. Presence on
+/// [`MessageHandlerConfig::dedupe`] enables dedupe; absence disables it.
+#[derive(Clone, Debug)]
+pub struct DedupeOpts {
+    /// Window within which a repeat hash is considered a duplicate.
+    pub window: Duration,
+}
+
+/// Periodic stats configuration. Always present (we always print
+/// totals); the `verbose` flag adds the per-frequency table.
+#[derive(Clone, Debug)]
+pub struct StatsOpts {
+    /// Interval between stats lines. Already in seconds.
+    pub every: Duration,
+    /// Include per-frequency breakdown in the periodic stats line.
+    pub verbose: bool,
+}
+
 /// Per-protocol message handler configuration. Mirrors the relevant
 /// subset of CLI flags in [`acars_config::Input`]; instances are built
 /// from CLI via [`Self::new`] or directly constructed in tests.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct MessageHandlerConfig {
     /// Stamp the message's `app` field with `acars_router` + crate
     /// version before forwarding.
     pub add_proxy_id: bool,
-    /// Enable hash-based dedupe of messages within `dedupe_window`.
-    pub dedupe: bool,
-    /// Window in seconds within which a repeat hash is considered a
-    /// duplicate.
-    pub dedupe_window: u64,
-    /// Reject messages whose timestamp is more than this many seconds
-    /// in the past or future relative to local wall-clock.
-    pub skew_window: u64,
+    /// Dedupe configuration. `None` disables dedupe entirely.
+    pub dedupe: Option<DedupeOpts>,
+    /// Reject messages whose timestamp is more than this far in the
+    /// past or future relative to local wall-clock.
+    pub skew_window: Duration,
     /// Free-form label for log lines (typically `"acars"` / `"vdlm2"`).
     pub queue_type: String,
-    /// If true, rewrite `station_id`/`vdl2.station` to `station_name`.
-    pub should_override_station_name: bool,
-    pub station_name: String,
-    /// Stats interval in *minutes*. The handler converts to seconds.
-    pub stats_every: u64,
-    /// Include per-frequency breakdown in the periodic stats line.
-    pub stats_verbose: bool,
+    /// `Some(name)` rewrites `station_id`/`vdl2.station` to `name`;
+    /// `None` leaves the field untouched.
+    pub station_name_override: Option<String>,
+    /// Periodic stats printer configuration.
+    pub stats: StatsOpts,
 }
 
 impl MessageHandlerConfig {
     pub(crate) fn new(args: &Input, queue_type: &str) -> Self {
-        let (should_override_station_name, station_name) = args
-            .override_station_name
-            .as_ref()
-            .map_or_else(|| (false, String::default()), |s| (true, s.clone()));
         Self {
             add_proxy_id: args.add_proxy_id,
-            dedupe: args.enable_dedupe,
-            dedupe_window: args.dedupe_window,
-            skew_window: args.skew_window,
+            dedupe: args.enable_dedupe.then(|| DedupeOpts {
+                window: Duration::from_secs(args.dedupe_window),
+            }),
+            skew_window: Duration::from_secs(args.skew_window),
             queue_type: queue_type.to_string(),
-            should_override_station_name,
-            station_name,
-            stats_every: args.stats_every,
-            stats_verbose: args.stats_verbose,
+            station_name_override: args.override_station_name.clone(),
+            stats: StatsOpts {
+                every: Duration::from_secs(args.stats_every * 60),
+                verbose: args.stats_verbose,
+            },
         }
     }
 
@@ -105,7 +116,7 @@ impl MessageHandlerConfig {
             Arc::new(Mutex::new(HashMap::new()));
         let dedupe_cache: Arc<Mutex<HashMap<u64, u64>>> = Arc::new(Mutex::new(HashMap::new()));
 
-        let stats_every: u64 = self.stats_every * 60; // minutes -> seconds
+        let stats_every: Duration = self.stats.every;
         let version: &str = env!("CARGO_PKG_VERSION");
 
         // Spawn the periodic stats printer. It reads (relaxed) atomics and
@@ -115,7 +126,8 @@ impl MessageHandlerConfig {
             let total_all = Arc::clone(&total_messages_processed);
             let total_since = Arc::clone(&total_messages_since_last);
             let freqs = self
-                .stats_verbose
+                .stats
+                .verbose
                 .then(|| Arc::clone(&all_frequencies_logged));
             let queue_type = self.queue_type.clone();
             let stats_shutdown = shutdown.clone();
@@ -133,9 +145,9 @@ impl MessageHandlerConfig {
         }
 
         // Spawn the dedupe-cache pruner only when dedupe is enabled.
-        if self.dedupe {
+        if let Some(dedupe) = self.dedupe.as_ref() {
             let cache = Arc::clone(&dedupe_cache);
-            let dedupe_window = self.dedupe_window;
+            let dedupe_window = dedupe.window;
             let queue_type = self.queue_type.clone();
             let dedupe_shutdown = shutdown.clone();
             tokio::spawn(async move {
@@ -194,7 +206,7 @@ impl MessageHandlerConfig {
                 continue;
             };
 
-            let skew = Duration::from_secs(self.skew_window);
+            let skew = self.skew_window;
             if message_time > current_time {
                 if Duration::from_secs_f64(message_time - current_time) > skew {
                     error!(
@@ -215,7 +227,7 @@ impl MessageHandlerConfig {
                     "[Message Handler {}] Message is {} seconds old. Time in message {message_time}. Skipping message. {}",
                     self.queue_type,
                     current_time - message_time,
-                    self.skew_window
+                    skew.as_secs()
                 );
                 continue;
             }
@@ -231,12 +243,12 @@ impl MessageHandlerConfig {
                 }
             };
 
-            if self.dedupe
+            if let Some(dedupe) = self.dedupe.as_ref()
                 && is_duplicate(
                     &dedupe_cache,
                     hashed_value,
                     Duration::from_secs_f64(message_time).as_secs(),
-                    self.dedupe_window,
+                    dedupe.window,
                 )
             {
                 info!(
@@ -246,12 +258,12 @@ impl MessageHandlerConfig {
                 continue;
             }
 
-            if self.should_override_station_name {
+            if let Some(station_name) = self.station_name_override.as_deref() {
                 trace!(
-                    "[Message Handler {}] Overriding station name to {}",
-                    self.queue_type, self.station_name
+                    "[Message Handler {}] Overriding station name to {station_name}",
+                    self.queue_type
                 );
-                message.set_station_name(&self.station_name);
+                message.set_station_name(station_name);
             }
 
             if self.add_proxy_id {
@@ -304,7 +316,7 @@ fn is_duplicate(
     cache: &Mutex<HashMap<u64, u64>>,
     hash: u64,
     message_time_secs: u64,
-    window_secs: u64,
+    window: Duration,
 ) -> bool {
     let Ok(mut map) = cache.lock() else {
         // A poisoned mutex means another task panicked while holding the
@@ -313,6 +325,7 @@ fn is_duplicate(
         // for the rest of the process lifetime).
         return false;
     };
+    let window_secs = window.as_secs();
     match map.get(&hash) {
         Some(&saved) if message_time_secs.saturating_sub(saved) < window_secs => true,
         _ => {
@@ -390,16 +403,16 @@ async fn print_stats(
     total_all_time: Arc<AtomicU64>,
     total_since_last: Arc<AtomicU64>,
     frequencies: Option<Arc<Mutex<HashMap<String, u64>>>>,
-    stats_every: u64,
+    stats_every: Duration,
     queue_type: &str,
     shutdown: CancellationToken,
 ) {
-    let stats_minutes = stats_every / 60;
+    let stats_minutes = stats_every.as_secs() / 60;
     let mut has_counted_freqs = false;
     loop {
         tokio::select! {
             () = shutdown.cancelled() => return,
-            () = sleep(Duration::from_secs(stats_every)) => {}
+            () = sleep(stats_every) => {}
         }
 
         // `since_last` is cleared atomically; readers see a consistent
@@ -441,14 +454,15 @@ async fn print_stats(
 
 async fn clean_up_dedupe_cache(
     cache: Arc<Mutex<HashMap<u64, u64>>>,
-    dedupe_window: u64,
+    dedupe_window: Duration,
     queue_type: &str,
     shutdown: CancellationToken,
 ) {
+    let window_secs = dedupe_window.as_secs();
     loop {
         tokio::select! {
             () = shutdown.cancelled() => return,
-            () = sleep(Duration::from_secs(dedupe_window)) => {}
+            () = sleep(dedupe_window) => {}
         }
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -456,7 +470,7 @@ async fn clean_up_dedupe_cache(
 
         let remaining = match cache.lock() {
             Ok(mut map) => {
-                map.retain(|_, &mut ts| current_time.saturating_sub(ts) <= dedupe_window);
+                map.retain(|_, &mut ts| current_time.saturating_sub(ts) <= window_secs);
                 map.len()
             }
             Err(_) => continue,
@@ -523,18 +537,20 @@ mod tests {
     #[test]
     fn is_duplicate_detects_repeat_within_window() {
         let cache: Mutex<HashMap<u64, u64>> = Mutex::new(HashMap::new());
-        assert!(!is_duplicate(&cache, 0xdead_beef, 100, 60));
+        let window = Duration::from_secs(60);
+        assert!(!is_duplicate(&cache, 0xdead_beef, 100, window));
         // Same hash, 10s later: within 60s window -> duplicate.
-        assert!(is_duplicate(&cache, 0xdead_beef, 110, 60));
+        assert!(is_duplicate(&cache, 0xdead_beef, 110, window));
     }
 
     #[test]
     fn is_duplicate_allows_repeat_after_window() {
         let cache: Mutex<HashMap<u64, u64>> = Mutex::new(HashMap::new());
-        assert!(!is_duplicate(&cache, 1, 100, 60));
+        let window = Duration::from_secs(60);
+        assert!(!is_duplicate(&cache, 1, 100, window));
         // Same hash, 61s later: outside the window -> not a duplicate.
         // The cache stores the *new* observation timestamp.
-        assert!(!is_duplicate(&cache, 1, 161, 60));
+        assert!(!is_duplicate(&cache, 1, 161, window));
         let stored = *cache.lock().unwrap().get(&1).unwrap();
         assert_eq!(stored, 161);
     }
@@ -564,14 +580,16 @@ mod corpus_tests {
     fn config(queue_type: &str, dedupe: bool) -> MessageHandlerConfig {
         MessageHandlerConfig {
             add_proxy_id: false,
-            dedupe,
-            dedupe_window: 300,
-            skew_window: SKEW,
+            dedupe: dedupe.then(|| DedupeOpts {
+                window: Duration::from_secs(300),
+            }),
+            skew_window: Duration::from_secs(SKEW),
             queue_type: queue_type.to_string(),
-            should_override_station_name: false,
-            station_name: String::new(),
-            stats_every: 60,
-            stats_verbose: false,
+            station_name_override: None,
+            stats: StatsOpts {
+                every: Duration::from_secs(60),
+                verbose: false,
+            },
         }
     }
 
