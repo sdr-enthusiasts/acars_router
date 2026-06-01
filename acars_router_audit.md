@@ -457,7 +457,7 @@ Most of these come for free with `clippy::pedantic` + `nursery`.
 ## 6. Tests & docs
 
 - 4 unit tests total across the workspace (3 in `sanity_checker.rs`, 1 in `message_handler.rs`). Of those, none cover the actual routing pipeline. The `tcp_services` / `udp_services` / `zmq_services` / `packet_handler` / `service_init` modules have **zero** test coverage. With `Protocol` introduced (§4.1) you could property-test the splitter (§4.8) and the validator (§4.4) easily.
-- No integration tests despite `test_data/` directory and `source-stubs/` (which appear to be Python harnesses). Wire them into `cargo test` (with `#[ignore]` for the slow/network ones) so they don't bit-rot.
+- ~~No integration tests despite `test_data/` directory and `source-stubs/` (which appear to be Python harnesses). Wire them into `cargo test` (with `#[ignore]` for the slow/network ones) so they don't bit-rot.~~ PR9: deleted both directories entirely (Python/shell scaffolding bit-rotted and was never invoked by CI). The four JSON corpora moved to `rust/libraries/acars_connection_manager/tests/fixtures/*.jsonl` and now drive Rust-native corpus tests for `packet_handler` and `message_handler`.
 - Public items (`TCPReceiverServer`, `TCPServeServer`, `ZMQReceiverServer`, `ZMQListenerServer`, `print_stats`, `print_formatted_stats`, etc.) have no rustdoc, or have rustdoc that documents the _type name verbatim_ ("TCP Receiver server. This is used to ..." copy-paste between struct and impl). With `missing_docs = "warn"` enabled (§2.2) this becomes a forcing function.
 
 ---

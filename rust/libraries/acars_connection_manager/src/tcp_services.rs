@@ -5,6 +5,24 @@
 // Full license information available in the project LICENSE file.
 //
 
+//! TCP transport: inbound listeners, outbound receiver clients, and the
+//! fan-out serve-on-TCP path.
+//!
+//! Three server shapes live here:
+//!
+//! * [`TCPListenerServer`] — binds a port, accepts inbound TCP clients
+//!   (typically `acarsdec` / `dumpvdl2`), and feeds parsed messages into
+//!   the per-protocol mpsc input channel.
+//! * [`TCPReceiverServer`] — *client* role: connects out to a remote
+//!   feeder via [`StubbornIo`] + [`CachedDnsTcp`] (reconnect + cached
+//!   DNS), then funnels messages into the same input channel.
+//! * [`TCPServeServer`] — accepts inbound subscribers and forwards every
+//!   processed broadcast message to them; slow peers are dropped (see
+//!   [`forward_to_peer`]).
+//!
+//! All loops cooperatively shut down on a [`CancellationToken`]. The
+//! fragment reassembly logic itself lives in [`crate::packet_handler`].
+
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use log::{debug, error, info, trace};
 use sdre_stubborn_io::tokio::StubbornIo;
@@ -25,15 +43,15 @@ use crate::cached_dns_tcp::{CachedDnsTcp, ConnectTarget};
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use crate::{SenderServer, dns, reconnect_options};
 
-/// TCP Listener server. This is used to listen for incoming TCP connections and process them.
-/// Used for incoming TCP data for ACARS Router to process
+/// Accepts inbound TCP clients on a bound port and forwards every parsed
+/// message into a per-protocol mpsc input channel. Each accepted peer
+/// gets its own [`PacketHandler`] reassembly state via
+/// [`process_tcp_sockets`].
 pub(crate) struct TCPListenerServer {
     pub(crate) proto_name: String,
     pub(crate) reassembly_window: f64,
 }
 
-/// TCP Listener server. This is used to listen for incoming TCP connections and process them.
-/// Used for incoming TCP data for ACARS Router to process
 impl TCPListenerServer {
     pub(crate) fn new(proto_name: &str, reassembly_window: f64) -> Self {
         Self {
@@ -103,8 +121,9 @@ impl TCPListenerServer {
     }
 }
 
-/// This function is used to process the TCP socket. It will read the socket and send the messages to the channel.
-/// Used for incoming TCP data for ACARS Router to process
+/// Per-peer reassembly loop. Splits the incoming line on `\n` and `}{`
+/// boundaries (some feeders concatenate JSON objects without separators)
+/// and pushes each candidate through [`PacketHandler::attempt_message_reassembly`].
 async fn process_tcp_sockets(
     stream: TcpStream,
     proto_name: &str,
@@ -169,8 +188,12 @@ async fn process_tcp_sockets(
     }
 }
 
-/// TCP Receiver server. This is used to connect to a remote TCP server and process the messages.
-/// Used for incoming TCP data for ACARS Router to process
+/// Outbound TCP client: connects to a remote feeder.
+///
+/// Uses [`StubbornIo`] + [`CachedDnsTcp`] so the connection survives
+/// feeder restarts and DNS churn. Resolved address is computed once
+/// up-front to give the [`PacketHandler`] a stable peer key; the
+/// reconnect path re-resolves independently.
 pub struct TCPReceiverServer {
     pub host: String,
     pub proto_name: String,
@@ -178,8 +201,6 @@ pub struct TCPReceiverServer {
     pub resolver: Arc<dns::Resolver>,
 }
 
-/// TCP Receiver server. This is used to connect to a remote TCP server and process the messages.
-/// Used for incoming TCP data for ACARS Router to process
 impl TCPReceiverServer {
     pub(crate) fn new(
         server_host: &str,
@@ -331,8 +352,10 @@ impl TCPReceiverServer {
     }
 }
 
-/// TCP Sender server. This is used to connect to a remote TCP server and send the messages.
-/// Used for outgoing TCP data for ACARS Router to a client
+/// Outbound TCP sender. Drains the per-protocol [`broadcast::Receiver`]
+/// and writes each newline-terminated payload to the upstream peer.
+/// Lagged broadcast slots are logged and skipped rather than crashing
+/// the task.
 impl SenderServer<StubbornIo<CachedDnsTcp>> {
     pub(crate) fn send_message(mut self) {
         tokio::spawn(async move {

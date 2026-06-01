@@ -47,16 +47,30 @@ pub struct FrequencyCount {
     pub count: u64,
 }
 
+/// Per-protocol message handler configuration. Mirrors the relevant
+/// subset of CLI flags in [`acars_config::Input`]; instances are built
+/// from CLI via [`Self::new`] or directly constructed in tests.
 #[derive(Clone, Debug, Default)]
 pub struct MessageHandlerConfig {
+    /// Stamp the message's `app` field with `acars_router` + crate
+    /// version before forwarding.
     pub add_proxy_id: bool,
+    /// Enable hash-based dedupe of messages within `dedupe_window`.
     pub dedupe: bool,
+    /// Window in seconds within which a repeat hash is considered a
+    /// duplicate.
     pub dedupe_window: u64,
+    /// Reject messages whose timestamp is more than this many seconds
+    /// in the past or future relative to local wall-clock.
     pub skew_window: u64,
+    /// Free-form label for log lines (typically `"acars"` / `"vdlm2"`).
     pub queue_type: String,
+    /// If true, rewrite `station_id`/`vdl2.station` to `station_name`.
     pub should_override_station_name: bool,
     pub station_name: String,
+    /// Stats interval in *minutes*. The handler converts to seconds.
     pub stats_every: u64,
+    /// Include per-frequency breakdown in the periodic stats line.
     pub stats_verbose: bool,
 }
 
@@ -314,6 +328,14 @@ fn unix_time_secs() -> f64 {
         .map_or(0.0, |n| n.as_secs_f64())
 }
 
+/// Render the periodic stats line for a single protocol queue. Pulled
+/// out of [`print_stats`] so the formatting can be unit-tested without
+/// touching the broadcast / timer machinery.
+///
+/// `has_counted_freqs` is sticky in the caller: once any frequency has
+/// ever been counted for this queue the verbose section keeps printing
+/// even if the current snapshot is empty (otherwise the table would
+/// disappear during a quiet minute).
 #[must_use]
 pub fn print_formatted_stats(
     total_all_time: u64,
@@ -515,5 +537,198 @@ mod tests {
         assert!(!is_duplicate(&cache, 1, 161, 60));
         let stored = *cache.lock().unwrap().get(&1).unwrap();
         assert_eq!(stored, 161);
+    }
+}
+
+#[cfg(test)]
+mod corpus_tests {
+    //! End-to-end pipeline + hash-stability tests driven by the recorded
+    //! ACARS / VDLM2 fixture corpora. These replace the deleted
+    //! `test_data/data_feeder_*.py` harnesses.
+
+    use super::*;
+    use serde_json::Value;
+    use tokio::sync::{broadcast as bcast, mpsc};
+    use tokio_util::sync::CancellationToken;
+
+    const ACARS: &str = include_str!("../tests/fixtures/acars.jsonl");
+    const VDLM2: &str = include_str!("../tests/fixtures/vdlm2.jsonl");
+
+    /// Default-ish skew window (matches the CLI default of 5s). Tests
+    /// exercise the real freshness check rather than disabling it.
+    const SKEW: u64 = 5;
+
+    /// Build a config with realistic skew/dedupe windows. Corpus lines
+    /// have to be rewritten to a fresh timestamp before they reach this
+    /// pipeline (see [`rewrite_timestamp`]).
+    fn config(queue_type: &str, dedupe: bool) -> MessageHandlerConfig {
+        MessageHandlerConfig {
+            add_proxy_id: false,
+            dedupe,
+            dedupe_window: 300,
+            skew_window: SKEW,
+            queue_type: queue_type.to_string(),
+            should_override_station_name: false,
+            station_name: String::new(),
+            stats_every: 60,
+            stats_verbose: false,
+        }
+    }
+
+    /// Rewrite the recorded timestamp in `line` to `target` (unix seconds
+    /// as f64). Handles both the flat ACARS shape (`"timestamp": f64`)
+    /// and the nested VDLM2 shape (`"vdl2": { "t": { "sec", "usec" } }`).
+    /// Other variants (hfdl/imsl/irdm) are not present in the active
+    /// corpus fixtures; extend here when those land.
+    fn rewrite_timestamp(line: &str, target: f64) -> String {
+        let mut v: Value = serde_json::from_str(line).expect("corpus line is valid JSON");
+        if v.get("timestamp").is_some() {
+            v["timestamp"] = serde_json::json!(target);
+        }
+        if let Some(t) = v.get_mut("vdl2").and_then(|v| v.get_mut("t")) {
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let sec = target.trunc() as i64;
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let usec = (target.fract() * 1_000_000.0).round() as i64;
+            *t = serde_json::json!({ "sec": sec, "usec": usec });
+        }
+        v.to_string()
+    }
+
+    fn now_secs() -> f64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_secs_f64()
+    }
+
+    /// Drive `watch_message_queue` with `lines` repeated `repeats` times.
+    /// Returns (`input_count`, `emitted_count`).
+    async fn drive_pipeline(
+        cfg: MessageHandlerConfig,
+        corpus: &str,
+        repeats: usize,
+        timestamp: f64,
+    ) -> (usize, usize) {
+        let lines: Vec<String> = corpus
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| rewrite_timestamp(l, timestamp))
+            .collect();
+        let input_count = lines.len() * repeats;
+
+        let (tx_in, rx_in) = mpsc::channel::<String>(64);
+        let (tx_out, mut rx_out) = bcast::channel::<AcarsVdlm2Message>(input_count.max(1));
+        let shutdown = CancellationToken::new();
+
+        let handler_shutdown = shutdown.clone();
+        let handler = tokio::spawn(async move {
+            cfg.watch_message_queue(rx_in, tx_out, handler_shutdown)
+                .await;
+        });
+
+        // Feed corpus. Dropping `tx_in` closes the channel and the
+        // handler loop returns naturally; no need to cancel for this.
+        for _ in 0..repeats {
+            for line in &lines {
+                tx_in.send(line.clone()).await.expect("input send");
+            }
+        }
+        drop(tx_in);
+        handler.await.expect("handler task");
+
+        let mut received = 0;
+        loop {
+            match rx_out.try_recv() {
+                Ok(_) => received += 1,
+                Err(bcast::error::TryRecvError::Empty | bcast::error::TryRecvError::Closed) => {
+                    break;
+                }
+                Err(bcast::error::TryRecvError::Lagged(_)) => {
+                    panic!("broadcast lagged in pipeline test; capacity too small")
+                }
+            }
+        }
+        (input_count, received)
+    }
+
+    #[tokio::test]
+    async fn acars_corpus_passes_through_without_dedupe() {
+        let (sent, got) = drive_pipeline(config("acars", false), ACARS, 1, now_secs()).await;
+        assert_eq!(
+            sent, got,
+            "every corpus line should emerge from the pipeline"
+        );
+    }
+
+    #[tokio::test]
+    async fn vdlm2_corpus_passes_through_without_dedupe() {
+        let (sent, got) = drive_pipeline(config("vdlm2", false), VDLM2, 1, now_secs()).await;
+        assert_eq!(sent, got);
+    }
+
+    #[tokio::test]
+    async fn dedupe_collapses_immediate_duplicates() {
+        // Some payloads in the corpus collapse to the same hash once
+        // the volatile fields are cleared, so we can't compare against
+        // the raw line count. Instead, drive the pipeline once to
+        // discover the unique-payload count, then drive it twice and
+        // assert the second pass adds nothing.
+        let now = now_secs();
+        let (_, baseline) = drive_pipeline(config("acars", true), ACARS, 1, now).await;
+        let (_, doubled) = drive_pipeline(config("acars", true), ACARS, 2, now).await;
+        assert!(baseline > 0);
+        assert_eq!(doubled, baseline, "second pass must add no new messages");
+    }
+
+    #[tokio::test]
+    async fn stale_messages_are_rejected_by_skew_window() {
+        // Push the timestamps comfortably outside the skew window and
+        // assert that the freshness check drops every message.
+        let stale = now_secs() - f64::from(u32::try_from(SKEW).unwrap()) - 30.0;
+        let (sent, got) = drive_pipeline(config("acars", false), ACARS, 1, stale).await;
+        assert!(sent > 0);
+        assert_eq!(got, 0, "stale corpus must be rejected by the skew check");
+    }
+
+    #[test]
+    fn hash_is_stable_across_calls() {
+        // Pick the first non-empty line from each corpus and assert that
+        // hashing it twice in a row yields the same digest. Catches
+        // accidental dependence on HashMap iteration order or random
+        // state inside DefaultHasher (which is, in fact, deterministic
+        // within a process — the test guards against future drift).
+        for (label, corpus) in [("acars", ACARS), ("vdlm2", VDLM2)] {
+            let line = corpus
+                .lines()
+                .find(|l| !l.trim().is_empty())
+                .expect("non-empty corpus");
+            let msg: AcarsVdlm2Message = line.decode_message().expect("decode corpus line");
+            let h1 = hash_message(msg.clone()).expect("hash 1");
+            let h2 = hash_message(msg).expect("hash 2");
+            assert_eq!(h1, h2, "{label}: hash must be stable across calls");
+        }
+    }
+
+    #[test]
+    fn hash_ignores_proxy_and_station_fields() {
+        // hash_message clears proxy/station/etc. before hashing so that
+        // two copies of the same payload that differ only in those
+        // bookkeeping fields collide and dedupe properly.
+        let line = ACARS
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .expect("non-empty corpus");
+        let mut a: AcarsVdlm2Message = line.decode_message().expect("decode");
+        let mut b: AcarsVdlm2Message = line.decode_message().expect("decode");
+        a.set_proxy_details("acars_router", "test-a");
+        b.set_proxy_details("acars_router", "test-b");
+        a.set_station_name("station-A");
+        b.set_station_name("station-B");
+        assert_eq!(
+            hash_message(a).expect("hash a"),
+            hash_message(b).expect("hash b"),
+            "hash must ignore proxy_id and station_name"
+        );
     }
 }

@@ -21,6 +21,7 @@ dependencies = [
  "hickory-resolver",
  "log",
  "sdre-stubborn-io",
+ "serde_json",
  "socket2",
  "tmq",
  "tokio",

@@ -30,5 +30,8 @@ tmq.workspace = true
 socket2.workspace = true
 hickory-resolver.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

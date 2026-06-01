@@ -5,7 +5,18 @@
 // Full license information available in the project LICENSE file.
 //
 
-// NOTE: WE **SUB** to a *PUB* socket.
+//! ZMQ transport.
+//!
+//! NOTE: we **SUB** to a *PUB* socket. dumpvdl2 / `acarsdec` (in zmq
+//! mode) publish; we subscribe. For outbound delivery we publish so
+//! external subscribers can consume.
+//!
+//! * [`ZMQReceiverServer`] — `SUB` socket, `connect()` to a remote
+//!   publisher.
+//! * [`ZMQListenerServer`] — `SUB` socket, `bind()` locally so external
+//!   publishers can connect inward.
+//! * `impl SenderServer<Publish>` — `PUB` socket fan-out for processed
+//!   messages.
 
 use crate::SenderServer;
 use acars_vdlm2_parser::AcarsVdlm2Message;
@@ -17,15 +28,14 @@ use tmq::{Context, Result, subscribe};
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
-/// ZMQ Receiver server. This is used to connect to a remote ZMQ server and process the messages.
-/// Used for incoming ZMQ data for ACARS Router to process
+/// Outbound-connecting ZMQ subscriber: `connect()`s to a remote `PUB`
+/// socket and pushes each message into the per-protocol mpsc input
+/// channel.
 pub struct ZMQReceiverServer {
     pub host: String,
     pub proto_name: String,
 }
 
-/// ZMQ Receiver server. This is used to connect to a remote ZMQ server and process the messages.
-/// Used for incoming ZMQ data for ACARS Router to process
 impl ZMQReceiverServer {
     pub async fn run(self, channel: Sender<String>, shutdown: CancellationToken) -> Result<()> {
         debug!("[ZMQ RECEIVER SERVER {}] Starting", self.proto_name);
@@ -81,14 +91,12 @@ impl ZMQReceiverServer {
     }
 }
 
-/// ZMQ Listener server. This is used to listen for incoming ZMQ data for ACARS Router to process
-/// Used for incoming ZMQ data for ACARS Router to process
+/// Inbound-binding ZMQ subscriber: `bind()`s a local port so external
+/// publishers can connect inward.
 pub struct ZMQListenerServer {
     pub(crate) proto_name: String,
 }
 
-/// ZMQ Listener server. This is used to listen for incoming ZMQ data for ACARS Router to process
-/// Used for incoming ZMQ data for ACARS Router to process
 impl ZMQListenerServer {
     #[must_use]
     pub fn new(proto_name: &str) -> Self {
@@ -151,8 +159,9 @@ impl ZMQListenerServer {
     }
 }
 
-/// ZMQ Sender server. This is used to send messages to a remote ZMQ server.
-/// Used for outgoing ZMQ data for ACARS Router to process
+/// Outbound ZMQ publisher. Drains the per-protocol broadcast and
+/// publishes each newline-terminated payload on the `PUB` socket. Slow
+/// subscribers are dropped by ZMQ itself (high-water-mark).
 impl SenderServer<Publish> {
     pub(crate) fn new(
         server_address: &str,

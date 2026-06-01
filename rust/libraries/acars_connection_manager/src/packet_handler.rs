@@ -29,6 +29,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::Sender;
 
+/// Per-peer fragment reassembly state. One instance is owned by each
+/// inbound TCP/UDP connection (see `tcp_services` / `udp_services`).
+///
+/// See the [module docs][self] for the locking discipline and the
+/// fast/slow paths exposed by [`Self::attempt_message_reassembly`].
 pub struct PacketHandler {
     name: String,
     listener_type: String,
@@ -37,7 +42,16 @@ pub struct PacketHandler {
     reassembly_window: f64,
 }
 
+/// Glue between [`PacketHandler::attempt_message_reassembly`] and the
+/// per-protocol mpsc input channel.
+///
+/// Implemented on `Option<AcarsVdlm2Message>` so callers can chain
+/// `.attempt_message_reassembly(..).await.process_reassembly(..)`.
 pub trait ProcessAssembly {
+    /// Encode the (already-decoded) message back to a newline-terminated
+    /// JSON line and forward it on `channel`. A `None` input is silently
+    /// ignored at trace level (the fragment isn't a complete message
+    /// yet); send failures are logged at error level.
     fn process_reassembly(
         &self,
         proto_name: &str,
@@ -78,6 +92,11 @@ impl ProcessAssembly for Option<AcarsVdlm2Message> {
 }
 
 impl PacketHandler {
+    /// Construct a handler labelled `name` (typically the protocol name)
+    /// with `listener_type` of `"TCP"` or `"UDP"` (used only in log
+    /// lines) and a `reassembly_window` in seconds: buffered partial
+    /// fragments older than this are dropped on the next call from any
+    /// peer.
     #[must_use]
     pub fn new(name: &str, listener_type: &str, reassembly_window: f64) -> Self {
         Self {
@@ -277,5 +296,127 @@ mod tests {
             .await;
         assert!(out.is_some());
         assert!(h.queue.lock().await.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod corpus_tests {
+    //! Drive the reassembly path with the recorded ACARS/VDLM2 fixture
+    //! corpora. These files were previously fed to the deleted
+    //! Python/shell harnesses in `test_data/`; now they live in
+    //! `tests/fixtures/` and back the real Rust test suite.
+    //!
+    //! Two scenarios per corpus:
+    //!
+    //! 1. **Whole-line decode**: every line is a complete JSON object and
+    //!    must decode standalone on the first attempt.
+    //! 2. **Two-fragment reassembly**: split each line at its midpoint
+    //!    (on a char boundary), feed the halves in order from a single
+    //!    peer, and require the second call to return a decoded message
+    //!    with no buffered residue.
+    //!
+    //! Together these exercise both fast and slow paths of
+    //! `attempt_message_reassembly` against every shape of payload we
+    //! actually receive in the wild.
+
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    const ACARS: &str = include_str!("../tests/fixtures/acars.jsonl");
+    const ACARS_OTHER: &str = include_str!("../tests/fixtures/acars_other.jsonl");
+    const VDLM2: &str = include_str!("../tests/fixtures/vdlm2.jsonl");
+    const VDLM2_OTHER: &str = include_str!("../tests/fixtures/vdlm2_other.jsonl");
+
+    fn peer(port: u16) -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)
+    }
+
+    /// Round `mid` down to the nearest char boundary so the split halves
+    /// remain valid UTF-8 — the corpora contain only ASCII today, but we
+    /// shouldn't bake that assumption into the test.
+    fn split_at_char_boundary(s: &str) -> (&str, &str) {
+        let mut mid = s.len() / 2;
+        while mid > 0 && !s.is_char_boundary(mid) {
+            mid -= 1;
+        }
+        s.split_at(mid)
+    }
+
+    async fn assert_whole_lines_decode(corpus: &str, label: &str) {
+        let h = PacketHandler::new(label, "TCP", 5.0);
+        let mut count = 0;
+        for (i, line) in corpus.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let out = h
+                .attempt_message_reassembly(line.to_string(), peer(1))
+                .await;
+            assert!(
+                out.is_some(),
+                "{label} line {i} failed standalone decode: {line}"
+            );
+            count += 1;
+        }
+        assert!(count > 0, "{label} corpus was empty");
+        assert!(
+            h.queue.lock().await.is_empty(),
+            "{label} corpus left residue in reassembly buffer"
+        );
+    }
+
+    async fn assert_fragments_reassemble(corpus: &str, label: &str) {
+        let h = PacketHandler::new(label, "TCP", 5.0);
+        for (i, line) in corpus.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let (a, b) = split_at_char_boundary(line);
+            // Use a fresh peer per line so we don't have to reason about
+            // residue carrying over between successive lines.
+            let p = peer(u16::try_from(2000 + i % 1000).unwrap_or(2000));
+
+            let first = h.attempt_message_reassembly(a.to_string(), p).await;
+            assert!(
+                first.is_none(),
+                "{label} line {i}: first fragment unexpectedly decoded"
+            );
+
+            let second = h.attempt_message_reassembly(b.to_string(), p).await;
+            assert!(
+                second.is_some(),
+                "{label} line {i}: reassembled halves failed to decode\n  a={a}\n  b={b}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn acars_whole_lines_decode() {
+        assert_whole_lines_decode(ACARS, "acars").await;
+    }
+
+    #[tokio::test]
+    async fn acars_other_whole_lines_decode() {
+        assert_whole_lines_decode(ACARS_OTHER, "acars_other").await;
+    }
+
+    #[tokio::test]
+    async fn vdlm2_whole_lines_decode() {
+        assert_whole_lines_decode(VDLM2, "vdlm2").await;
+    }
+
+    #[tokio::test]
+    async fn vdlm2_other_whole_lines_decode() {
+        assert_whole_lines_decode(VDLM2_OTHER, "vdlm2_other").await;
+    }
+
+    #[tokio::test]
+    async fn acars_fragments_reassemble() {
+        assert_fragments_reassemble(ACARS, "acars").await;
+    }
+
+    #[tokio::test]
+    async fn vdlm2_fragments_reassemble() {
+        assert_fragments_reassemble(VDLM2, "vdlm2").await;
     }
 }

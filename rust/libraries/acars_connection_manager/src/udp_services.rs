@@ -5,7 +5,17 @@
 // Full license information available in the project LICENSE file.
 //
 
-// Server used to receive UDP data
+//! UDP transport: inbound listener and outbound sender.
+//!
+//! * [`UDPListenerServer`] binds a port, demuxes each datagram on `\n`
+//!   and `}{` boundaries, and feeds the per-protocol mpsc input channel
+//!   via [`PacketHandler`] reassembly.
+//! * [`UDPSenderServer`] consumes the processed broadcast and sprays
+//!   each message at every configured `host:port` destination, slicing
+//!   payloads at `max_udp_packet_size` boundaries with a 100ms pacing
+//!   sleep between fragments. DNS resolution is cached per-destination
+//!   for `dns_cache_duration`; see [`crate::dns`] for the shared
+//!   hickory-backed resolver.
 
 use crate::dns;
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
@@ -20,14 +30,15 @@ use tokio::sync::mpsc::Sender;
 use tokio::time::{Duration, Instant, sleep};
 use tokio_util::sync::CancellationToken;
 
-/// `UDPListenerServer` is a struct that contains the configuration for a UDP server
-/// that will listen for incoming UDP packets and process them
+/// Inbound UDP listener: binds a port and feeds the per-protocol mpsc
+/// input channel through [`PacketHandler`] reassembly.
 #[derive(Debug, Clone)]
 pub(crate) struct UDPListenerServer {
     pub(crate) proto_name: String,
     pub(crate) reassembly_window: f64,
 }
 
+/// Per-destination DNS cache entry used by [`UDPSenderServer`].
 #[derive(Debug)]
 struct ResolvedAddr {
     addr: String,
@@ -35,8 +46,9 @@ struct ResolvedAddr {
     last_success: Instant,
 }
 
-/// `UDPSenderServer` is a struct that contains the configuration for a UDP server
-/// that will send out UDP packets
+/// Outbound UDP fan-out: consumes the processed broadcast and sprays
+/// each message at every configured destination, fragmenting on
+/// `max_udp_packet_size` boundaries.
 #[derive(Debug)]
 pub(crate) struct UDPSenderServer {
     pub(crate) proto_name: String,
@@ -48,8 +60,6 @@ pub(crate) struct UDPSenderServer {
     resolver: Arc<dns::Resolver>,
 }
 
-/// `UDPListenerServer` is a struct that contains the configuration for a UDP server
-/// that will listen for incoming UDP packets and process them
 impl UDPListenerServer {
     pub(crate) fn new(proto_name: &str, reassembly_window: f64) -> Self {
         Self {
@@ -161,8 +171,6 @@ impl UDPListenerServer {
     }
 }
 
-/// `UDPSenderServer` is a struct that contains the configuration for a UDP server
-/// that will send out UDP packets
 impl UDPSenderServer {
     pub(crate) fn new(
         send_udp: &[String],
