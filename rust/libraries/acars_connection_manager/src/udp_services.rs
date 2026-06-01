@@ -87,16 +87,9 @@ impl UDPListenerServer {
         let s = UdpSocket::bind(listen_udp_port).await;
 
         match s {
-            Err(e) => error!(
-                "[UDP SERVER: {}] Error listening on port: {}",
-                self.proto_name, e
-            ),
+            Err(e) => error!("Error listening on port: {}", e),
             Ok(socket) => {
-                info!(
-                    "[UDP SERVER: {}]: Listening on: {}",
-                    self.proto_name,
-                    socket.local_addr()?
-                );
+                info!("Listening on: {}", socket.local_addr()?);
 
                 let packet_handler: PacketHandler =
                     PacketHandler::new(&self.proto_name, "UDP", self.reassembly_window);
@@ -104,10 +97,7 @@ impl UDPListenerServer {
                 loop {
                     if let Some((size, peer)) = to_send {
                         let Ok(msg_string) = std::str::from_utf8(buf[..size].as_ref()) else {
-                            warn!(
-                                "[UDP SERVER: {}] Invalid message received from {}",
-                                self.proto_name, peer
-                            );
+                            warn!("Invalid message received from {}", peer);
                             continue;
                         };
                         let split_messages_by_newline: Vec<&str> =
@@ -132,24 +122,15 @@ impl UDPListenerServer {
                                 {
                                     let final_message = if count == 0 {
                                         // First case is the first element, which should only ever need a single closing bracket
-                                        trace!(
-                                            "[UDP SERVER: {}] Multiple messages received in a packet.",
-                                            self.proto_name
-                                        );
+                                        trace!("Multiple messages received in a packet.");
                                         format!("{}{}", "}", msg_by_brackets)
                                     } else if count == split_messages_by_brackets.len() - 1 {
                                         // This case is for the last element, which should only ever need a single opening bracket
-                                        trace!(
-                                            "[UDP SERVER: {}] End of a multiple message packet",
-                                            self.proto_name
-                                        );
+                                        trace!("End of a multiple message packet");
                                         format!("{}{}", "{", msg_by_brackets)
                                     } else {
                                         // This case is for any middle elements, which need both an opening and closing bracket
-                                        trace!(
-                                            "[UDP SERVER: {}] Middle of a multiple message packet",
-                                            self.proto_name
-                                        );
+                                        trace!("Middle of a multiple message packet");
                                         format!("{}{}{}", "{", msg_by_brackets, "}")
                                     };
                                     packet_handler
@@ -164,8 +145,7 @@ impl UDPListenerServer {
                     to_send = Some(tokio::select! {
                         () = shutdown.cancelled() => {
                             info!(
-                                "[UDP SERVER: {}] shutdown requested; closing recv loop",
-                                self.proto_name
+                                "shutdown requested; closing recv loop"
                             );
                             return Ok(());
                         }
@@ -218,18 +198,12 @@ impl UDPSenderServer {
                 Ok(m) => m,
                 Err(broadcast::error::RecvError::Closed) => break,
                 Err(broadcast::error::RecvError::Lagged(n)) => {
-                    warn!(
-                        "[UDP SENDER {}] broadcast lagged; {n} message(s) dropped",
-                        self.proto_name
-                    );
+                    warn!("broadcast lagged; {n} message(s) dropped");
                     continue;
                 }
             };
             match message.to_bytes_newline() {
-                Err(bytes_error) => error!(
-                    "[UDP SENDER {}] Failed to encode to bytes: {}",
-                    self.proto_name, bytes_error
-                ),
+                Err(bytes_error) => error!("Failed to encode to bytes: {}", bytes_error),
                 Ok(message_as_bytes) => {
                     self.send_bytes(&message_as_bytes[..]).await;
                 }
@@ -255,24 +229,15 @@ impl UDPSenderServer {
                 // how recent `last_success` is.
                 match dns::resolve_host_port(&self.resolver, &ra.addr).await {
                     Ok(resolved) if resolved.is_ipv4() => {
-                        debug!(
-                            "[UDP SENDER {}] Resolved: {} --> {}",
-                            self.proto_name, ra.addr, resolved
-                        );
+                        debug!("Resolved: {} --> {}", ra.addr, resolved);
                         ra.resopt = Some(resolved);
                         ra.last_success = Instant::now();
                     }
                     Ok(_) => {
-                        warn!(
-                            "[UDP SENDER {}] {} could not be resolved to an IPv4 address",
-                            self.proto_name, ra.addr
-                        );
+                        warn!("{} could not be resolved to an IPv4 address", ra.addr);
                     }
                     Err(e) => {
-                        warn!(
-                            "[UDP SENDER {}] failed to resolve {}: {:?}",
-                            self.proto_name, ra.addr, e
-                        );
+                        warn!("failed to resolve {}: {:?}", ra.addr, e);
                     }
                 }
             }
@@ -300,8 +265,7 @@ impl UDPSenderServer {
 
             while keep_sending {
                 trace!(
-                    "[UDP SENDER {}] Sending {buffer_position} to {buffer_end} of {message_size} to {addr} ({resolved})",
-                    self.proto_name
+                    "Sending {buffer_position} to {buffer_end} of {message_size} to {addr} ({resolved})"
                 );
 
                 let bytes_sent = self
@@ -310,15 +274,14 @@ impl UDPSenderServer {
                     .await;
 
                 match bytes_sent {
-                    Ok(bytes_sent) => debug!(
-                        "[UDP SENDER {}] sent {} bytes to {} ({})",
-                        self.proto_name, bytes_sent, addr, resolved
-                    ),
+                    Ok(bytes_sent) => {
+                        debug!("sent {} bytes to {} ({})", bytes_sent, addr, resolved)
+                    }
                     Err(e) => {
                         warn!(
-                            "[UDP SENDER {}] failed to send message to {} ({}): {:?}; \
+                            "failed to send message to {} ({}): {:?}; \
                              invalidating cached resolution",
-                            self.proto_name, addr, resolved, e
+                            addr, resolved, e
                         );
                         had_error = true;
                         // Stop fragmenting this destination: subsequent
@@ -342,10 +305,7 @@ impl UDPSenderServer {
                     // Slow the sender down!
                     sleep(Duration::from_millis(100)).await;
                 }
-                trace!(
-                    "[UDP SENDER {}] New buffer start: {}, end: {}",
-                    self.proto_name, buffer_position, buffer_end
-                );
+                trace!("New buffer start: {}, end: {}", buffer_position, buffer_end);
             }
 
             if had_error {

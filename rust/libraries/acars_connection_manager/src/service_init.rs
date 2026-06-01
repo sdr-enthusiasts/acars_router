@@ -431,7 +431,7 @@ impl SenderServerConfig {
                 let socket: Result<TcpListener, io::Error> = TcpListener::bind(&hostname).await;
                 info!("Starting {server_type} TCP Server {hostname} ");
                 match socket {
-                    Err(e) => error!("[TCP SERVE {server_type}]: Error binding to {host}: {e}"),
+                    Err(e) => error!(": Error binding to {host}: {e}"),
                     Ok(socket) => {
                         let tcp_sender_server: TCPServeServer = TCPServeServer::new(
                             socket,
@@ -496,7 +496,7 @@ async fn start_tcp_sender(
     let socket: Result<StubbornIo<CachedDnsTcp>, io::Error> =
         StubbornIo::<CachedDnsTcp>::connect_with_options(target, reconnect_options(host)).await;
     match socket {
-        Err(e) => error!("[TCP SENDER {socket_type}]: Error connecting to {host}: {e}"),
+        Err(e) => error!(": Error connecting to {host}: {e}"),
         Ok(socket) => {
             let tcp_sender_server = SenderServer {
                 host: host.to_string(),

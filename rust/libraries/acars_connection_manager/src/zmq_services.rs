@@ -43,7 +43,7 @@ impl ZMQReceiverServer {
         fields(proto = %self.proto_name, host = %self.host),
     )]
     pub async fn run(self, channel: Sender<String>, shutdown: CancellationToken) -> Result<()> {
-        debug!("[ZMQ RECEIVER SERVER {}] Starting", self.proto_name);
+        debug!("Starting");
         let address = format!("tcp://{}", self.host);
         let mut socket = subscribe(&Context::new())
             .connect(&address)?
@@ -52,7 +52,7 @@ impl ZMQReceiverServer {
         loop {
             let msg = tokio::select! {
                 () = shutdown.cancelled() => {
-                    info!("[ZMQ RECEIVER SERVER {}] shutdown requested", self.proto_name);
+                    info!("shutdown requested");
                     return Ok(());
                 }
                 next = socket.next() => match next {
@@ -63,7 +63,7 @@ impl ZMQReceiverServer {
             let message = match msg {
                 Ok(message) => message,
                 Err(e) => {
-                    error!("[ZMQ RECEIVER SERVER {}] Error: {:?}", self.proto_name, e);
+                    error!("Error: {:?}", e);
                     continue;
                 }
             };
@@ -73,24 +73,15 @@ impl ZMQReceiverServer {
                 .map(|item| item.as_str().unwrap_or("invalid text"))
                 .collect::<Vec<&str>>()
                 .join(" ");
-            trace!(
-                "[ZMQ RECEIVER SERVER {}] Received: {}",
-                self.proto_name, composed_message
-            );
+            trace!("Received: {}", composed_message);
             let stripped = composed_message
                 .strip_suffix("\r\n")
                 .or_else(|| composed_message.strip_suffix('\n'))
                 .unwrap_or(&composed_message);
 
             match channel.send(stripped.to_string()).await {
-                Ok(()) => trace!(
-                    "[ZMQ RECEIVER SERVER {}] Message sent to channel",
-                    self.proto_name
-                ),
-                Err(e) => error!(
-                    "[ZMQ RECEIVER SERVER {}] Error sending message to channel: {}",
-                    self.proto_name, e
-                ),
+                Ok(()) => trace!("Message sent to channel"),
+                Err(e) => error!("Error sending message to channel: {}", e),
             }
         }
     }
@@ -120,18 +111,15 @@ impl ZMQListenerServer {
         channel: Sender<String>,
         shutdown: CancellationToken,
     ) -> Result<()> {
-        debug!("[ZMQ LISTENER SERVER {}] Starting", self.proto_name);
+        debug!("Starting");
         let address = format!("tcp://0.0.0.0:{listen_acars_zmq_port}");
-        debug!(
-            "[ZMQ LISTENER SERVER {}] Listening on {}",
-            self.proto_name, address
-        );
+        debug!("Listening on {}", address);
         let mut socket = subscribe(&Context::new()).bind(&address)?.subscribe(b"")?;
 
         loop {
             let msg = tokio::select! {
                 () = shutdown.cancelled() => {
-                    info!("[ZMQ LISTENER SERVER {}] shutdown requested", self.proto_name);
+                    info!("shutdown requested");
                     return Ok(());
                 }
                 next = socket.next() => match next {
@@ -147,23 +135,14 @@ impl ZMQListenerServer {
                             .strip_suffix("\r\n")
                             .or_else(|| item_text.strip_suffix('\n'))
                             .unwrap_or(item_text);
-                        trace!(
-                            "[ZMQ LISTENER SERVER {}] Received: {}",
-                            self.proto_name, composed_message
-                        );
+                        trace!("Received: {}", composed_message);
                         match channel.send(composed_message.to_string()).await {
-                            Ok(()) => trace!(
-                                "[ZMQ LISTENER SERVER {}] Message sent to channel",
-                                self.proto_name
-                            ),
-                            Err(e) => error!(
-                                "[ZMQ LISTENER SERVER {}] Error sending message to channel: {}",
-                                self.proto_name, e
-                            ),
+                            Ok(()) => trace!("Message sent to channel"),
+                            Err(e) => error!("Error sending message to channel: {}", e),
                         }
                     }
                 }
-                Err(e) => error!("[ZMQ LISTENER SERVER {}] Error: {:?}", self.proto_name, e),
+                Err(e) => error!("Error: {:?}", e),
             }
         }
     }
@@ -193,16 +172,13 @@ impl SenderServer<Publish> {
                     Ok(m) => m,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        tracing::warn!(
-                            "[ZMQ SENDER {}]: broadcast lagged; {n} message(s) dropped",
-                            self.proto_name
-                        );
+                        tracing::warn!("broadcast lagged; {n} message(s) dropped");
                         continue;
                     }
                 };
                 match message.to_string_newline() {
                     Err(decode_error) => {
-                        error!("[ZMQ SENDER]: Error parsing message to string: {decode_error}");
+                        error!(": Error parsing message to string: {decode_error}");
                     }
                     // For some Subscribers it appears that a "blank" topic causes it to never receive the message
                     // This needs more investigation...
@@ -213,7 +189,7 @@ impl SenderServer<Publish> {
                     Ok(payload) => match self.socket.send(vec![&payload]).await {
                         Ok(()) => (),
                         Err(e) => {
-                            error!("[ZMQ SENDER]: Error sending message on 'acars' topic: {e:?}");
+                            error!(": Error sending message on 'acars' topic: {e:?}");
                         }
                     },
                 }

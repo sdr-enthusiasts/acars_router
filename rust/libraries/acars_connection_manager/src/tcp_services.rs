@@ -73,23 +73,15 @@ impl TCPListenerServer {
     ) -> Result<(), io::Error> {
         let listener: TcpListener =
             TcpListener::bind(format!("0.0.0.0:{listen_acars_udp_port}")).await?;
-        info!(
-            "[TCP Listener SERVER: {}]: Listening on: {}",
-            self.proto_name,
-            listener.local_addr()?
-        );
+        info!("Listening on: {}", listener.local_addr()?);
 
         loop {
-            trace!(
-                "[TCP Listener SERVER: {}]: Waiting for connection",
-                self.proto_name
-            );
+            trace!("Waiting for connection");
             // Asynchronously wait for an inbound TcpStream, or abort on shutdown.
             let (stream, addr) = tokio::select! {
                 () = shutdown.cancelled() => {
                     info!(
-                        "[TCP Listener SERVER: {}] shutdown requested; closing accept loop",
-                        self.proto_name
+                        "shutdown requested; closing accept loop"
                     );
                     return Ok(());
                 }
@@ -98,10 +90,7 @@ impl TCPListenerServer {
             let new_channel = channel.clone();
             let new_proto_name = format!("{}:{}", self.proto_name, addr);
             let peer_shutdown = shutdown.clone();
-            info!(
-                "[TCP Listener SERVER: {}]:accepted connection from {}",
-                self.proto_name, addr
-            );
+            info!("accepted connection from {}", addr);
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
                 let processed = Box::pin(process_tcp_sockets(
@@ -114,12 +103,8 @@ impl TCPListenerServer {
                 ))
                 .await;
                 match processed {
-                    Ok(()) => debug!("[TCP Listener SERVER: {new_proto_name}] connection closed"),
-                    Err(e) => error!(
-                        "[TCP Listener SERVER: {}] connection error: {}",
-                        new_proto_name.clone(),
-                        e
-                    ),
+                    Ok(()) => debug!("connection closed"),
+                    Err(e) => error!("connection error: {}", e),
                 }
             });
         }
@@ -165,21 +150,15 @@ async fn process_tcp_sockets(
                 for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
                     let final_message = if count == 0 {
                         // First case is the first element, which should only ever need a single closing bracket
-                        trace!(
-                            "[TCP Listener SERVER: {proto_name}] Multiple messages received in a packet."
-                        );
+                        trace!("Multiple messages received in a packet.");
                         format!("{msg_by_brackets}}}")
                     } else if count == split_messages_by_brackets.len() - 1 {
                         // This case is for the last element, which should only ever need a single opening bracket
-                        trace!(
-                            "[TCP Listener SERVER: {proto_name}] End of a multiple message packet"
-                        );
+                        trace!("End of a multiple message packet");
                         format!("{{{msg_by_brackets}")
                     } else {
                         // This case is for any middle elements, which need both an opening and closing bracket
-                        trace!(
-                            "[TCP Listener SERVER: {proto_name}] Middle of a multiple message packet"
-                        );
+                        trace!("Middle of a multiple message packet");
                         format!("{{{msg_by_brackets}}}")
                     };
                     packet_handler
@@ -231,16 +210,13 @@ impl TCPReceiverServer {
         channel: Sender<String>,
         shutdown: CancellationToken,
     ) -> Result<(), Box<dyn Error>> {
-        trace!("[TCP Receiver Server {}] Starting", self.proto_name);
+        trace!("Starting");
         // Resolve once up-front so we can attribute reassembly to a stable
         // peer address; `CachedDnsTcp` will re-resolve on every reconnect.
         let addr = match dns::resolve_host_port(&self.resolver, &self.host).await {
             Ok(addr) => addr,
             Err(e) => {
-                error!(
-                    "[TCP Receiver Server {}] Error resolving host `{}`: {}",
-                    self.proto_name, self.host, e
-                );
+                error!("Error resolving host `{}`: {}", self.host, e);
                 return Ok(());
             }
         };
@@ -257,10 +233,7 @@ impl TCPReceiverServer {
         {
             Ok(stream) => stream,
             Err(e) => {
-                error!(
-                    "[TCP Receiver Server {}] Error connecting to {}: {}",
-                    self.proto_name, self.host, e
-                );
+                error!("Error connecting to {}: {}", self.host, e);
                 Err(e)?
             }
         };
@@ -306,24 +279,15 @@ impl TCPReceiverServer {
                     // We have a message that was split by brackets if the length is greater than one
                     // First case is the first element, which should only ever need a single closing bracket
                     else if count == 0 {
-                        trace!(
-                            "[TCP Receiver Server {}]Multiple messages received in a packet.",
-                            self.proto_name
-                        );
+                        trace!("Multiple messages received in a packet.");
                         final_message = format!("{}{}", "}", msg_by_brackets);
                     } else if count == split_messages_by_brackets.len() - 1 {
                         // This case is for the last element, which should only ever need a single opening bracket
-                        trace!(
-                            "[TCP Receiver Server {}] End of a multiple message packet",
-                            self.proto_name
-                        );
+                        trace!("End of a multiple message packet");
                         final_message = format!("{}{}", "{", msg_by_brackets);
                     } else {
                         // This case is for any middle elements, which need both an opening and closing bracket
-                        trace!(
-                            "[TCP Receiver Server {}] Middle of a multiple message packet",
-                            self.proto_name
-                        );
+                        trace!("Middle of a multiple message packet");
                         final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
                     }
                     if let Some(encoded_msg) = packet_handler
@@ -334,24 +298,15 @@ impl TCPReceiverServer {
                         match parse_msg {
                             Err(parse_error) => error!("{parse_error}"),
                             Ok(msg) => {
-                                trace!(
-                                    "[TCP Receiver Server {}] Received message: {}",
-                                    self.proto_name, msg
-                                );
+                                trace!("Received message: {}", msg);
                                 match channel.send(msg).await {
-                                    Ok(()) => trace!(
-                                        "[TCP SERVER {}] Message sent to channel",
-                                        self.proto_name
-                                    ),
-                                    Err(e) => error!(
-                                        "[TCP Receiver Server {}]Error sending message to channel: {}",
-                                        self.proto_name, e
-                                    ),
+                                    Ok(()) => trace!("Message sent to channel"),
+                                    Err(e) => error!("Error sending message to channel: {}", e),
                                 }
                             }
                         }
                     } else {
-                        trace!("[TCP Receiver Server {}] Invalid Message", self.proto_name);
+                        trace!("Invalid Message");
                     }
                 }
             }
@@ -373,24 +328,15 @@ impl SenderServer<StubbornIo<CachedDnsTcp>> {
                     Ok(m) => m,
                     Err(broadcast::error::RecvError::Closed) => break,
                     Err(broadcast::error::RecvError::Lagged(n)) => {
-                        tracing::warn!(
-                            "[TCP SENDER {}]: broadcast lagged; {n} message(s) dropped",
-                            self.proto_name
-                        );
+                        tracing::warn!("broadcast lagged; {n} message(s) dropped");
                         continue;
                     }
                 };
                 match message.to_bytes_newline() {
-                    Err(encode_error) => error!(
-                        "[TCP SENDER {}]: Error converting message: {}",
-                        self.proto_name, encode_error
-                    ),
+                    Err(encode_error) => error!("Error converting message: {}", encode_error),
                     Ok(encoded_message) => match self.socket.write_all(&encoded_message).await {
-                        Ok(()) => trace!("[TCP SENDER {}]: sent message", self.proto_name),
-                        Err(e) => error!(
-                            "[TCP SENDER {}]: Error sending message: {}",
-                            self.proto_name, e
-                        ),
+                        Ok(()) => trace!("sent message"),
+                        Err(e) => error!("Error sending message: {}", e),
                     },
                 }
             }
@@ -425,10 +371,9 @@ impl TCPServeServer {
         shutdown: CancellationToken,
     ) {
         loop {
-            let proto = self.proto_name.clone();
             let accepted = tokio::select! {
                 () = shutdown.cancelled() => {
-                    info!("[TCP SERVER {proto}] shutdown requested; closing accept loop");
+                    info!("shutdown requested; closing accept loop");
                     return;
                 }
                 res = self.socket.accept() => res,
@@ -438,18 +383,17 @@ impl TCPServeServer {
                     let mut rx = tx_processed.subscribe();
                     let peer_shutdown = shutdown.clone();
                     tokio::spawn(async move {
-                        info!("[TCP SERVER {proto}] accepted connection from {addr}");
-                        if let Err(e) =
-                            forward_to_peer(stream, addr, &proto, &mut rx, peer_shutdown).await
+                        info!("accepted connection from {addr}");
+                        if let Err(e) = forward_to_peer(stream, addr, &mut rx, peer_shutdown).await
                         {
-                            info!("[TCP SERVER {proto}] peer {addr} disconnected; error = {e:?}");
+                            info!("peer {addr} disconnected; error = {e:?}");
                         } else {
-                            info!("[TCP SERVER {proto}] peer {addr} disconnected");
+                            info!("peer {addr} disconnected");
                         }
                     });
                 }
                 Err(e) => {
-                    error!("[TCP SERVER {proto}]: Error accepting connection: {e}");
+                    error!(": Error accepting connection: {e}");
                 }
             }
         }
@@ -463,7 +407,6 @@ impl TCPServeServer {
 async fn forward_to_peer(
     stream: TcpStream,
     addr: SocketAddr,
-    proto: &str,
     rx: &mut broadcast::Receiver<AcarsVdlm2Message>,
     shutdown: CancellationToken,
 ) -> Result<(), Box<dyn Error>> {
@@ -479,16 +422,16 @@ async fn forward_to_peer(
                     if let Err(e) = stream.write_all(payload.as_bytes()).await {
                         return Err(e.into());
                     }
-                    debug!("[TCP SERVER {proto}] sent message to {addr}");
+                    debug!("sent message to {addr}");
                 }
                 Err(e) => {
-                    error!("[TCP SERVER {proto}] Failed to encode message for {addr}: {e}");
+                    error!("Failed to encode message for {addr}: {e}");
                 }
             },
             Err(broadcast::error::RecvError::Closed) => return Ok(()),
             Err(broadcast::error::RecvError::Lagged(n)) => {
                 error!(
-                    "[TCP SERVER {proto}] peer {addr} lagged; dropping {n} message(s) and \
+                    "peer {addr} lagged; dropping {n} message(s) and \
                      disconnecting (slow consumer)"
                 );
                 return Ok(());

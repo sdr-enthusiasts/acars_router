@@ -153,10 +153,9 @@ impl MessageHandlerConfig {
         if let Some(dedupe) = self.dedupe.as_ref() {
             let cache = Arc::clone(&dedupe_cache);
             let dedupe_window = dedupe.window;
-            let queue_type = self.queue_type.clone();
             let dedupe_shutdown = shutdown.clone();
             tokio::spawn(async move {
-                clean_up_dedupe_cache(cache, dedupe_window, &queue_type, dedupe_shutdown).await;
+                clean_up_dedupe_cache(cache, dedupe_window, dedupe_shutdown).await;
             });
         }
 
@@ -164,8 +163,7 @@ impl MessageHandlerConfig {
             let message_content = tokio::select! {
                 () = shutdown.cancelled() => {
                     info!(
-                        "[Message Handler {}] shutdown requested; closing input loop",
-                        self.queue_type
+                        "shutdown requested; closing input loop"
                     );
                     return;
                 }
@@ -179,14 +177,11 @@ impl MessageHandlerConfig {
             total_messages_since_last.fetch_add(1, Ordering::Relaxed);
 
             let parsed: MessageResult<AcarsVdlm2Message> = message_content.decode_message();
-            trace!("[Message Handler {}] GOT: {:?}", self.queue_type, parsed);
+            trace!("GOT: {:?}", parsed);
             let mut message = match parsed {
                 Ok(m) => m,
                 Err(e) => {
-                    error!(
-                        "[Message Handler {}] Failed to parse received message: {e}\nReceived: {message_content}",
-                        self.queue_type
-                    );
+                    error!("Failed to parse received message: {e}\nReceived: {message_content}");
                     continue;
                 }
             };
@@ -204,10 +199,7 @@ impl MessageHandlerConfig {
             }
 
             let Some(mut message_time) = message.get_time() else {
-                error!(
-                    "[Message Handler {}] Message has no timestamp field. Skipping message.",
-                    self.queue_type
-                );
+                error!("Message has no timestamp field. Skipping message.");
                 continue;
             };
 
@@ -215,22 +207,19 @@ impl MessageHandlerConfig {
             if message_time > current_time {
                 if Duration::from_secs_f64(message_time - current_time) > skew {
                     error!(
-                        "[Message Handler {}] Message is from the future. Skipping. Current time {current_time}, Message time {message_time}. Difference {}",
-                        self.queue_type,
+                        "Message is from the future. Skipping. Current time {current_time}, Message time {message_time}. Difference {}",
                         message_time - current_time,
                     );
                     continue;
                 }
                 trace!(
-                    "[Message Handler {}] Message is from the future. Current time {current_time}, Message time {message_time}. Difference {}",
-                    self.queue_type,
+                    "Message is from the future. Current time {current_time}, Message time {message_time}. Difference {}",
                     message_time - current_time,
                 );
                 message_time = current_time;
             } else if Duration::from_secs_f64(current_time - message_time) > skew {
                 error!(
-                    "[Message Handler {}] Message is {} seconds old. Time in message {message_time}. Skipping message. {}",
-                    self.queue_type,
+                    "Message is {} seconds old. Time in message {message_time}. Skipping message. {}",
                     current_time - message_time,
                     skew.as_secs()
                 );
@@ -240,10 +229,7 @@ impl MessageHandlerConfig {
             let hashed_value = match hash_message(message.clone()) {
                 Ok(h) => h,
                 Err(e) => {
-                    error!(
-                        "[Message Handler {}] Failed to create hash of message: {e}",
-                        self.queue_type
-                    );
+                    error!("Failed to create hash of message: {e}");
                     continue;
                 }
             };
@@ -256,48 +242,30 @@ impl MessageHandlerConfig {
                     dedupe.window,
                 )
             {
-                info!(
-                    "[Message Handler {}] Message is a duplicate. Skipping message.",
-                    self.queue_type
-                );
+                info!("Message is a duplicate. Skipping message.");
                 continue;
             }
 
             if let Some(station_name) = self.station_name_override.as_deref() {
-                trace!(
-                    "[Message Handler {}] Overriding station name to {station_name}",
-                    self.queue_type
-                );
+                trace!("Overriding station name to {station_name}");
                 message.set_station_name(station_name);
             }
 
             if self.add_proxy_id {
-                trace!(
-                    "[Message Handler {}] Adding proxy_id to message",
-                    self.queue_type
-                );
+                trace!("Adding proxy_id to message");
                 message.set_proxy_details("acars_router", version);
             }
 
-            debug!("[Message Handler {}] SENDING: {message:?}", self.queue_type);
-            trace!(
-                "[Message Handler {}] Hashed value: {hashed_value}",
-                self.queue_type
-            );
+            debug!("SENDING: {message:?}");
+            trace!("Hashed value: {hashed_value}");
 
             if let Ok(n) = output_queue.send(message) {
-                debug!(
-                    "[Message Handler {}] Message sent to {n} sender(s)",
-                    self.queue_type
-                );
+                debug!("Message sent to {n} sender(s)");
             } else {
                 // `Err` only when no receivers are subscribed; common
                 // during startup (no outputs configured) — debug, not
                 // error.
-                debug!(
-                    "[Message Handler {}] No active senders; message dropped",
-                    self.queue_type
-                );
+                debug!("No active senders; message dropped");
             }
         }
     }
@@ -462,7 +430,6 @@ async fn print_stats(
 async fn clean_up_dedupe_cache(
     cache: Arc<Mutex<HashMap<u64, u64>>>,
     dedupe_window: Duration,
-    queue_type: &str,
     shutdown: CancellationToken,
 ) {
     let window_secs = dedupe_window.as_secs();
@@ -482,7 +449,7 @@ async fn clean_up_dedupe_cache(
             }
             Err(_) => continue,
         };
-        debug!("[Message Handler {queue_type}] dedupe cache size after pruning {remaining}");
+        debug!("dedupe cache size after pruning {remaining}");
     }
 }
 
@@ -500,7 +467,7 @@ fn hash_message(mut message: AcarsVdlm2Message) -> MessageResult<u64> {
     message.clear_octets_corrected_by_fec(); // Clears out "vdl2.octets_corrected_by_fec"
     message.clear_sig_level(); // Clears out "vdl2.sig_level"
     let msg = message.to_string()?;
-    trace!("[Hasher] Message to be hashed: {msg}");
+    trace!("Message to be hashed: {msg}");
     msg.hash(&mut hasher);
     Ok(hasher.finish())
 }
