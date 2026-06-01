@@ -12,19 +12,28 @@ pub mod zmq_services;
 use acars_config::Protocol;
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use sdre_stubborn_io::ReconnectOptions;
-use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::time::Duration;
+use tokio::sync::broadcast;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::Receiver;
 
-/// Shorthand for the transmit half of the message channel.
+/// Shorthand for the transmit half of the input message channel (raw strings
+/// from listeners/receivers into the per-protocol message handler).
 pub type Tx = mpsc::UnboundedSender<String>;
 
-/// Shorthand for the receive half of the message channel.
+/// Shorthand for the receive half of the input message channel.
 pub type Rx = mpsc::UnboundedReceiver<String>;
 
 pub type DurationIterator = Box<dyn Iterator<Item = Duration> + Send + Sync>;
+
+/// Per-protocol fan-out channel from the message handler to every configured
+/// sender (TCP/UDP/ZMQ/served-TCP). Replaces the historical
+/// `Arc<Mutex<Vec<mpsc::Sender>>>` + monitor task: every sender simply calls
+/// `.subscribe()` on construction and consumes its own [`broadcast::Receiver`].
+///
+/// Capacity is chosen high enough to absorb bursts without falling behind any
+/// well-behaved sender; a sender that lags more than this falls behind and
+/// receives [`broadcast::error::RecvError::Lagged`], which we log and continue.
+pub(crate) const BROADCAST_CAPACITY: usize = 256;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -32,12 +41,7 @@ pub(crate) struct SenderServer<T> {
     pub(crate) host: String,
     pub(crate) proto_name: String,
     pub(crate) socket: T,
-    pub(crate) channel: Receiver<AcarsVdlm2Message>,
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct Shared {
-    pub(crate) peers: HashMap<SocketAddr, Tx>,
+    pub(crate) channel: broadcast::Receiver<AcarsVdlm2Message>,
 }
 
 #[derive(Debug, Clone, Default)]

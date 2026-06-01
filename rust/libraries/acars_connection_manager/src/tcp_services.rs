@@ -6,10 +6,8 @@
 //
 
 use acars_vdlm2_parser::AcarsVdlm2Message;
-use futures::SinkExt;
 use log::{debug, error, info, trace};
 use sdre_stubborn_io::tokio::StubbornIo;
-use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
@@ -17,15 +15,14 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::{Mutex, MutexGuard, mpsc};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
 
 use crate::cached_dns_tcp::{CachedDnsTcp, ConnectTarget};
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
-use crate::{Rx, SenderServer, Shared, dns, reconnect_options};
+use crate::{SenderServer, dns, reconnect_options};
 
 /// TCP Listener server. This is used to listen for incoming TCP connections and process them.
 /// Used for incoming TCP data for ACARS Router to process
@@ -309,7 +306,18 @@ impl TCPReceiverServer {
 impl SenderServer<StubbornIo<CachedDnsTcp>> {
     pub(crate) fn send_message(mut self) {
         tokio::spawn(async move {
-            while let Some(message) = self.channel.recv().await {
+            loop {
+                let message = match self.channel.recv().await {
+                    Ok(m) => m,
+                    Err(broadcast::error::RecvError::Closed) => break,
+                    Err(broadcast::error::RecvError::Lagged(n)) => {
+                        log::warn!(
+                            "[TCP SENDER {}]: broadcast lagged; {n} message(s) dropped",
+                            self.proto_name
+                        );
+                        continue;
+                    }
+                };
                 match message.to_bytes_newline() {
                     Err(encode_error) => error!(
                         "[TCP SENDER {}]: Error converting message: {}",
@@ -328,67 +336,14 @@ impl SenderServer<StubbornIo<CachedDnsTcp>> {
     }
 }
 
-/// TCP Serve Server. This is used to listen for incoming TCP connections and process them.
-/// Used for outgoing TCP data for ACARS Router to a client
+/// TCP Serve Server. Listens for incoming TCP client connections and, for
+/// each accepted client, forwards every broadcast message until the client
+/// disconnects.
 pub struct TCPServeServer {
     pub socket: TcpListener,
     pub proto_name: String,
 }
 
-/// The state for each connected client.
-struct Peer {
-    /// The TCP socket wrapped with the `Lines` codec, defined below.
-    ///
-    /// This handles sending and receiving data on the socket. When using
-    /// `Lines`, we can work at the line level instead of having to manage the
-    /// raw byte operations.
-    lines: Framed<TcpStream, LinesCodec>,
-
-    /// Receive half of the message channel.
-    ///
-    /// This is used to receive messages from peers. When a message is received
-    /// off of this `Rx`, it will be written to the socket.
-    rx: Rx,
-}
-
-impl Shared {
-    /// Create a new, empty, instance of `Shared`.
-    pub(crate) fn new() -> Self {
-        Self {
-            peers: HashMap::new(),
-        }
-    }
-
-    /// Send a `LineCodec` encoded message to every peer, except
-    /// for the sender.
-    fn broadcast(&mut self, message: &str) {
-        for peer in &mut self.peers {
-            let _ = peer.1.send(message.into());
-        }
-    }
-}
-
-impl Peer {
-    /// Create a new instance of `Peer`.
-    async fn new(
-        state: Arc<Mutex<Shared>>,
-        lines: Framed<TcpStream, LinesCodec>,
-    ) -> io::Result<Self> {
-        // Get the client socket address
-        let addr: SocketAddr = lines.get_ref().peer_addr()?;
-
-        // Create a channel for this peer
-        let (tx, rx) = mpsc::unbounded_channel();
-
-        // Add an entry for this `Peer` in the shared state map.
-        state.lock().await.peers.insert(addr, tx);
-
-        Ok(Self { lines, rx })
-    }
-}
-
-/// TCP Serve Server. This is used to listen for incoming TCP connections and process them.
-/// Used for outgoing TCP data for ACARS Router to a client
 impl TCPServeServer {
     pub(crate) fn new(socket: TcpListener, proto_name: &str) -> Self {
         Self {
@@ -396,95 +351,69 @@ impl TCPServeServer {
             proto_name: proto_name.to_string(),
         }
     }
+
+    /// Accept loop: every incoming client spawns its own forwarding task with
+    /// its own [`broadcast::Receiver`]. Eliminates the previous
+    /// `Mutex<HashMap<peer, Sender>>` + per-peer `mpsc::unbounded_channel`
+    /// fan-out (and the `broadcast()` method that walked it inside a lock).
     pub(crate) async fn watch_for_connections(
         self,
-        channel: Receiver<AcarsVdlm2Message>,
-        state: &Arc<Mutex<Shared>>,
+        tx_processed: broadcast::Sender<AcarsVdlm2Message>,
     ) {
-        let new_state: Arc<Mutex<Shared>> = Arc::clone(state);
-        tokio::spawn(async move { handle_message(new_state, channel).await });
         loop {
-            let new_proto: String = self.proto_name.clone();
+            let proto = self.proto_name.clone();
             match self.socket.accept().await {
                 Ok((stream, addr)) => {
-                    // Clone a handle to the `Shared` state for the new connection.
-                    let state: Arc<Mutex<Shared>> = Arc::clone(state);
-
-                    // Spawn our handler to be run asynchronously.
+                    let mut rx = tx_processed.subscribe();
                     tokio::spawn(async move {
-                        info!("[TCP SERVER {new_proto}] accepted connection");
-                        if let Err(e) = process(&state, stream, addr).await {
-                            info!("[TCP SERVER {new_proto}] an error occurred; error = {e:?}");
+                        info!("[TCP SERVER {proto}] accepted connection from {addr}");
+                        if let Err(e) = forward_to_peer(stream, addr, &proto, &mut rx).await {
+                            info!("[TCP SERVER {proto}] peer {addr} disconnected; error = {e:?}");
+                        } else {
+                            info!("[TCP SERVER {proto}] peer {addr} disconnected");
                         }
                     });
                 }
                 Err(e) => {
-                    error!("[TCP SERVER {new_proto}]: Error accepting connection: {e}");
+                    error!("[TCP SERVER {proto}]: Error accepting connection: {e}");
                 }
             }
         }
     }
 }
 
-async fn handle_message(state: Arc<Mutex<Shared>>, mut channel: Receiver<AcarsVdlm2Message>) {
-    loop {
-        if let Some(received_message) = channel.recv().await {
-            // state.lock().await.broadcast(&format!("{}\n",received_message)).await;
-            match received_message.to_string_newline() {
-                Err(message_parse_error) => {
-                    error!("Failed to parse message to string: {message_parse_error}");
-                }
-                Ok(message) => state.lock().await.broadcast(&message),
-            }
-        }
-    }
-}
-
-async fn process(
-    state: &Arc<Mutex<Shared>>,
+/// Per-peer forwarding loop. Returns `Ok(())` on clean disconnect, `Err` on
+/// I/O failure. A lagged broadcast receiver drops the slow client (the only
+/// sensible behaviour for a fan-out TCP server: holding back-pressure on the
+/// shared channel would penalise every other peer).
+async fn forward_to_peer(
     stream: TcpStream,
     addr: SocketAddr,
+    proto: &str,
+    rx: &mut broadcast::Receiver<AcarsVdlm2Message>,
 ) -> Result<(), Box<dyn Error>> {
-    // If this section is reached it means that the client was disconnected!
-    // Let's let everyone still connected know about it.
-    let lines: Framed<TcpStream, LinesCodec> = Framed::new(stream, LinesCodec::new());
-    let mut peer: Peer = match Peer::new(state.clone(), lines).await {
-        Ok(peer) => peer,
-        Err(e) => {
-            error!("[TCP SERVER {addr}]: Error creating peer: {e}");
-            return Ok(());
-        }
-    };
+    let mut stream = stream;
     loop {
-        tokio::select! {
-            // A message was received from a peer. Send it to the current user.
-            Some(msg) = peer.rx.recv() => {
-                match peer.lines.send(&msg).await {
-                    Ok(()) => {
-                        debug!("[TCP SERVER {addr}]: Sent message");
+        match rx.recv().await {
+            Ok(message) => match message.to_string_newline() {
+                Ok(payload) => {
+                    if let Err(e) = stream.write_all(payload.as_bytes()).await {
+                        return Err(e.into());
                     }
-                    Err(e) => {
-                        error!("[TCP SERVER {addr}]: Error sending message: {e}");
-                    }
+                    debug!("[TCP SERVER {proto}] sent message to {addr}");
                 }
-            }
-            result = peer.lines.next() => match result {
-                // We received a message on this socket. Why? Dunno. Do nothing.
-                Some(Ok(_)) => (),
-                // An error occurred.
-                Some(Err(e)) => {
-                    error!(
-                        "[TCP SERVER {addr}]: [YOU SHOULD NEVER SEE THIS!] an error occurred while processing messages; error = {e:?}"
-                    );
+                Err(e) => {
+                    error!("[TCP SERVER {proto}] Failed to encode message for {addr}: {e}");
                 }
-                // The stream has been exhausted.
-                None => break,
             },
+            Err(broadcast::error::RecvError::Closed) => return Ok(()),
+            Err(broadcast::error::RecvError::Lagged(n)) => {
+                error!(
+                    "[TCP SERVER {proto}] peer {addr} lagged; dropping {n} message(s) and \
+                     disconnecting (slow consumer)"
+                );
+                return Ok(());
+            }
         }
     }
-    info!("[TCP SERVER {addr}]: Client disconnected");
-    let mut state: MutexGuard<'_, Shared> = state.lock().await;
-    state.peers.remove(&addr);
-    drop(state);
-    Ok(())
 }

@@ -14,7 +14,7 @@ use futures::StreamExt;
 use log::{debug, error, trace};
 use tmq::publish::Publish;
 use tmq::{Context, Result, subscribe};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Sender;
 
 /// ZMQ Receiver server. This is used to connect to a remote ZMQ server and process the messages.
 /// Used for incoming ZMQ data for ACARS Router to process
@@ -135,7 +135,7 @@ impl SenderServer<Publish> {
         server_address: &str,
         name: &str,
         socket: Publish,
-        channel: Receiver<AcarsVdlm2Message>,
+        channel: tokio::sync::broadcast::Receiver<AcarsVdlm2Message>,
     ) -> Self {
         Self {
             host: server_address.to_string(),
@@ -146,7 +146,18 @@ impl SenderServer<Publish> {
     }
     pub(crate) fn send_message(mut self) {
         tokio::spawn(async move {
-            while let Some(message) = self.channel.recv().await {
+            loop {
+                let message = match self.channel.recv().await {
+                    Ok(m) => m,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        log::warn!(
+                            "[ZMQ SENDER {}]: broadcast lagged; {n} message(s) dropped",
+                            self.proto_name
+                        );
+                        continue;
+                    }
+                };
                 match message.to_string_newline() {
                     Err(decode_error) => {
                         error!("[ZMQ SENDER]: Error parsing message to string: {decode_error}");

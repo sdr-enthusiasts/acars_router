@@ -16,7 +16,8 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::broadcast;
+use tokio::sync::mpsc::Receiver;
 use tokio::time::{Duration, sleep};
 
 pub struct FrequencyCount {
@@ -68,7 +69,7 @@ impl MessageHandlerConfig {
     pub(crate) async fn watch_message_queue(
         self,
         mut input_queue: Receiver<String>,
-        output_queue: Sender<AcarsVdlm2Message>,
+        output_queue: broadcast::Sender<AcarsVdlm2Message>,
     ) {
         let dedupe_queue: Arc<Mutex<VecDeque<(u64, u64)>>> =
             Arc::new(Mutex::new(VecDeque::with_capacity(100)));
@@ -375,14 +376,18 @@ impl MessageHandlerConfig {
                                         self.queue_type, message
                                     );
 
-                                    match output_queue.send(message).await {
-                                        Ok(()) => debug!(
-                                            "[Message Handler {}] Message sent to output queue",
+                                    match output_queue.send(message) {
+                                        Ok(n) => debug!(
+                                            "[Message Handler {}] Message sent to {n} sender(s)",
                                             self.queue_type
                                         ),
-                                        Err(e) => error!(
-                                            "[Message Handler {}] Error sending message to output queue: {}",
-                                            self.queue_type, e
+                                        // `Err` only when no receivers are
+                                        // subscribed; common during startup
+                                        // (no outputs configured) — debug, not
+                                        // error.
+                                        Err(_) => debug!(
+                                            "[Message Handler {}] No active senders; message dropped",
+                                            self.queue_type
                                         ),
                                     }
                                     // let parse_final_message: MessageResult<String> = message.to_string();
