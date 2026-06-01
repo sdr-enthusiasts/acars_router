@@ -1,5 +1,6 @@
 pub use tokio;
 
+pub mod cached_dns_tcp;
 pub mod dns;
 pub mod message_handler;
 pub mod packet_handler;

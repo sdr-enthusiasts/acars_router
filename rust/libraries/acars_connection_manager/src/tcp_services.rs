@@ -8,7 +8,6 @@
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use futures::SinkExt;
 use log::{debug, error, info, trace};
-use sdre_stubborn_io::StubbornTcpStream;
 use sdre_stubborn_io::tokio::StubbornIo;
 use std::collections::HashMap;
 use std::error::Error;
@@ -24,6 +23,7 @@ use tokio::sync::{Mutex, MutexGuard, mpsc};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, LinesCodec};
 
+use crate::cached_dns_tcp::{CachedDnsTcp, ConnectTarget};
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
 use crate::{Rx, SenderServer, Shared, dns, reconnect_options};
 
@@ -181,9 +181,8 @@ impl TCPReceiverServer {
 
     pub async fn run(self, channel: Sender<String>) -> Result<(), Box<dyn Error>> {
         trace!("[TCP Receiver Server {}] Starting", self.proto_name);
-        // Resolve `host:port` via the shared async resolver. The previous
-        // implementation called `self.host.parse::<SocketAddr>()`, which
-        // rejected every hostname (and even some IPv6 literals).
+        // Resolve once up-front so we can attribute reassembly to a stable
+        // peer address; `CachedDnsTcp` will re-resolve on every reconnect.
         let addr = match dns::resolve_host_port(&self.resolver, &self.host).await {
             Ok(addr) => addr,
             Err(e) => {
@@ -195,8 +194,12 @@ impl TCPReceiverServer {
             }
         };
 
-        let stream = match StubbornTcpStream::connect_with_options(
-            addr,
+        let target = ConnectTarget {
+            host: Arc::from(self.host.as_str()),
+            resolver: Arc::clone(&self.resolver),
+        };
+        let stream = match StubbornIo::<CachedDnsTcp>::connect_with_options(
+            target,
             reconnect_options(&self.proto_name),
         )
         .await
@@ -211,9 +214,8 @@ impl TCPReceiverServer {
             }
         };
 
-        // Set TCP KeepAlive
-
-        let sock_ref = socket2::SockRef::from(&*stream);
+        // Set TCP KeepAlive. Two derefs: StubbornIo -> CachedDnsTcp -> TcpStream.
+        let sock_ref = socket2::SockRef::from(&**stream);
 
         let mut ka = socket2::TcpKeepalive::new();
         ka = ka.with_time(Duration::from_secs(5));
@@ -304,7 +306,7 @@ impl TCPReceiverServer {
 
 /// TCP Sender server. This is used to connect to a remote TCP server and send the messages.
 /// Used for outgoing TCP data for ACARS Router to a client
-impl SenderServer<StubbornIo<TcpStream, String>> {
+impl SenderServer<StubbornIo<CachedDnsTcp>> {
     pub(crate) fn send_message(mut self) {
         tokio::spawn(async move {
             while let Some(message) = self.channel.recv().await {

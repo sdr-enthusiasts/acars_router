@@ -1313,9 +1313,9 @@ dependencies = [
 
 [[package]]
 name = "sdre-stubborn-io"
-version = "0.6.19"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38cdbcb397b780d75405b636b3d86f89faed85af30adc4039e51cb75101521d5"
+checksum = "e890316930e6a6dc0d3cbaf1cd4988cd3037b5a853d996798bd6c343834c8a60"
 dependencies = [
  "log",
  "rand",

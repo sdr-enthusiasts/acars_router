@@ -5,6 +5,7 @@
 // Full license information available in the project LICENSE file.
 //
 
+use crate::cached_dns_tcp::{CachedDnsTcp, ConnectTarget};
 use crate::message_handler::MessageHandlerConfig;
 use crate::tcp_services::{TCPListenerServer, TCPReceiverServer, TCPServeServer};
 use crate::udp_services::{UDPListenerServer, UDPSenderServer};
@@ -14,13 +15,12 @@ use acars_config::{Input, Protocol, ProtocolIo};
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use async_trait::async_trait;
 use log::{debug, error, info, trace};
-use sdre_stubborn_io::StubbornTcpStream;
 use sdre_stubborn_io::tokio::StubbornIo;
 use std::io;
 use std::sync::Arc;
 use tmq::publish::Publish;
 use tmq::{Context, TmqError, publish};
-use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{Mutex, mpsc};
 use tokio::time::{Duration, sleep};
@@ -333,12 +333,17 @@ impl SenderServerConfig {
         }
 
         if let Some(send_tcp) = self.send_tcp {
+            let resolver = self
+                .resolver
+                .clone()
+                .expect("TCP sender requires a shared DNS resolver");
             for host in send_tcp {
                 let new_state: Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> =
                     Arc::clone(&sender_servers);
                 let s_type: String = server_type.to_string();
+                let resolver = Arc::clone(&resolver);
                 info!("Starting {server_type} TCP Sender {host} ");
-                tokio::spawn(async move { new_state.start_tcp(&s_type, &host).await });
+                tokio::spawn(async move { new_state.start_tcp(&s_type, &host, resolver).await });
             }
         }
 
@@ -407,7 +412,7 @@ impl SenderServerConfig {
 #[async_trait]
 trait SenderServers {
     async fn monitor(self, rx_processed: Receiver<AcarsVdlm2Message>, name: &str);
-    async fn start_tcp(self, socket_type: &str, host: &str);
+    async fn start_tcp(self, socket_type: &str, host: &str, resolver: Arc<dns::Resolver>);
 }
 
 #[async_trait]
@@ -429,11 +434,14 @@ impl SenderServers for Arc<Mutex<Vec<Sender<AcarsVdlm2Message>>>> {
         }
     }
 
-    async fn start_tcp(self, socket_type: &str, host: &str) {
+    async fn start_tcp(self, socket_type: &str, host: &str, resolver: Arc<dns::Resolver>) {
         // Start a TCP sender server for {server_type}
-        let socket: Result<StubbornIo<TcpStream, String>, io::Error> =
-            StubbornTcpStream::connect_with_options(host.to_string(), reconnect_options(host))
-                .await;
+        let target = ConnectTarget {
+            host: Arc::from(host),
+            resolver,
+        };
+        let socket: Result<StubbornIo<CachedDnsTcp>, io::Error> =
+            StubbornIo::<CachedDnsTcp>::connect_with_options(target, reconnect_options(host)).await;
         match socket {
             Err(e) => error!("[TCP SENDER {socket_type}]: Error connecting to {host}: {e}"),
             Ok(socket) => {
