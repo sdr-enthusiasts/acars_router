@@ -14,8 +14,10 @@
 //!   each message at every configured `host:port` destination, slicing
 //!   payloads at `max_udp_packet_size` boundaries with a 100ms pacing
 //!   sleep between fragments. DNS resolution is cached per-destination
-//!   for `dns_cache_duration`; see [`crate::dns`] for the shared
-//!   hickory-backed resolver.
+//!   for up to `dns_cache_duration` (default 30 min, see
+//!   `--udp-dns-cache-seconds`) and **invalidated immediately on any
+//!   `sendto()` failure** so the next message re-resolves. See
+//!   [`crate::dns`] for the shared hickory-backed resolver.
 
 use crate::dns;
 use crate::packet_handler::{PacketHandler, ProcessAssembly};
@@ -231,16 +233,20 @@ impl UDPSenderServer {
 
     async fn send_bytes(&mut self, message_as_bytes: &[u8]) {
         let message_size: usize = message_as_bytes.len();
-        let mut use_addrs: Vec<(&String, SocketAddr)> = Vec::new();
-        for ra in &mut self.resolved_addrs {
-            //debug!("{:?}", ra);
+        // Collect (index-into-resolved_addrs, SocketAddr) so we can
+        // invalidate the cache by index after the send loop on any
+        // sendto() failure without juggling overlapping borrows.
+        let mut use_addrs: Vec<(usize, SocketAddr)> = Vec::new();
+        for (idx, ra) in self.resolved_addrs.iter_mut().enumerate() {
             if ra.resopt.is_none() || ra.last_success.elapsed() > self.dns_cache_duration {
                 // Use the shared async resolver. The previous implementation
                 // invoked `std::net::ToSocketAddrs::to_socket_addrs()`, which
                 // performs a blocking libc DNS lookup on the tokio runtime.
-                // The per-target TTL cache below (`last_success` /
-                // `dns_cache_duration`) is independent of hickory's own cache
-                // and is preserved verbatim.
+                // The per-target TTL (`last_success` / `dns_cache_duration`)
+                // is independent of hickory's own cache and is preserved
+                // verbatim. A failed `sendto()` further down invalidates
+                // `resopt` so the *next* message re-resolves regardless of
+                // how recent `last_success` is.
                 match dns::resolve_host_port(&self.resolver, &ra.addr).await {
                     Ok(resolved) if resolved.is_ipv4() => {
                         debug!(
@@ -266,11 +272,17 @@ impl UDPSenderServer {
             }
 
             if let Some(resolved) = ra.resopt {
-                use_addrs.push((&ra.addr, resolved));
+                use_addrs.push((idx, resolved));
             }
         }
-        //debug!("{:?}", use_addrs);
-        for (addr, resolved) in &use_addrs {
+
+        // Per-destination failure flags, written by the send loop and
+        // applied to `resolved_addrs` in a separate pass so we never
+        // hold a mutable borrow across an `.await`.
+        let mut failed: Vec<usize> = Vec::new();
+
+        for (idx, resolved) in &use_addrs {
+            let addr = &self.resolved_addrs[*idx].addr;
             let mut keep_sending: bool = true;
             let mut buffer_position: usize = 0;
             let mut buffer_end: usize = if message_as_bytes.len() < self.max_udp_packet_size {
@@ -278,6 +290,7 @@ impl UDPSenderServer {
             } else {
                 self.max_udp_packet_size
             };
+            let mut had_error = false;
 
             while keep_sending {
                 trace!(
@@ -295,10 +308,19 @@ impl UDPSenderServer {
                         "[UDP SENDER {}] sent {} bytes to {} ({})",
                         self.proto_name, bytes_sent, addr, resolved
                     ),
-                    Err(e) => warn!(
-                        "[UDP SENDER {}] failed to send message to {} ({}): {:?}",
-                        self.proto_name, addr, resolved, e
-                    ),
+                    Err(e) => {
+                        warn!(
+                            "[UDP SENDER {}] failed to send message to {} ({}): {:?}; \
+                             invalidating cached resolution",
+                            self.proto_name, addr, resolved, e
+                        );
+                        had_error = true;
+                        // Stop fragmenting this destination: subsequent
+                        // slices to a dead address are wasted work and
+                        // would only repeat the warning.
+                        keep_sending = false;
+                        continue;
+                    }
                 }
 
                 if buffer_end == message_size {
@@ -319,6 +341,17 @@ impl UDPSenderServer {
                     self.proto_name, buffer_position, buffer_end
                 );
             }
+
+            if had_error {
+                failed.push(*idx);
+            }
+        }
+
+        // Apply failure-driven cache invalidation. Next message to the
+        // same destination will re-resolve before sending, regardless
+        // of where we are in the TTL window.
+        for idx in failed {
+            self.resolved_addrs[idx].resopt = None;
         }
     }
 }

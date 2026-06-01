@@ -142,12 +142,18 @@ pub struct Input {
         default_value = "60000"
     )]
     pub max_udp_packet_size: u64,
-    /// Number of seconds DNS resolve will be cached for UDP outputs
+    /// Maximum time (seconds) a successful DNS resolution is reused for
+    /// each UDP output destination. The cache is *also* invalidated
+    /// immediately on any `sendto()` failure, so this value is an upper
+    /// bound rather than a fixed refresh interval. Defaults to 30
+    /// minutes, which is appropriate for the typical deployments
+    /// (internal docker consumers like ACARS Hub, or static upstream
+    /// aggregators) where the target IP is effectively stable.
     #[clap(
         long,
         env = "AR_UDP_DNS_CACHE_SECONDS",
         value_parser,
-        default_value = "15.0"
+        default_value = "1800.0"
     )]
     pub udp_dns_cache_seconds: f64,
     // Message Modification
