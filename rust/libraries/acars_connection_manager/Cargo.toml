@@ -24,7 +24,6 @@ tokio.workspace = true
 tokio-util.workspace = true
 tokio-stream.workspace = true
 futures.workspace = true
-zmq.workspace = true
 tmq.workspace = true
 socket2.workspace = true
 hickory-resolver.workspace = true

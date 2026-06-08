@@ -26,7 +26,6 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
- "zmq",
 ]
 
 [[package]]
@@ -35,9 +34,6 @@ version = "0.2.0"
 dependencies = [
  "acars_config",
  "acars_connection_manager",
- "serde",
- "serde_json",
- "socket2",
  "tokio",
  "tokio-util",
  "tracing",
