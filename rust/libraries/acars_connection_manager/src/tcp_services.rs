@@ -29,7 +29,6 @@ use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
@@ -238,14 +237,9 @@ impl TCPReceiverServer {
             }
         };
 
-        // Set TCP KeepAlive. Two derefs: StubbornIo -> CachedDnsTcp -> TcpStream.
-        let sock_ref = socket2::SockRef::from(&**stream);
-
-        let mut ka = socket2::TcpKeepalive::new();
-        ka = ka.with_time(Duration::from_secs(5));
-        ka = ka.with_interval(Duration::from_secs(5));
-
-        sock_ref.set_tcp_keepalive(&ka)?;
+        // TCP keepalive is applied inside `CachedDnsTcp::establish`, so it
+        // survives reconnects (configuration applied here via `Deref` would be
+        // silently lost on reconnect).
 
         // create a buffered reader and send the messages to the channel
 

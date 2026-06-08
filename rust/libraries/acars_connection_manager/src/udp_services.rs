@@ -275,7 +275,7 @@ impl UDPSenderServer {
 
                 match bytes_sent {
                     Ok(bytes_sent) => {
-                        debug!("sent {} bytes to {} ({})", bytes_sent, addr, resolved)
+                        debug!("sent {} bytes to {} ({})", bytes_sent, addr, resolved);
                     }
                     Err(e) => {
                         warn!(
