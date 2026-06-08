@@ -25,12 +25,17 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use sdre_stubborn_io::tokio::UnderlyingIo;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
 
 use crate::dns::{self, Resolver};
+
+/// TCP keepalive idle/interval applied to every (re)connected stream.
+const KEEPALIVE_TIME: Duration = Duration::from_secs(5);
+const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Context handed to [`CachedDnsTcp::establish`] on every (re)connect.
 #[derive(Clone)]
@@ -60,6 +65,16 @@ impl UnderlyingIo for CachedDnsTcp {
         Box::pin(async move {
             let addr = dns::resolve_host_port(&ctx.resolver, &ctx.host).await?;
             let stream = TcpStream::connect(addr).await?;
+
+            // Apply socket-level configuration here, inside `establish`, so it is
+            // re-applied on every reconnect. `StubbornIo` warns that configuration
+            // applied externally via `Deref` is silently lost on reconnect, which
+            // previously left reconnected sockets with no keepalive at all.
+            let ka = socket2::TcpKeepalive::new()
+                .with_time(KEEPALIVE_TIME)
+                .with_interval(KEEPALIVE_INTERVAL);
+            socket2::SockRef::from(&stream).set_tcp_keepalive(&ka)?;
+
             Ok(Self(stream))
         })
     }
@@ -120,5 +135,41 @@ impl AsyncWrite for CachedDnsTcp {
     }
     fn is_write_vectored(&self) -> bool {
         self.0.is_write_vectored()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::net::TcpListener;
+
+    /// Regression test: keepalive must be applied inside `establish` so it
+    /// survives reconnects. Previously keepalive was set on the `Deref`'d
+    /// `TcpStream` after `connect_with_options` returned, which `StubbornIo`
+    /// silently discards on every reconnect — and the sender path never set it
+    /// at all. This binds a local listener, runs `establish` directly, and
+    /// asserts the freshly-built stream has `SO_KEEPALIVE` enabled.
+    #[tokio::test]
+    async fn establish_enables_keepalive() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        // Accept and hold the peer so the connection stays up for inspection.
+        let accept = tokio::spawn(async move { listener.accept().await.unwrap() });
+
+        let target = ConnectTarget {
+            host: Arc::from(format!("127.0.0.1:{port}").as_str()),
+            resolver: dns::new_shared_resolver(),
+        };
+
+        let stream = CachedDnsTcp::establish(target).await.unwrap();
+
+        let keepalive = socket2::SockRef::from(&stream.0).keepalive().unwrap();
+        assert!(
+            keepalive,
+            "establish must enable SO_KEEPALIVE so it survives reconnects"
+        );
+
+        let _peer = accept.await.unwrap();
     }
 }
