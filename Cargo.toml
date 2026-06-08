@@ -25,10 +25,10 @@ categories = ["command-line-utilities", "network-programming"]
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tokio = { version = "1.52.2", features = ["full", "tracing"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 clap = { version = "4.6.1", features = ["derive", "env"] }
 sdre-stubborn-io = "0.7.1"
-socket2 = "0.6.3"
+socket2 = "0.6.4"
 tokio-util = { version = "0.7.18", features = ["full"] }
 tokio-stream = "0.1.18"
 futures = "0.3.32"
@@ -37,25 +37,25 @@ acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", v
 hickory-resolver = "0.26.1"
 
 [workspace.lints.rust]
-unsafe_code      = "forbid"
+unsafe_code = "forbid"
 rust_2018_idioms = { level = "warn", priority = -1 }
-unreachable_pub  = "warn"
+unreachable_pub = "warn"
 # missing_docs deferred until a dedicated docs pass; the existing codebase has
 # essentially no rustdoc and surfacing hundreds of warnings here would drown
 # the signal from the lints below.
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
-nursery  = { level = "warn", priority = -1 }
-cargo    = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
 # explicit opt-outs that are noisy in this codebase
 module_name_repetitions = "allow"
-missing_errors_doc      = "allow"
-missing_panics_doc      = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
 # transitive deps (tokio, mio, zmq-sys, etc.) pull in multiple versions
 multiple_crate_versions = "allow"
 # `too_many_lines` is allowed at the workspace level, but only on a
 # case-by-case basis where splitting the function would harm readability
 # (e.g. linear top-level orchestration in `main`). All other lints must
 # be fixed, not silenced.
-too_many_lines          = "allow"
+too_many_lines = "allow"
