@@ -28,6 +28,7 @@
               inherit system;
               src = ./.;
               check_rust = true;
+              check_docker = true;
               enableXtask = false;
               extraExcludes = [
                 "typos.toml"
