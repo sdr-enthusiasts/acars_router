@@ -34,7 +34,7 @@ tokio-stream = "0.1.18"
 futures = "0.3.32"
 tmq = "0.5.0"
 acars_vdlm2_parser = { git = "https://github.com/jcdeimos/acars_vdlm2_parser", version = "0.4.0" }
-hickory-resolver = "0.26.1"
+hickory-resolver = "0.26.3"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

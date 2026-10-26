@@ -28,6 +28,11 @@
       "automerge": true
     },
     {
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^hickory-/"],
+      "groupName": "hickory-dns crates"
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["/^ghcr\\.io/sdr-enthusiasts/.*$/"],
       "enabled": false
