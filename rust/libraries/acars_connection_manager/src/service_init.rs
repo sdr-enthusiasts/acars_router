@@ -14,7 +14,7 @@ use crate::{
     BROADCAST_CAPACITY, OutboundMessage, OutputServerConfig, SenderServer, SenderServerConfig, dns,
     reconnect_options,
 };
-use acars_config::{Input, Protocol, ProtocolIo};
+use acars_config::{Input, Protocol, ProtocolIo, ValidationMode};
 use sdre_stubborn_io::tokio::StubbornIo;
 use std::io;
 use std::sync::Arc;
@@ -102,7 +102,12 @@ fn spawn_protocol_pipeline(
     resolver: Arc<dns::Resolver>,
     shutdown: CancellationToken,
 ) {
-    let message_handler_config = MessageHandlerConfig::new(args, proto.label());
+    if io.validation == ValidationMode::Bypass {
+        info!(
+            "{proto}: shape validation bypass enabled; messages that fail validation are forwarded unchanged"
+        );
+    }
+    let message_handler_config = MessageHandlerConfig::new(args, proto.label(), io.validation);
 
     // Receivers TX into rx_receivers; the message handler drains it.
     let (tx_receivers, rx_receivers) = mpsc::channel(32);
