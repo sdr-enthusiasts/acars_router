@@ -210,10 +210,10 @@ impl MessageHandlerConfig {
             // block copy-pasted five times across the five message
             // variants; the helper collapses all of them into one
             // HashMap::entry call.
-            if let Some(freq) = message_frequency(&message) {
-                if let Ok(mut map) = all_frequencies_logged.lock() {
-                    *map.entry(freq).or_insert(0) += 1;
-                }
+            if let Some(freq) = message_frequency(&message)
+                && let Ok(mut map) = all_frequencies_logged.lock()
+            {
+                *map.entry(freq).or_insert(0) += 1;
             }
 
             // A decoded message with no usable timestamp is a validation

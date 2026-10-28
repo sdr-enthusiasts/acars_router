@@ -109,7 +109,7 @@ impl ProtocolIo {
     /// endpoint of any kind. Replaces the 5 copy-pasted `Input::*_configured`
     /// methods and — unlike them — correctly considers `listen_zmq_*`.
     #[must_use]
-    pub fn is_configured(&self) -> bool {
+    pub const fn is_configured(&self) -> bool {
         !self.disabled
             && (!self.listen_udp.is_empty()
                 || !self.listen_tcp.is_empty()
