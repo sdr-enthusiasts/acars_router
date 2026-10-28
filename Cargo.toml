@@ -17,7 +17,7 @@ homepage = "https://github.com/sdr-enthusiasts/acars_router"
 repository = "https://github.com/sdr-enthusiasts/acars_router"
 readme = "README.md"
 license = "MIT"
-rust-version = "1.85"
+rust-version = "1.89"
 keywords = ["acars", "vdlm2", "hfdl", "aviation", "sdr"]
 categories = ["command-line-utilities", "network-programming"]
 
