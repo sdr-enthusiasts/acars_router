@@ -73,6 +73,17 @@ impl fmt::Display for Protocol {
     }
 }
 
+/// Whether messages that fail shape validation are dropped or forwarded.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub enum ValidationMode {
+    /// Drop messages that do not decode as a known message shape.
+    #[default]
+    Enforce,
+    /// Forward messages that do not decode as a known message shape
+    /// unchanged, provided they are complete JSON objects.
+    Bypass,
+}
+
 /// Per-protocol I/O view derived from [`Input`].
 ///
 /// Unlike `Input`, every field is a flat `Vec<_>` (never `Option`) — absence
@@ -90,6 +101,7 @@ pub struct ProtocolIo {
     pub serve_tcp: Vec<u16>,
     pub serve_zmq: Vec<u16>,
     pub disabled: bool,
+    pub validation: ValidationMode,
 }
 
 impl ProtocolIo {
@@ -116,7 +128,9 @@ impl ProtocolIo {
 // `Input` is the clap-derived CLI surface. Each bool here is a distinct,
 // documented user-facing flag (`--enable-dedupe`, `--add-proxy-id`,
 // `--stats-verbose`) or per-protocol disable switch
-// (`--disable-acars`/`AR_DISABLE_ACARS` ... `--disable-irdm`/`AR_DISABLE_IRDM`).
+// (`--disable-acars`/`AR_DISABLE_ACARS` ... `--disable-irdm`/`AR_DISABLE_IRDM`)
+// or validation bypass switch (`--bypass-validation`/`AR_BYPASS_VALIDATION`
+// and the per-protocol `--bypass-validation-acars` ... `--bypass-validation-irdm`).
 // Restructuring into substructs would either break the existing CLI /
 // env-var contract or just push the lint into the substruct, with no
 // real readability win. The downstream `MessageHandlerConfig` has been
@@ -203,6 +217,24 @@ pub struct Input {
     /// Disable IRDM input
     #[clap(long, env = "AR_DISABLE_IRDM", value_parser)]
     pub disable_irdm: bool,
+    /// Forward messages that fail shape validation unchanged, for every protocol
+    #[clap(long, env = "AR_BYPASS_VALIDATION", value_parser)]
+    pub bypass_validation: bool,
+    /// Forward ACARS messages that fail shape validation unchanged
+    #[clap(long, env = "AR_BYPASS_VALIDATION_ACARS", value_parser)]
+    pub bypass_validation_acars: bool,
+    /// Forward VDLM2 messages that fail shape validation unchanged
+    #[clap(long, env = "AR_BYPASS_VALIDATION_VDLM2", value_parser)]
+    pub bypass_validation_vdlm2: bool,
+    /// Forward HFDL messages that fail shape validation unchanged
+    #[clap(long, env = "AR_BYPASS_VALIDATION_HFDL", value_parser)]
+    pub bypass_validation_hfdl: bool,
+    /// Forward IMSL messages that fail shape validation unchanged
+    #[clap(long, env = "AR_BYPASS_VALIDATION_IMSL", value_parser)]
+    pub bypass_validation_imsl: bool,
+    /// Forward IRDM messages that fail shape validation unchanged
+    #[clap(long, env = "AR_BYPASS_VALIDATION_IRDM", value_parser)]
+    pub bypass_validation_irdm: bool,
 
     // Input Options
 
@@ -416,6 +448,7 @@ impl Input {
                 serve_tcp: self.serve_tcp_acars.clone().unwrap_or_default(),
                 serve_zmq: self.serve_zmq_acars.clone().unwrap_or_default(),
                 disabled: self.disable_acars,
+                validation: self.validation_for(self.bypass_validation_acars),
             },
             Protocol::Vdlm2 => ProtocolIo {
                 listen_udp: self.listen_udp_vdlm2.clone().unwrap_or_default(),
@@ -428,6 +461,7 @@ impl Input {
                 serve_tcp: self.serve_tcp_vdlm2.clone().unwrap_or_default(),
                 serve_zmq: self.serve_zmq_vdlm2.clone().unwrap_or_default(),
                 disabled: self.disable_vdlm2,
+                validation: self.validation_for(self.bypass_validation_vdlm2),
             },
             Protocol::Hfdl => ProtocolIo {
                 listen_udp: self.listen_udp_hfdl.clone().unwrap_or_default(),
@@ -440,6 +474,7 @@ impl Input {
                 serve_tcp: self.serve_tcp_hfdl.clone().unwrap_or_default(),
                 serve_zmq: self.serve_zmq_hfdl.clone().unwrap_or_default(),
                 disabled: self.disable_hfdl,
+                validation: self.validation_for(self.bypass_validation_hfdl),
             },
             Protocol::Imsl => ProtocolIo {
                 listen_udp: self.listen_udp_imsl.clone().unwrap_or_default(),
@@ -452,6 +487,7 @@ impl Input {
                 serve_tcp: self.serve_tcp_imsl.clone().unwrap_or_default(),
                 serve_zmq: self.serve_zmq_imsl.clone().unwrap_or_default(),
                 disabled: self.disable_imsl,
+                validation: self.validation_for(self.bypass_validation_imsl),
             },
             Protocol::Irdm => ProtocolIo {
                 listen_udp: self.listen_udp_irdm.clone().unwrap_or_default(),
@@ -464,7 +500,18 @@ impl Input {
                 serve_tcp: self.serve_tcp_irdm.clone().unwrap_or_default(),
                 serve_zmq: self.serve_zmq_irdm.clone().unwrap_or_default(),
                 disabled: self.disable_irdm,
+                validation: self.validation_for(self.bypass_validation_irdm),
             },
+        }
+    }
+
+    /// Resolve a protocol's validation mode: bypass if either the global
+    /// switch or the protocol's own switch is set.
+    const fn validation_for(&self, per_protocol: bool) -> ValidationMode {
+        if self.bypass_validation || per_protocol {
+            ValidationMode::Bypass
+        } else {
+            ValidationMode::Enforce
         }
     }
 }
@@ -520,5 +567,62 @@ mod tests {
             ..Input::default()
         };
         assert!(!input.protocol(Protocol::Acars).is_configured());
+    }
+
+    #[test]
+    fn global_bypass_applies_to_every_protocol() {
+        let input = Input {
+            bypass_validation: true,
+            ..Input::default()
+        };
+        for proto in Protocol::ALL {
+            assert_eq!(
+                input.protocol(proto).validation,
+                ValidationMode::Bypass,
+                "{proto}"
+            );
+        }
+    }
+
+    #[test]
+    fn per_protocol_bypass_applies_only_to_that_protocol() {
+        let input = Input {
+            bypass_validation_hfdl: true,
+            ..Input::default()
+        };
+        for proto in Protocol::ALL {
+            let expected = if proto == Protocol::Hfdl {
+                ValidationMode::Bypass
+            } else {
+                ValidationMode::Enforce
+            };
+            assert_eq!(input.protocol(proto).validation, expected, "{proto}");
+        }
+    }
+
+    #[test]
+    fn validation_is_enforced_by_default() {
+        let input = Input::default();
+        for proto in Protocol::ALL {
+            assert_eq!(
+                input.protocol(proto).validation,
+                ValidationMode::Enforce,
+                "{proto}"
+            );
+        }
+    }
+
+    #[test]
+    fn bypass_validation_vdlm2_flag_parses() {
+        let input = Input::try_parse_from(["acars_router", "--bypass-validation-vdlm2"])
+            .expect("flag parses");
+        assert_eq!(
+            input.protocol(Protocol::Vdlm2).validation,
+            ValidationMode::Bypass
+        );
+        assert_eq!(
+            input.protocol(Protocol::Acars).validation,
+            ValidationMode::Enforce
+        );
     }
 }

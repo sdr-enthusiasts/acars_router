@@ -9,10 +9,12 @@
 //!
 //! Inbound TCP/UDP fragments may split a single ACARS/VDLM2 JSON object
 //! across multiple packets. `PacketHandler` buffers the most recent
-//! partial fragment per peer and tries to decode it concatenated with each
-//! new fragment. Successfully-decoded fragments drop the buffer entry;
-//! buffers older than `reassembly_window` seconds are pruned lazily on the
-//! next call from any peer.
+//! partial fragment per peer and checks whether it, concatenated with each
+//! new fragment, forms a complete JSON object. Completeness is purely
+//! syntactic: it does not depend on the message parser's schema, so shape
+//! validation is left to the message handler. Completed fragments drop the
+//! buffer entry; buffers older than `reassembly_window` seconds are pruned
+//! lazily on the next call from any peer.
 //!
 //! Locking discipline: every public entry point acquires the single
 //! `tokio::sync::Mutex` over the queue at most once and never re-locks
@@ -20,7 +22,6 @@
 //! to four times per call and had a TOCTOU `.unwrap()` panic between
 //! `contains_key` and `get`.
 
-use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::net::SocketAddr;
@@ -45,13 +46,13 @@ pub struct PacketHandler {
 /// Glue between [`PacketHandler::attempt_message_reassembly`] and the
 /// per-protocol mpsc input channel.
 ///
-/// Implemented on `Option<AcarsVdlm2Message>` so callers can chain
+/// Implemented on `Option<String>` so callers can chain
 /// `.attempt_message_reassembly(..).await.process_reassembly(..)`.
 pub trait ProcessAssembly {
-    /// Encode the (already-decoded) message back to a newline-terminated
-    /// JSON line and forward it on `channel`. A `None` input is silently
-    /// ignored at trace level (the fragment isn't a complete message
-    /// yet); send failures are logged at error level.
+    /// Forward the complete JSON object text, unmodified, on `channel`.
+    /// A `None` input is silently ignored at trace level (the fragment
+    /// isn't a complete JSON object yet); send failures are logged at
+    /// error level.
     fn process_reassembly(
         &self,
         proto_name: &str,
@@ -60,33 +61,25 @@ pub trait ProcessAssembly {
     ) -> impl std::future::Future<Output = ()> + Send;
 }
 
-impl ProcessAssembly for Option<AcarsVdlm2Message> {
+impl ProcessAssembly for Option<String> {
     async fn process_reassembly(
         &self,
         proto_name: &str,
         channel: &Sender<String>,
         listener_type: &str,
     ) {
-        let Some(reassembled_msg) = self else {
-            trace!("[{listener_type} Listener SERVER: {proto_name}] Invalid Message");
+        let Some(msg) = self else {
+            trace!("[{listener_type} Listener SERVER: {proto_name}] Incomplete JSON object");
             return;
         };
-        let parsed_msg: MessageResult<String> = reassembled_msg.to_string_newline();
-        match parsed_msg {
-            Err(parse_error) => {
-                error!("[{listener_type} Listener Server: {proto_name}] {parse_error}");
+        trace!("[{listener_type} Listener SERVER: {proto_name}] Received message: {msg:?}");
+        match channel.send(msg.clone()).await {
+            Ok(()) => {
+                debug!("[{listener_type} Listener SERVER: {proto_name}] Message sent to channel");
             }
-            Ok(msg) => {
-                trace!("[{listener_type} Listener SERVER: {proto_name}] Received message: {msg:?}");
-                match channel.send(msg).await {
-                    Ok(()) => debug!(
-                        "[{listener_type} Listener SERVER: {proto_name}] Message sent to channel"
-                    ),
-                    Err(e) => error!(
-                        "[{listener_type} Listener SERVER: {proto_name}] sending message to channel: {e}"
-                    ),
-                }
-            }
+            Err(e) => error!(
+                "[{listener_type} Listener SERVER: {proto_name}] sending message to channel: {e}"
+            ),
         }
     }
 }
@@ -107,13 +100,15 @@ impl PacketHandler {
         }
     }
 
-    /// Try to decode `new_message_string` either standalone or concatenated
-    /// with whatever partial fragment we already hold for `peer`.
+    /// Check whether `new_message_string`, either standalone or
+    /// concatenated with whatever partial fragment we already hold for
+    /// `peer`, is a complete JSON object.
     ///
-    /// Returns `Some(msg)` on a successful decode (the peer's buffer, if
-    /// any, is cleared). Returns `None` when the new fragment is not yet a
-    /// complete message; the buffer is then updated (or seeded) and the
-    /// caller is expected to feed the next fragment.
+    /// Returns `Some(text)` with the complete, unmodified JSON object text
+    /// (the peer's buffer, if any, is cleared). Returns `None` when the
+    /// new fragment does not yet complete a JSON object; the buffer is
+    /// then updated (or seeded) and the caller is expected to feed the
+    /// next fragment.
     ///
     /// Holds the queue lock exactly once. Cannot panic on missing entries.
     //
@@ -127,17 +122,17 @@ impl PacketHandler {
         &self,
         new_message_string: String,
         peer: SocketAddr,
-    ) -> Option<AcarsVdlm2Message> {
+    ) -> Option<String> {
         let now = unix_time_secs();
 
-        // Fast path: the fragment is itself a complete message. Take the
+        // Fast path: the fragment is itself a complete JSON object. Take the
         // lock briefly to evict any stale partial buffer for this peer and
         // to opportunistically prune expired entries.
-        if let Ok(msg) = new_message_string.decode_message() {
+        if is_json_object(&new_message_string) {
             let mut queue = self.queue.lock().await;
             queue.remove(&peer);
             self.prune_expired(&mut queue, now);
-            return Some(msg);
+            return Some(new_message_string);
         }
 
         // Slow path: maybe a fragment. Single lock acquisition for the
@@ -150,13 +145,13 @@ impl PacketHandler {
                 let (first_seen, existing) = occ.get();
                 let first_seen = *first_seen;
                 let combined = format!("{existing}{new_message_string}");
-                if let Ok(msg) = combined.decode_message() {
+                if is_json_object(&combined) {
                     info!(
                         "[{} SERVER: {}] Reassembled a message from peer {}",
                         self.listener_type, self.name, peer
                     );
                     occ.remove();
-                    Some(msg)
+                    Some(combined)
                 } else {
                     // Still incomplete: replace the stored buffer but
                     // preserve the original `first_seen` so the
@@ -210,6 +205,12 @@ impl PacketHandler {
     }
 }
 
+/// True iff `text` parses as a single, complete JSON object. Arrays,
+/// scalars, truncated fragments, and non-JSON text all return `false`.
+pub(crate) fn is_json_object(text: &str) -> bool {
+    serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(text).is_ok()
+}
+
 /// Split an inbound text chunk into candidate JSON objects.
 ///
 /// Some feeders emit several JSON objects per line with no separator
@@ -260,12 +261,12 @@ mod tests {
     const COMPLETE_MSG: &str = r#"{"timestamp":1700000000.0,"freq":131.55,"channel":0,"level":-20.0,"error":0,"mode":"2","label":"H1","block_id":"1","ack":"!","tail":"N12345","flight":"AB1234","msgno":"M01A","text":"HELLO"}"#;
 
     #[tokio::test]
-    async fn standalone_message_returns_decoded() {
+    async fn standalone_message_returns_original_text() {
         let h = PacketHandler::new("test", "TCP", 5.0);
         let out = h
             .attempt_message_reassembly(COMPLETE_MSG.to_string(), peer(1))
             .await;
-        assert!(out.is_some());
+        assert_eq!(out.as_deref(), Some(COMPLETE_MSG));
         assert!(h.queue.lock().await.is_empty());
     }
 
@@ -275,11 +276,15 @@ mod tests {
         let (a, b) = COMPLETE_MSG.split_at(COMPLETE_MSG.len() / 2);
 
         let first = h.attempt_message_reassembly(a.to_string(), peer(2)).await;
-        assert!(first.is_none(), "first fragment must not decode");
+        assert!(first.is_none(), "first fragment must not be complete");
         assert_eq!(h.queue.lock().await.len(), 1);
 
         let second = h.attempt_message_reassembly(b.to_string(), peer(2)).await;
-        assert!(second.is_some(), "concatenated fragments must decode");
+        assert_eq!(
+            second.as_deref(),
+            Some(COMPLETE_MSG),
+            "concatenated fragments must reassemble to the original text"
+        );
         assert!(
             h.queue.lock().await.is_empty(),
             "successful reassembly must drop the buffer"
@@ -310,7 +315,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn standalone_decode_clears_existing_buffer() {
+    async fn standalone_complete_object_clears_existing_buffer() {
         let h = PacketHandler::new("test", "TCP", 60.0);
         let (a, _) = COMPLETE_MSG.split_at(COMPLETE_MSG.len() / 2);
 
@@ -323,8 +328,46 @@ mod tests {
         let out = h
             .attempt_message_reassembly(COMPLETE_MSG.to_string(), peer(5))
             .await;
-        assert!(out.is_some());
+        assert_eq!(out.as_deref(), Some(COMPLETE_MSG));
         assert!(h.queue.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn complete_non_message_object_is_returned_verbatim() {
+        // Completeness is syntactic only: an object the message parser
+        // would reject is still a complete JSON object.
+        let h = PacketHandler::new("test", "TCP", 5.0);
+        let text = r#"{"foo":"bar"}"#;
+        let out = h
+            .attempt_message_reassembly(text.to_string(), peer(6))
+            .await;
+        assert_eq!(out.as_deref(), Some(text));
+        assert!(h.queue.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn json_scalar_and_partial_object_are_not_complete() {
+        let h = PacketHandler::new("test", "TCP", 5.0);
+        let scalar = h
+            .attempt_message_reassembly("123".to_string(), peer(7))
+            .await;
+        assert!(scalar.is_none(), "a JSON scalar is not a JSON object");
+        let partial = h
+            .attempt_message_reassembly(r#"{"a":"#.to_string(), peer(8))
+            .await;
+        assert!(partial.is_none(), "a truncated object is not complete");
+    }
+
+    #[test]
+    fn is_json_object_accepts_only_objects() {
+        assert!(is_json_object(r#"{"foo":"bar"}"#));
+        assert!(is_json_object("{}"));
+        assert!(!is_json_object("123"));
+        assert!(!is_json_object("[1,2]"));
+        assert!(!is_json_object(r#""str""#));
+        assert!(!is_json_object(r#"{"a":"#));
+        assert!(!is_json_object("not json"));
+        assert!(!is_json_object(""));
     }
 
     fn assert_all_parse(pieces: &[String]) {
@@ -397,12 +440,12 @@ mod corpus_tests {
     //!
     //! Two scenarios per corpus:
     //!
-    //! 1. **Whole-line decode**: every line is a complete JSON object and
-    //!    must decode standalone on the first attempt.
+    //! 1. **Whole-line completeness**: every line is a complete JSON
+    //!    object and must be returned verbatim on the first attempt.
     //! 2. **Two-fragment reassembly**: split each line at its midpoint
     //!    (on a char boundary), feed the halves in order from a single
-    //!    peer, and require the second call to return a decoded message
-    //!    with no buffered residue.
+    //!    peer, and require the second call to return exactly the
+    //!    original line with no buffered residue.
     //!
     //! Together these exercise both fast and slow paths of
     //! `attempt_message_reassembly` against every shape of payload we
@@ -441,9 +484,10 @@ mod corpus_tests {
             let out = h
                 .attempt_message_reassembly(line.to_string(), peer(1))
                 .await;
-            assert!(
-                out.is_some(),
-                "{label} line {i} failed standalone decode: {line}"
+            assert_eq!(
+                out.as_deref(),
+                Some(line),
+                "{label} line {i} was not returned verbatim: {line}"
             );
             count += 1;
         }
@@ -468,15 +512,20 @@ mod corpus_tests {
             let first = h.attempt_message_reassembly(a.to_string(), p).await;
             assert!(
                 first.is_none(),
-                "{label} line {i}: first fragment unexpectedly decoded"
+                "{label} line {i}: first fragment unexpectedly complete"
             );
 
             let second = h.attempt_message_reassembly(b.to_string(), p).await;
-            assert!(
-                second.is_some(),
-                "{label} line {i}: reassembled halves failed to decode\n  a={a}\n  b={b}"
+            assert_eq!(
+                second.as_deref(),
+                Some(line),
+                "{label} line {i}: reassembled halves differ from the original\n  a={a}\n  b={b}"
             );
         }
+        assert!(
+            h.queue.lock().await.is_empty(),
+            "{label} corpus left residue in reassembly buffer"
+        );
     }
 
     #[tokio::test]

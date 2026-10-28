@@ -227,23 +227,17 @@ impl TCPReceiverServer {
                 },
             };
             for final_message in split_concatenated_json(&line) {
-                if let Some(encoded_msg) = packet_handler
+                if let Some(text) = packet_handler
                     .attempt_message_reassembly(final_message, addr)
                     .await
                 {
-                    let parse_msg = encoded_msg.to_string();
-                    match parse_msg {
-                        Err(parse_error) => error!("{parse_error}"),
-                        Ok(msg) => {
-                            trace!("Received message: {}", msg);
-                            match channel.send(msg).await {
-                                Ok(()) => trace!("Message sent to channel"),
-                                Err(e) => error!("Error sending message to channel: {}", e),
-                            }
-                        }
+                    trace!("Received message: {}", text);
+                    match channel.send(text).await {
+                        Ok(()) => trace!("Message sent to channel"),
+                        Err(e) => error!("Error sending message to channel: {}", e),
                     }
                 } else {
-                    trace!("Invalid Message");
+                    trace!("Incomplete JSON object");
                 }
             }
         }

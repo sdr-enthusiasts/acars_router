@@ -8,6 +8,10 @@
 //! Per-protocol message handler: decode -> freq accounting -> skew check
 //! -> dedupe -> rewrite -> fan-out.
 //!
+//! When a protocol's [`ValidationMode`] is `Bypass`, a message that fails
+//! to decode but is still a complete JSON object skips the pipeline and is
+//! forwarded byte-for-byte (newline-terminated) instead of being dropped.
+//!
 //! State shape (post-PR8):
 //! - Counters: `Arc<AtomicU64>`; no locking on the hot path.
 //! - Frequency table: `Arc<std::sync::Mutex<HashMap<String, u64>>>`; one
@@ -23,7 +27,8 @@
 //! materially cheaper for these short critical sections.
 
 use crate::OutboundMessage;
-use acars_config::Input;
+use crate::packet_handler::is_json_object;
+use acars_config::{Input, ValidationMode};
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
@@ -86,10 +91,13 @@ pub struct MessageHandlerConfig {
     pub station_name_override: Option<String>,
     /// Periodic stats printer configuration.
     pub stats: StatsOpts,
+    /// `Bypass` forwards messages that fail shape validation unchanged
+    /// (if they are complete JSON objects); `Enforce` drops them.
+    pub validation: ValidationMode,
 }
 
 impl MessageHandlerConfig {
-    pub(crate) fn new(args: &Input, queue_type: &str) -> Self {
+    pub(crate) fn new(args: &Input, queue_type: &str, validation: ValidationMode) -> Self {
         Self {
             add_proxy_id: args.add_proxy_id,
             dedupe: args.enable_dedupe.then(|| DedupeOpts {
@@ -102,6 +110,7 @@ impl MessageHandlerConfig {
                 every: Duration::from_secs(args.stats_every * 60),
                 verbose: args.stats_verbose,
             },
+            validation,
         }
     }
 
@@ -178,10 +187,18 @@ impl MessageHandlerConfig {
             total_messages_since_last.fetch_add(1, Ordering::Relaxed);
 
             let parsed: MessageResult<AcarsVdlm2Message> = message_content.decode_message();
-            trace!("GOT: {:?}", parsed);
             let mut message = match parsed {
-                Ok(m) => m,
+                Ok(m) => {
+                    trace!("GOT: {m:?}");
+                    m
+                }
+                // Bypassed messages must not produce any log about the
+                // validation failure, so nothing is logged before this
+                // branch decides.
                 Err(e) => {
+                    if self.try_bypass(&message_content, &output_queue) {
+                        continue;
+                    }
                     error!("Failed to parse received message: {e}\nReceived: {message_content}");
                     continue;
                 }
@@ -199,7 +216,12 @@ impl MessageHandlerConfig {
                 }
             }
 
+            // A decoded message with no usable timestamp is a validation
+            // failure too: in bypass mode forward the original text.
             let Some(mut message_time) = message.get_time() else {
+                if self.try_bypass(&message_content, &output_queue) {
+                    continue;
+                }
                 error!("Message has no timestamp field. Skipping message.");
                 continue;
             };
@@ -268,16 +290,53 @@ impl MessageHandlerConfig {
                 }
             };
 
-            if let Ok(n) = output_queue.send(OutboundMessage::from(line)) {
-                debug!("Message sent to {n} sender(s)");
-            } else {
-                // `Err` only when no receivers are subscribed; common
-                // during startup (no outputs configured) — debug, not
-                // error.
-                debug!("No active senders; message dropped");
-            }
+            broadcast_line(&output_queue, OutboundMessage::from(line));
         }
     }
+
+    /// In bypass mode, forward the original `text` of a message that failed
+    /// validation and return `true`. Returns `false` (nothing sent, nothing
+    /// logged) in enforce mode or when `text` is not a JSON object, leaving
+    /// the caller to log and drop it.
+    fn try_bypass(&self, text: &str, output_queue: &broadcast::Sender<OutboundMessage>) -> bool {
+        if self.validation != ValidationMode::Bypass {
+            return false;
+        }
+        let Some(line) = raw_passthrough_line(text) else {
+            return false;
+        };
+        broadcast_line(output_queue, line);
+        true
+    }
+}
+
+/// Fan `line` out to every subscribed sender.
+fn broadcast_line(output_queue: &broadcast::Sender<OutboundMessage>, line: OutboundMessage) {
+    if let Ok(n) = output_queue.send(line) {
+        debug!("Message sent to {n} sender(s)");
+    } else {
+        // `Err` only when no receivers are subscribed; common during
+        // startup (no outputs configured) — debug, not error.
+        debug!("No active senders; message dropped");
+    }
+}
+
+/// Build the byte-for-byte passthrough line for a message that failed shape
+/// validation. Strips any trailing `\r\n` / `\n` and appends exactly one
+/// `\n`. Returns `None` when the text is not a complete JSON object (it is
+/// not a message at all and must still be dropped).
+fn raw_passthrough_line(text: &str) -> Option<OutboundMessage> {
+    let trimmed = text
+        .strip_suffix("\r\n")
+        .or_else(|| text.strip_suffix('\n'))
+        .unwrap_or(text);
+    if !is_json_object(trimmed) {
+        return None;
+    }
+    let mut line = String::with_capacity(trimmed.len() + 1);
+    line.push_str(trimmed);
+    line.push('\n');
+    Some(OutboundMessage::from(line))
 }
 
 /// Look up `freq`-style accessor for every supported message variant.
@@ -573,6 +632,7 @@ mod corpus_tests {
                 every: Duration::from_secs(60),
                 verbose: false,
             },
+            validation: ValidationMode::Enforce,
         }
     }
 
@@ -765,6 +825,140 @@ mod corpus_tests {
                 "{label}: proxy details must be present"
             );
         }
+    }
+
+    fn bypass_config(queue_type: &str, dedupe: bool) -> MessageHandlerConfig {
+        let mut cfg = config(queue_type, dedupe);
+        cfg.validation = ValidationMode::Bypass;
+        cfg
+    }
+
+    fn lines_of(texts: &[&str]) -> Vec<String> {
+        texts.iter().map(|t| (*t).to_string()).collect()
+    }
+
+    fn first_fresh_line(corpus: &str) -> String {
+        rewrite_timestamp(
+            corpus
+                .lines()
+                .find(|l| !l.trim().is_empty())
+                .expect("non-empty corpus"),
+            now_secs(),
+        )
+    }
+
+    #[tokio::test]
+    async fn enforce_drops_invalid_shape_object() {
+        let (_, emitted) =
+            drive_lines(config("acars", false), &lines_of(&[r#"{"foo":"bar"}"#]), 1).await;
+        assert_eq!(emitted.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn bypass_forwards_invalid_shape_object_verbatim() {
+        for input in [
+            r#"{"foo":"bar"}"#,
+            "{\"foo\":\"bar\"}\n",
+            "{\"foo\":\"bar\"}\r\n",
+        ] {
+            let (_, emitted) =
+                drive_lines(bypass_config("acars", false), &lines_of(&[input]), 1).await;
+            assert_eq!(emitted.len(), 1, "input {input:?}");
+            assert_eq!(&*emitted[0], "{\"foo\":\"bar\"}\n", "input {input:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn bypass_forwards_nested_unknown_fields_verbatim() {
+        let input = r#"{"freq":"not-a-number","x":{"y":1}}"#;
+        let (_, emitted) = drive_lines(bypass_config("acars", false), &lines_of(&[input]), 1).await;
+        assert_eq!(emitted.len(), 1);
+        assert_eq!(&*emitted[0], format!("{input}\n"));
+    }
+
+    #[tokio::test]
+    async fn bypass_drops_non_objects() {
+        for input in ["not json", "[1,2]"] {
+            let (_, emitted) =
+                drive_lines(bypass_config("acars", false), &lines_of(&[input]), 1).await;
+            assert_eq!(emitted.len(), 0, "input {input:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn bypass_valid_message_still_takes_normal_path() {
+        let version = env!("CARGO_PKG_VERSION");
+        let line = first_fresh_line(ACARS);
+        let mut cfg = bypass_config("acars", false);
+        cfg.add_proxy_id = true;
+        let (_, emitted) = drive_lines(cfg, std::slice::from_ref(&line), 1).await;
+        assert_eq!(emitted.len(), 1);
+        assert!(
+            emitted[0].contains(&format!("\"acars_router_version\":\"{version}\"")),
+            "proxy details must be applied to valid messages in bypass mode"
+        );
+    }
+
+    #[tokio::test]
+    async fn bypass_valid_message_is_still_deduped() {
+        let line = first_fresh_line(ACARS);
+        let (_, emitted) =
+            drive_lines(bypass_config("acars", true), &[line.clone(), line], 1).await;
+        assert_eq!(emitted.len(), 1, "duplicate valid message must be dropped");
+    }
+
+    /// First ACARS fixture line with its `timestamp` field removed: still
+    /// decodes, but `get_time()` has nothing to return.
+    fn acars_line_without_timestamp() -> String {
+        let line = ACARS
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .expect("non-empty corpus");
+        let mut v: Value = serde_json::from_str(line).expect("corpus line is valid JSON");
+        v.as_object_mut()
+            .expect("corpus line is an object")
+            .remove("timestamp")
+            .expect("corpus line has a timestamp");
+        let text = v.to_string();
+        let decoded: AcarsVdlm2Message = text.decode_message().expect("still decodes");
+        assert!(decoded.get_time().is_none(), "timestamp must be unusable");
+        text
+    }
+
+    #[tokio::test]
+    async fn bypass_forwards_decoded_message_without_timestamp_verbatim() {
+        let line = acars_line_without_timestamp();
+        let (_, emitted) = drive_lines(
+            bypass_config("acars", false),
+            std::slice::from_ref(&line),
+            1,
+        )
+        .await;
+        assert_eq!(emitted.len(), 1);
+        assert_eq!(&*emitted[0], format!("{line}\n"));
+    }
+
+    #[tokio::test]
+    async fn enforce_drops_decoded_message_without_timestamp() {
+        let line = acars_line_without_timestamp();
+        let (_, emitted) =
+            drive_lines(config("acars", false), std::slice::from_ref(&line), 1).await;
+        assert_eq!(emitted.len(), 0);
+    }
+
+    #[test]
+    fn raw_passthrough_line_normalises_trailing_newline() {
+        let expected = Some("{\"a\":1}\n");
+        for input in ["{\"a\":1}", "{\"a\":1}\n", "{\"a\":1}\r\n"] {
+            assert_eq!(
+                raw_passthrough_line(input).as_deref(),
+                expected,
+                "input {input:?}"
+            );
+        }
+        assert!(raw_passthrough_line("123").is_none());
+        assert!(raw_passthrough_line("[1,2]").is_none());
+        assert!(raw_passthrough_line("{\"a\":").is_none());
     }
 
     #[test]
