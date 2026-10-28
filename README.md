@@ -1,6 +1,6 @@
 # sdr-enthusiasts/acars_router
 
-`acars_router` receives, validates, deduplicates, modifies and routes ACARS/VDLM2/HFDL/IMSL/IRDM JSON messages.
+`acars_router` receives, validates, deduplicates, modifies and routes ACARS/VDLM2/HFDL/IMSL/IRDM/XNG JSON messages.
 
 ## Example Feeder `docker-compose.yml`
 
@@ -73,21 +73,26 @@ All ports are configurable. By default, the following ports will be used:
 | `5557`  | `TCP`    | IMSL ingest. Clients will send IMSL data to this port via TCP.                   |
 | `5558`  | `UDP`    | IRDM ingest. Clients will send IRDM data to this port via UDP.                   |
 | `5558`  | `TCP`    | IRDM ingest. Clients will send IRDM data to this port via TCP.                   |
+| `5559`  | `UDP`    | XNG ingest. Clients will send XNG data to this port via UDP.                     |
+| `5559`  | `TCP`    | XNG ingest. Clients will send XNG data to this port via TCP.                     |
 | `15550` | `TCP`    | ACARS server. Can be used for other clients to connect and get messages          |
 | `15555` | `TCP`    | VDLM2 server. Can be used for other clients to connect and get messages          |
 | `15556` | `TCP`    | HFDL server. Can be used for other clients to connect and get messages           |
 | `15557` | `TCP`    | IMSL server. Can be used for other clients to connect and get messages           |
 | `15558` | `TCP`    | IRDM server. Can be used for other clients to connect and get messages           |
+| `15559` | `TCP`    | XNG server. Can be used for other clients to connect and get messages            |
 | `35550` | `ZMQ`    | ACARS ingest. Clients will connect to this port and send ACARS messages over ZMQ |
 | `35555` | `ZMQ`    | VDLM2 ingest. Clients will connect to this port and send VDLM2 messages over ZMQ |
 | `35556` | `ZMQ`    | HFDL ingest. Clients will connect to this port and send HFDL messages over ZMQ   |
 | `35557` | `ZMQ`    | IMSL ingest. Clients will connect to this port and send IMSL messages over ZMQ   |
 | `35558` | `ZMQ`    | IRDM ingest. Clients will connect to this port and send IRDM messages over ZMQ   |
+| `35559` | `ZMQ`    | XNG ingest. Clients will connect to this port and send XNG messages over ZMQ     |
 | `45550` | `ZMQ`    | ACARS server. Can be used for other ZMQ clients to connect and get messages      |
 | `45555` | `ZMQ`    | VDLM2 server. Can be used for other ZMQ clients to connect and get messages      |
 | `45556` | `ZMQ`    | HFDL server. Can be used for other ZMQ clients to connect and get messages       |
 | `45557` | `ZMQ`    | IMSL server. Can be used for other ZMQ clients to connect and get messages       |
 | `45558` | `ZMQ`    | IRDM server. Can be used for other ZMQ clients to connect and get messages       |
+| `45559` | `ZMQ`    | XNG server. Can be used for other ZMQ clients to connect and get messages        |
 
 If you want any port(s) to be exposed outside of the docker network, please be sure to append them to the ports section of the `docker-compose.yml` file.
 
@@ -118,21 +123,25 @@ The nomenclature for the environment variables is as follows:
 | AR_SEND_UDP_HFDL   | --send-udp-hfdl     | `unset` | UDP host:port to send HFDL messages to  |
 | AR_SEND_UDP_IMSL   | --send-udp-imsl     | `unset` | UDP host:port to send IMSL messages to  |
 | AR_SEND_UDP_IRDM   | --send-udp-irdm     | `unset` | UDP host:port to send IRDM messages to  |
+| AR_SEND_UDP_XNG    | --send-udp-xng      | `unset` | UDP host:port to send XNG messages to   |
 | AR_SEND_TCP_ACARS  | --send-tcp-acars    | `unset` | TCP host:port to send ACARS messages to |
 | AR_SEND_TCP_VDLM2  | --send-tcp-vdlm2    | `unset` | TCP host:port to send VDLM2 messages to |
 | AR_SEND_TCP_HFDL   | --send-tcp-hfdl     | `unset` | TCP host:port to send HFDL messages to  |
 | AR_SEND_TCP_IMSL   | --send-tcp-imsl     | `unset` | TCP host:port to send IMSL messages to  |
 | AR_SEND_TCP_IRDM   | --send-tcp-irdm     | `unset` | TCP host:port to send IRDM messages to  |
+| AR_SEND_TCP_XNG    | --send-tcp-xng      | `unset` | TCP host:port to send XNG messages to   |
 | AR_SERVE_TCP_ACARS | --serve-tcp-acars   | `15550` | TCP port to serve ACARS messages to     |
 | AR_SERVE_TCP_VDLM2 | --serve-tcp-vdlm2   | `15555` | TCP port to serve VDLM2 messages to     |
 | AR_SERVE_TCP_HFDL  | --serve-tcp-hfdl    | `15556` | TCP port to serve HFDL messages to      |
 | AR_SERVE_TCP_IMSL  | --serve-tcp-imsl    | `15557` | TCP port to serve IMSL messages to      |
 | AR_SERVE_TCP_IRDM  | --serve-tcp-irdm    | `15558` | TCP port to serve IRDM messages to      |
+| AR_SERVE_TCP_XNG   | --serve-tcp-xng     | `15559` | TCP port to serve XNG messages to       |
 | AR_SERVE_ZMQ_ACARS | --serve-zmq-acars   | `45550` | ZMQ port to serve ACARS messages to     |
 | AR_SERVE_ZMQ_VDLM2 | --serve-zmq-vdlm2   | `45555` | ZMQ port to serve VDLM2 messages to     |
 | AR_SERVE_ZMQ_HFDL  | --serve-zmq-hfdl    | `45556` | ZMQ port to serve HFDL messages to      |
 | AR_SERVE_ZMQ_IMSL  | --serve-zmq-imsl    | `45557` | ZMQ port to serve IMSL messages to      |
 | AR_SERVE_ZMQ_IRDM  | --serve-zmq-irdm    | `45558` | ZMQ port to serve IRDM messages to      |
+| AR_SERVE_ZMQ_XNG   | --serve-zmq-xng     | `45559` | ZMQ port to serve XNG messages to       |
 
 ### Inbound data
 
@@ -143,43 +152,68 @@ The nomenclature for the environment variables is as follows:
 | AR_RECV_ZMQ_HFDL    | --recv-zmq-hfdl     | `unset` | ZMQ host:port to receive HFDL messages from  |
 | AR_RECV_ZMQ_IMSL    | --recv-zmq-imsl     | `unset` | ZMQ host:port to receive IMSL messages from  |
 | AR_RECV_ZMQ_IRDM    | --recv-zmq-irdm     | `unset` | ZMQ host:port to receive IRDM messages from  |
+| AR_RECV_ZMQ_XNG     | --receive-zmq-xng   | `unset` | ZMQ host:port to receive XNG messages from   |
 | AR_RECV_TCP_ACARS   | --recv-tcp-acars    | `unset` | TCP host:port to receive ACARS messages from |
 | AR_RECV_TCP_VDLM2   | --recv-tcp-vdlm2    | `unset` | TCP host:port to receive VDLM2 messages from |
 | AR_RECV_TCP_HFDL    | --recv-tcp-hfdl     | `unset` | TCP host:port to receive HFDL messages from  |
 | AR_RECV_TCP_IMSL    | --recv-tcp-imsl     | `unset` | TCP host:port to receive IMSL messages from  |
 | AR_RECV_TCP_IRDM    | --recv-tcp-irdm     | `unset` | TCP host:port to receive IRDM messages from  |
+| AR_RECV_TCP_XNG     | --receive-tcp-xng   | `unset` | TCP host:port to receive XNG messages from   |
 | AR_LISTEN_TCP_ACARS | --listen-tcp-acars  | `5550`  | TCP port to listen for ACARS messages from   |
 | AR_LISTEN_TCP_VDLM2 | --listen-tcp-vdlm2  | `5555`  | TCP port to listen for VDLM2 messages from   |
 | AR_LISTEN_TCP_HFDL  | --listen-tcp-hfdl   | `5556`  | TCP port to listen for HFDL messages from    |
 | AR_LISTEN_TCP_IMSL  | --listen-tcp-imsl   | `5557`  | TCP port to listen for IMSL messages from    |
 | AR_LISTEN_TCP_IRDM  | --listen-tcp-irdm   | `5558`  | TCP port to listen for IRDM messages from    |
+| AR_LISTEN_TCP_XNG   | --listen-tcp-xng    | `5559`  | TCP port to listen for XNG messages from     |
 | AR_LISTEN_UDP_ACARS | --listen-udp-acars  | `5550`  | UDP port to listen for ACARS messages from   |
 | AR_LISTEN_UDP_VDLM2 | --listen-udp-vdlm2  | `5555`  | UDP port to listen for VDLM2 messages from   |
 | AR_LISTEN_UDP_HFDL  | --listen-udp-hfdl   | `5556`  | UDP port to listen for HFDL messages from    |
 | AR_LISTEN_UDP_IMSL  | --listen-udp-imsl   | `5557`  | UDP port to listen for IMSL messages from    |
 | AR_LISTEN_UDP_IRDM  | --listen-udp-irdm   | `5558`  | UDP port to listen for IRDM messages from    |
+| AR_LISTEN_UDP_XNG   | --listen-udp-xng    | `5559`  | UDP port to listen for XNG messages from     |
 | AR_LISTEN_ZMQ_ACARS | --listen-zmq-acars  | `35550` | ZMQ port to listen for ACARS messages from   |
 | AR_LISTEN_ZMQ_VDLM2 | --listen-zmq-vdlm2  | `35555` | ZMQ port to listen for VDLM2 messages from   |
 | AR_LISTEN_ZMQ_HFDL  | --listen-zmq-hfdl   | `35556` | ZMQ port to listen for HFDL messages from    |
 | AR_LISTEN_ZMQ_IMSL  | --listen-zmq-imsl   | `35557` | ZMQ port to listen for IMSL messages from    |
 | AR_LISTEN_ZMQ_IRDM  | --listen-zmq-irdm   | `35558` | ZMQ port to listen for IRDM messages from    |
+| AR_LISTEN_ZMQ_XNG   | --listen-zmq-xng    | `35559` | ZMQ port to listen for XNG messages from     |
 
 ### General Options
 
-| Env Variable             | Command Line Switch     | Default | Description                                                                                                                                                                                                     |
-| ------------------------ | ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AR_VERBOSITY             | --verbose               | `info`  | Verbosity level. Valid values are `debug`, `info`, `warning`, `error`                                                                                                                                           |
-| AR_ENABLE_DEDUPE         | --enable-dedupe         | `false` | Enable message deduplication. Valid values are `true` or `false`                                                                                                                                                |
-| AR_DEDUPE_WINDOW         | --dedupe-window         | `2`     | Window for how long a message will be considered a duplicate if the same message is received again.                                                                                                             |
-| AR_SKEW_WINDOW           | --skew-window           | `5`     | If a message is older then the skew window it will be automatically rejected, in seconds. If you are receiving only ACARS/VDLM2 1 or 2 seconds is a good value. With HFDL you will need to increase the window. |
-| AR_MAX_UDP_PACKET_SIZE   | --max-udp-packet-size   | `60000` | Maximum UDP packet size. Messages greater then this will be send in multiple parts                                                                                                                              |
-| AR_ADD_PROXY_ID          | --add-proxy-id          | `true`  | Append to the message a header indicating that acars router processed the message                                                                                                                               |
-| AR_OVERRIDE_STATION_NAME | --override-station-name | `unset` | Change the station id field (identifying your station name for unstream clients) is set to this instead of what was in the message originally                                                                   |
-| AR_STATS_EVERY           | --stats-every           | `5`     | How often to print stats to the log in minutes                                                                                                                                                                  |
-| AR_STATS_VERBOSE         | --stats-verbose         | `false` | Print verbose stats to the log                                                                                                                                                                                  |
-| AR_REASSEMBLY_WINDOW     | --reassemble-window     | `1.0`   | If a message comes in, but part of the message is missing, this value will be used to keep the partial message fragment around while attempting to wait for the second (or subsequent) part(s)                  |
-| AR_DISABLE_ACARS         | --disable-acars         | `false` | Disable ACARS processing. Valid values are `true` or `false`                                                                                                                                                    |
-| AR_DISABLE_VDLM2         | --disable-vdlm          | `false` | Disable VDLM processing. Valid values are `true` or `false`                                                                                                                                                     |
-| AR_DISABLE_HFDL          | --disable-hfdl          | `false` | Disable HFDL processing. Valid values are `true` or `false`                                                                                                                                                     |
-| AR_DISABLE_IMSL          | --disable-imsl          | `false` | Disable IMSL processing. Valid values are `true` or `false`                                                                                                                                                     |
-| AR_DISABLE_IRDM          | --disable-irdm          | `false` | Disable IRDM processing. Valid values are `true` or `false`                                                                                                                                                     |
+| Env Variable               | Command Line Switch       | Default | Description                                                                                                                                                                                                     |
+| -------------------------- | ------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AR_VERBOSITY               | --verbose                 | `info`  | Verbosity level. Valid values are `debug`, `info`, `warning`, `error`                                                                                                                                           |
+| AR_ENABLE_DEDUPE           | --enable-dedupe           | `false` | Enable message deduplication. Valid values are `true` or `false`                                                                                                                                                |
+| AR_DEDUPE_WINDOW           | --dedupe-window           | `2`     | Window for how long a message will be considered a duplicate if the same message is received again.                                                                                                             |
+| AR_SKEW_WINDOW             | --skew-window             | `5`     | If a message is older then the skew window it will be automatically rejected, in seconds. If you are receiving only ACARS/VDLM2 1 or 2 seconds is a good value. With HFDL you will need to increase the window. |
+| AR_MAX_UDP_PACKET_SIZE     | --max-udp-packet-size     | `60000` | Maximum UDP packet size. Messages greater then this will be send in multiple parts                                                                                                                              |
+| AR_ADD_PROXY_ID            | --add-proxy-id            | `true`  | Append to the message a header indicating that acars router processed the message                                                                                                                               |
+| AR_OVERRIDE_STATION_NAME   | --override-station-name   | `unset` | Change the station id field (identifying your station name for unstream clients) is set to this instead of what was in the message originally                                                                   |
+| AR_STATS_EVERY             | --stats-every             | `5`     | How often to print stats to the log in minutes                                                                                                                                                                  |
+| AR_STATS_VERBOSE           | --stats-verbose           | `false` | Print verbose stats to the log                                                                                                                                                                                  |
+| AR_REASSEMBLY_WINDOW       | --reassemble-window       | `1.0`   | If a message comes in, but part of the message is missing, this value will be used to keep the partial message fragment around while attempting to wait for the second (or subsequent) part(s)                  |
+| AR_DISABLE_ACARS           | --disable-acars           | `false` | Disable ACARS processing. Valid values are `true` or `false`                                                                                                                                                    |
+| AR_DISABLE_VDLM2           | --disable-vdlm            | `false` | Disable VDLM processing. Valid values are `true` or `false`                                                                                                                                                     |
+| AR_DISABLE_HFDL            | --disable-hfdl            | `false` | Disable HFDL processing. Valid values are `true` or `false`                                                                                                                                                     |
+| AR_DISABLE_IMSL            | --disable-imsl            | `false` | Disable IMSL processing. Valid values are `true` or `false`                                                                                                                                                     |
+| AR_DISABLE_IRDM            | --disable-irdm            | `false` | Disable IRDM processing. Valid values are `true` or `false`                                                                                                                                                     |
+| AR_DISABLE_XNG             | --disable-xng             | `false` | Disable XNG processing. Valid values are `true` or `false`                                                                                                                                                      |
+| AR_BYPASS_VALIDATION       | --bypass-validation       | `false` | Bypass validation for all protocols. See [Validation bypass](#validation-bypass). Valid values are `true` or `false`                                                                                            |
+| AR_BYPASS_VALIDATION_ACARS | --bypass-validation-acars | `false` | Bypass validation for ACARS messages only. See [Validation bypass](#validation-bypass). Valid values are `true` or `false`                                                                                      |
+| AR_BYPASS_VALIDATION_VDLM2 | --bypass-validation-vdlm2 | `false` | Bypass validation for VDLM2 messages only. See [Validation bypass](#validation-bypass). Valid values are `true` or `false`                                                                                      |
+| AR_BYPASS_VALIDATION_HFDL  | --bypass-validation-hfdl  | `false` | Bypass validation for HFDL messages only. See [Validation bypass](#validation-bypass). Valid values are `true` or `false`                                                                                       |
+| AR_BYPASS_VALIDATION_IMSL  | --bypass-validation-imsl  | `false` | Bypass validation for IMSL messages only. See [Validation bypass](#validation-bypass). Valid values are `true` or `false`                                                                                       |
+| AR_BYPASS_VALIDATION_IRDM  | --bypass-validation-irdm  | `false` | Bypass validation for IRDM messages only. See [Validation bypass](#validation-bypass). Valid values are `true` or `false`                                                                                       |
+| AR_BYPASS_VALIDATION_XNG   | --bypass-validation-xng   | `false` | Bypass validation for XNG messages only. See [Validation bypass](#validation-bypass). Valid values are `true` or `false`                                                                                        |
+
+### XNG
+
+`xng` publishes its decoded message envelopes over ZMQ only, as `[topic, json]` multipart messages; `acars_router` uses the last frame of each message as the JSON payload. The typical setup is to point a ZMQ receiver at `xng`'s ZMQ PUB endpoint, for example `AR_RECV_ZMQ_XNG=xng:5555`. The host and port must match the endpoint configured in `xng`'s `--zmq` option (e.g. `XNG_ZMQ=tcp://0.0.0.0:5555` in the `docker-xng` container).
+
+### Validation bypass
+
+By default, messages that fail validation are dropped. Enabling `AR_BYPASS_VALIDATION` (all protocols) or `AR_BYPASS_VALIDATION_<PROTOCOL>` (one protocol) changes this for the affected protocols:
+
+- Messages are still parsed first. Valid messages receive the normal processing (deduplication, proxy ID, station name override).
+- A message that fails shape validation, or has no parseable timestamp, but is a complete JSON object is forwarded byte-for-byte unchanged. It is not logged and skips deduplication, the skew window check, station name override and proxy ID.
+- Input that is not JSON is still dropped.
