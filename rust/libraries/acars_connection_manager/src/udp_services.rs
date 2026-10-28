@@ -20,7 +20,7 @@
 //!   [`crate::dns`] for the shared hickory-backed resolver.
 
 use crate::dns;
-use crate::packet_handler::{PacketHandler, ProcessAssembly};
+use crate::packet_handler::{PacketHandler, ProcessAssembly, split_concatenated_json};
 use acars_vdlm2_parser::AcarsVdlm2Message;
 use std::io;
 use std::net::SocketAddr;
@@ -100,46 +100,12 @@ impl UDPListenerServer {
                             warn!("Invalid message received from {}", peer);
                             continue;
                         };
-                        let split_messages_by_newline: Vec<&str> =
-                            msg_string.split_terminator('\n').collect();
-
-                        for msg_by_newline in split_messages_by_newline {
-                            let split_messages_by_brackets: Vec<&str> =
-                                msg_by_newline.split_terminator("}{").collect();
-                            if split_messages_by_brackets.len().eq(&1) {
-                                packet_handler
-                                    .attempt_message_reassembly(
-                                        split_messages_by_brackets[0].to_string(),
-                                        peer,
-                                    )
-                                    .await
-                                    .process_reassembly(&self.proto_name, &channel, "UDP")
-                                    .await;
-                            } else {
-                                // We have a message that was split by brackets if the length is greater than one
-                                for (count, msg_by_brackets) in
-                                    split_messages_by_brackets.iter().enumerate()
-                                {
-                                    let final_message = if count == 0 {
-                                        // First case is the first element, which should only ever need a single closing bracket
-                                        trace!("Multiple messages received in a packet.");
-                                        format!("{}{}", "}", msg_by_brackets)
-                                    } else if count == split_messages_by_brackets.len() - 1 {
-                                        // This case is for the last element, which should only ever need a single opening bracket
-                                        trace!("End of a multiple message packet");
-                                        format!("{}{}", "{", msg_by_brackets)
-                                    } else {
-                                        // This case is for any middle elements, which need both an opening and closing bracket
-                                        trace!("Middle of a multiple message packet");
-                                        format!("{}{}{}", "{", msg_by_brackets, "}")
-                                    };
-                                    packet_handler
-                                        .attempt_message_reassembly(final_message, peer)
-                                        .await
-                                        .process_reassembly(&self.proto_name, &channel, "UDP")
-                                        .await;
-                                }
-                            }
+                        for final_message in split_concatenated_json(msg_string) {
+                            packet_handler
+                                .attempt_message_reassembly(final_message, peer)
+                                .await
+                                .process_reassembly(&self.proto_name, &channel, "UDP")
+                                .await;
                         }
                     }
                     to_send = Some(tokio::select! {

@@ -39,7 +39,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace};
 
 use crate::cached_dns_tcp::{CachedDnsTcp, ConnectTarget};
-use crate::packet_handler::{PacketHandler, ProcessAssembly};
+use crate::packet_handler::{PacketHandler, ProcessAssembly, split_concatenated_json};
 use crate::{SenderServer, dns, reconnect_options};
 
 /// Accepts inbound TCP clients on a bound port and forwards every parsed
@@ -133,40 +133,12 @@ async fn process_tcp_sockets(
                 Some(Err(_)) | None => return Ok(()),
             },
         };
-        let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
-
-        for msg_by_newline in split_messages_by_newline {
-            let split_messages_by_brackets: Vec<&str> =
-                msg_by_newline.split_terminator("}{").collect();
-            if split_messages_by_brackets.len().eq(&1) {
-                packet_handler
-                    .attempt_message_reassembly(split_messages_by_brackets[0].to_string(), peer)
-                    .await
-                    .process_reassembly(proto_name, &channel, "TCP")
-                    .await;
-            } else {
-                // We have a message that was split by brackets if the length is greater than one
-                for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                    let final_message = if count == 0 {
-                        // First case is the first element, which should only ever need a single closing bracket
-                        trace!("Multiple messages received in a packet.");
-                        format!("{msg_by_brackets}}}")
-                    } else if count == split_messages_by_brackets.len() - 1 {
-                        // This case is for the last element, which should only ever need a single opening bracket
-                        trace!("End of a multiple message packet");
-                        format!("{{{msg_by_brackets}")
-                    } else {
-                        // This case is for any middle elements, which need both an opening and closing bracket
-                        trace!("Middle of a multiple message packet");
-                        format!("{{{msg_by_brackets}}}")
-                    };
-                    packet_handler
-                        .attempt_message_reassembly(final_message, peer)
-                        .await
-                        .process_reassembly(proto_name, &channel, "TCP")
-                        .await;
-                }
-            }
+        for final_message in split_concatenated_json(&line) {
+            packet_handler
+                .attempt_message_reassembly(final_message, peer)
+                .await
+                .process_reassembly(proto_name, &channel, "TCP")
+                .await;
         }
     }
 }
@@ -255,53 +227,24 @@ impl TCPReceiverServer {
                     Some(Err(_)) | None => break,
                 },
             };
-            // Clean up the line endings. This is probably unnecessary but it's here for safety.
-            let split_messages_by_newline: Vec<&str> = line.split_terminator('\n').collect();
-
-            for msg_by_newline in split_messages_by_newline {
-                let split_messages_by_brackets: Vec<&str> =
-                    msg_by_newline.split_terminator("}{").collect();
-
-                for (count, msg_by_brackets) in split_messages_by_brackets.iter().enumerate() {
-                    let final_message: String;
-                    // FIXME: This feels very non-rust idomatic and is ugly
-
-                    // Our message had no brackets, so we can just send it
-                    if split_messages_by_brackets.len() == 1 {
-                        final_message = msg_by_brackets.to_string();
-                    }
-                    // We have a message that was split by brackets if the length is greater than one
-                    // First case is the first element, which should only ever need a single closing bracket
-                    else if count == 0 {
-                        trace!("Multiple messages received in a packet.");
-                        final_message = format!("{}{}", "}", msg_by_brackets);
-                    } else if count == split_messages_by_brackets.len() - 1 {
-                        // This case is for the last element, which should only ever need a single opening bracket
-                        trace!("End of a multiple message packet");
-                        final_message = format!("{}{}", "{", msg_by_brackets);
-                    } else {
-                        // This case is for any middle elements, which need both an opening and closing bracket
-                        trace!("Middle of a multiple message packet");
-                        final_message = format!("{}{}{}", "{", msg_by_brackets, "}");
-                    }
-                    if let Some(encoded_msg) = packet_handler
-                        .attempt_message_reassembly(final_message, addr)
-                        .await
-                    {
-                        let parse_msg = encoded_msg.to_string();
-                        match parse_msg {
-                            Err(parse_error) => error!("{parse_error}"),
-                            Ok(msg) => {
-                                trace!("Received message: {}", msg);
-                                match channel.send(msg).await {
-                                    Ok(()) => trace!("Message sent to channel"),
-                                    Err(e) => error!("Error sending message to channel: {}", e),
-                                }
+            for final_message in split_concatenated_json(&line) {
+                if let Some(encoded_msg) = packet_handler
+                    .attempt_message_reassembly(final_message, addr)
+                    .await
+                {
+                    let parse_msg = encoded_msg.to_string();
+                    match parse_msg {
+                        Err(parse_error) => error!("{parse_error}"),
+                        Ok(msg) => {
+                            trace!("Received message: {}", msg);
+                            match channel.send(msg).await {
+                                Ok(()) => trace!("Message sent to channel"),
+                                Err(e) => error!("Error sending message to channel: {}", e),
                             }
                         }
-                    } else {
-                        trace!("Invalid Message");
                     }
+                } else {
+                    trace!("Invalid Message");
                 }
             }
         }

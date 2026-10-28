@@ -210,6 +210,35 @@ impl PacketHandler {
     }
 }
 
+/// Split an inbound text chunk into candidate JSON objects.
+///
+/// Some feeders emit several JSON objects per line with no separator
+/// (`{...}{...}`). The chunk is split on `\n`, then on `}{`, and the braces
+/// consumed by the `}{` split are restored on each resulting piece.
+pub(crate) fn split_concatenated_json(chunk: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for line in chunk.split_terminator('\n') {
+        let pieces: Vec<&str> = line.split_terminator("}{").collect();
+        if let [only] = pieces.as_slice() {
+            out.push((*only).to_string());
+            continue;
+        }
+        trace!("Multiple messages received in a packet.");
+        let last = pieces.len().saturating_sub(1);
+        for (count, piece) in pieces.iter().enumerate() {
+            let candidate = if count == 0 {
+                format!("{piece}}}")
+            } else if count == last {
+                format!("{{{piece}")
+            } else {
+                format!("{{{piece}}}")
+            };
+            out.push(candidate);
+        }
+    }
+    out
+}
+
 fn unix_time_secs() -> f64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -296,6 +325,66 @@ mod tests {
             .await;
         assert!(out.is_some());
         assert!(h.queue.lock().await.is_empty());
+    }
+
+    fn assert_all_parse(pieces: &[String]) {
+        for piece in pieces {
+            assert!(
+                serde_json::from_str::<serde_json::Value>(piece).is_ok(),
+                "piece did not parse as JSON: {piece}"
+            );
+        }
+    }
+
+    #[test]
+    fn split_single_object_unchanged() {
+        let out = split_concatenated_json(r#"{"a":1}"#);
+        assert_eq!(out, vec![r#"{"a":1}"#.to_string()]);
+        assert_all_parse(&out);
+    }
+
+    #[test]
+    fn split_two_concatenated_objects() {
+        let out = split_concatenated_json(r#"{"a":1}{"b":2}"#);
+        assert_eq!(
+            out,
+            vec![r#"{"a":1}"#.to_string(), r#"{"b":2}"#.to_string()]
+        );
+        assert_all_parse(&out);
+    }
+
+    #[test]
+    fn split_three_concatenated_objects() {
+        let out = split_concatenated_json(r#"{"a":1}{"b":2}{"c":3}"#);
+        assert_eq!(
+            out,
+            vec![
+                r#"{"a":1}"#.to_string(),
+                r#"{"b":2}"#.to_string(),
+                r#"{"c":3}"#.to_string(),
+            ]
+        );
+        assert_all_parse(&out);
+    }
+
+    #[test]
+    fn split_newline_separated_objects() {
+        let out = split_concatenated_json("{\"a\":1}\n{\"b\":2}\n");
+        assert_eq!(
+            out,
+            vec![r#"{"a":1}"#.to_string(), r#"{"b":2}"#.to_string()]
+        );
+        assert_all_parse(&out);
+    }
+
+    #[test]
+    fn first_of_concatenated_pair_gets_trailing_brace() {
+        let out = split_concatenated_json(r#"{"a":1}{"b":2}"#);
+        let first = out.first().map_or("", String::as_str);
+        assert!(first.ends_with('}'), "first piece: {first}");
+        assert!(!first.starts_with("}{"), "first piece: {first}");
+        assert!(!first.starts_with("}}"), "first piece: {first}");
+        assert_all_parse(&out);
     }
 }
 
