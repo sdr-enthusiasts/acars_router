@@ -314,7 +314,7 @@ impl StartPortListener for Vec<u16> {
         for port in self {
             let new_channel: Sender<String> = channel.clone();
             let server_tcp_port: String = port.to_string();
-            let proto_name: String = format!("{}_TCP_LISTEN_{}", decoder_type, &server_tcp_port);
+            let proto_name: String = format!("{decoder_type}_TCP_LISTEN_{server_tcp_port}");
             let server: TCPListenerServer = TCPListenerServer::new(&proto_name, reassembly_window);
             let shutdown = shutdown.clone();
             debug!("Starting {decoder_type} TCP server on {server_tcp_port}");
@@ -332,7 +332,7 @@ impl StartPortListener for Vec<u16> {
         for udp_port in self {
             let new_channel: Sender<String> = channel.clone();
             let server_udp_port: String = format!("0.0.0.0:{udp_port}");
-            let proto_name: String = format!("{}_UDP_LISTEN_{}", decoder_type, &server_udp_port);
+            let proto_name: String = format!("{decoder_type}_UDP_LISTEN_{server_udp_port}");
             let server: UDPListenerServer = UDPListenerServer::new(&proto_name, reassembly_window);
             let shutdown = shutdown.clone();
             debug!("Starting {decoder_type} UDP server on {server_udp_port}");
@@ -351,7 +351,7 @@ impl StartPortListener for Vec<u16> {
         for zmq_port in self {
             let new_channel: Sender<String> = channel.clone();
             let server_zmq_port: String = zmq_port.to_string();
-            let proto_name: String = format!("{}_ZMQ_LISTEN_{}", decoder_type, &server_zmq_port);
+            let proto_name: String = format!("{decoder_type}_ZMQ_LISTEN_{server_zmq_port}");
             let server: ZMQListenerServer = ZMQListenerServer::new(&proto_name);
             let shutdown = shutdown.clone();
             debug!("Starting {decoder_type} ZMQ server on {server_zmq_port}");
@@ -451,8 +451,8 @@ impl SenderServerConfig {
 
         if let Some(serve_zmq) = self.serve_zmq {
             for port in serve_zmq {
-                let server_address: String = format!("tcp://0.0.0.0:{}", &port);
-                let name: String = format!("ZMQ_SENDER_SERVER_{}_{}", server_type, &port);
+                let server_address: String = format!("tcp://0.0.0.0:{port}");
+                let name: String = format!("ZMQ_SENDER_SERVER_{server_type}_{port}");
                 let socket: Result<Publish, TmqError> =
                     publish(&Context::new()).bind(&server_address);
                 info!("Starting {name}");
