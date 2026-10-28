@@ -16,6 +16,7 @@ version = "0.2.1"
 dependencies = [
  "acars_config",
  "acars_vdlm2_parser",
+ "chrono",
  "futures",
  "hickory-resolver",
  "sdre-stubborn-io",
@@ -43,7 +44,7 @@ dependencies = [
 [[package]]
 name = "acars_vdlm2_parser"
 version = "0.4.0"
-source = "git+https://github.com/jcdeimos/acars_vdlm2_parser#079fa2e77fbed357ed8520725dc8da9f74bfaa44"
+source = "git+https://github.com/fredclausen/acars_vdlm2_parser?rev=c651b87ae015573aa94e5626eb96940931721ac0#c651b87ae015573aa94e5626eb96940931721ac0"
 dependencies = [
  "chrono",
  "log",

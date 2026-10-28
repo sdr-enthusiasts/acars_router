@@ -29,5 +29,8 @@ socket2.workspace = true
 hickory-resolver.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+chrono.workspace = true
+
 [lints]
 workspace = true

@@ -18,11 +18,19 @@ pub enum Protocol {
     Hfdl = 2,
     Imsl = 3,
     Irdm = 4,
+    Xng = 5,
 }
 
 impl Protocol {
     /// All protocols, in canonical order.
-    pub const ALL: [Self; 5] = [Self::Acars, Self::Vdlm2, Self::Hfdl, Self::Imsl, Self::Irdm];
+    pub const ALL: [Self; 6] = [
+        Self::Acars,
+        Self::Vdlm2,
+        Self::Hfdl,
+        Self::Imsl,
+        Self::Irdm,
+        Self::Xng,
+    ];
 
     /// Short lowercase slug, suitable for metric labels and tracing fields.
     #[must_use]
@@ -33,6 +41,7 @@ impl Protocol {
             Self::Hfdl => "hfdl",
             Self::Imsl => "imsl",
             Self::Irdm => "irdm",
+            Self::Xng => "xng",
         }
     }
 
@@ -49,6 +58,7 @@ impl Protocol {
             Self::Hfdl => "HFDL",
             Self::Imsl => "IMSL",
             Self::Irdm => "IRDM",
+            Self::Xng => "XNG",
         }
     }
 
@@ -63,6 +73,7 @@ impl Protocol {
             Self::Hfdl => "HFDL",
             Self::Imsl => "IMSL",
             Self::Irdm => "IRDM",
+            Self::Xng => "XNG",
         }
     }
 }
@@ -128,9 +139,9 @@ impl ProtocolIo {
 // `Input` is the clap-derived CLI surface. Each bool here is a distinct,
 // documented user-facing flag (`--enable-dedupe`, `--add-proxy-id`,
 // `--stats-verbose`) or per-protocol disable switch
-// (`--disable-acars`/`AR_DISABLE_ACARS` ... `--disable-irdm`/`AR_DISABLE_IRDM`)
+// (`--disable-acars`/`AR_DISABLE_ACARS` ... `--disable-xng`/`AR_DISABLE_XNG`)
 // or validation bypass switch (`--bypass-validation`/`AR_BYPASS_VALIDATION`
-// and the per-protocol `--bypass-validation-acars` ... `--bypass-validation-irdm`).
+// and the per-protocol `--bypass-validation-acars` ... `--bypass-validation-xng`).
 // Restructuring into substructs would either break the existing CLI /
 // env-var contract or just push the lint into the substruct, with no
 // real readability win. The downstream `MessageHandlerConfig` has been
@@ -217,6 +228,9 @@ pub struct Input {
     /// Disable IRDM input
     #[clap(long, env = "AR_DISABLE_IRDM", value_parser)]
     pub disable_irdm: bool,
+    /// Disable XNG input
+    #[clap(long, env = "AR_DISABLE_XNG", value_parser)]
+    pub disable_xng: bool,
     /// Forward messages that fail shape validation unchanged, for every protocol
     #[clap(long, env = "AR_BYPASS_VALIDATION", value_parser)]
     pub bypass_validation: bool,
@@ -235,6 +249,9 @@ pub struct Input {
     /// Forward IRDM messages that fail shape validation unchanged
     #[clap(long, env = "AR_BYPASS_VALIDATION_IRDM", value_parser)]
     pub bypass_validation_irdm: bool,
+    /// Forward XNG messages that fail shape validation unchanged
+    #[clap(long, env = "AR_BYPASS_VALIDATION_XNG", value_parser)]
+    pub bypass_validation_xng: bool,
 
     // Input Options
 
@@ -348,6 +365,28 @@ pub struct Input {
     #[clap(long, value_parser, value_delimiter = ';')]
     pub receive_zmq_irdm: Option<Vec<String>>,
 
+    // XNG
+    /// ACARS Router will listen for XNG messages on the specified UDP ports.
+    /// Semi-Colon separated list of arguments. ie 5559;5560;5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_udp_xng: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for XNG messages on the specified TCP ports.
+    /// Semi-Colon separated list of arguments. ie 5559;5560;5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_tcp_xng: Option<Vec<u16>>,
+    /// ACARS Router will listen for connections from a client for XNG messages on the specified ZMQ ports.
+    /// Semi-Colon separated list of arguments. ie 5559;5560;5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub listen_zmq_xng: Option<Vec<u16>>,
+    /// ACARS Router will connect to the specified hosts for XNG messages over TCP.
+    /// Semi-Colon separated list of arguments. ie host:5559;host:5560;host:5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_tcp_xng: Option<Vec<String>>,
+    /// ACARS Router will connect to the specified hosts for XNG messages in ZMQ format.
+    /// Semi-Colon separated list of arguments. ie host:5559;host:5560;host:5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub receive_zmq_xng: Option<Vec<String>>,
+
     // JSON Output options
 
     // ACARS
@@ -419,6 +458,20 @@ pub struct Input {
     /// Semi-Colon separated list of arguments. ie 5550;5551;5552
     #[clap(long, value_parser, value_delimiter = ';')]
     pub serve_zmq_irdm: Option<Vec<u16>>,
+
+    // XNG
+    /// Semi-Colon separated list of arguments. ie host:5559;host:5560;host:5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_udp_xng: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie host:5559;host:5560;host:5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub send_tcp_xng: Option<Vec<String>>,
+    /// Semi-Colon separated list of arguments. ie 5559;5560;5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_tcp_xng: Option<Vec<u16>>,
+    /// Semi-Colon separated list of arguments. ie 5559;5560;5561
+    #[clap(long, value_parser, value_delimiter = ';')]
+    pub serve_zmq_xng: Option<Vec<u16>>,
 }
 
 impl Input {
@@ -429,7 +482,7 @@ impl Input {
     /// Project the parsed CLI into a per-protocol view, in canonical order
     /// (see [`Protocol::ALL`]).
     #[must_use]
-    pub fn protocols(&self) -> [ProtocolIo; 5] {
+    pub fn protocols(&self) -> [ProtocolIo; 6] {
         Protocol::ALL.map(|p| self.protocol(p))
     }
 
@@ -502,6 +555,19 @@ impl Input {
                 disabled: self.disable_irdm,
                 validation: self.validation_for(self.bypass_validation_irdm),
             },
+            Protocol::Xng => ProtocolIo {
+                listen_udp: self.listen_udp_xng.clone().unwrap_or_default(),
+                listen_tcp: self.listen_tcp_xng.clone().unwrap_or_default(),
+                listen_zmq: self.listen_zmq_xng.clone().unwrap_or_default(),
+                receive_tcp: self.receive_tcp_xng.clone().unwrap_or_default(),
+                receive_zmq: self.receive_zmq_xng.clone().unwrap_or_default(),
+                send_udp: self.send_udp_xng.clone().unwrap_or_default(),
+                send_tcp: self.send_tcp_xng.clone().unwrap_or_default(),
+                serve_tcp: self.serve_tcp_xng.clone().unwrap_or_default(),
+                serve_zmq: self.serve_zmq_xng.clone().unwrap_or_default(),
+                disabled: self.disable_xng,
+                validation: self.validation_for(self.bypass_validation_xng),
+            },
         }
     }
 
@@ -533,6 +599,7 @@ mod tests {
                 Protocol::Hfdl => input.listen_zmq_hfdl = Some(vec![5550]),
                 Protocol::Imsl => input.listen_zmq_imsl = Some(vec![5550]),
                 Protocol::Irdm => input.listen_zmq_irdm = Some(vec![5550]),
+                Protocol::Xng => input.listen_zmq_xng = Some(vec![5550]),
             }
             assert!(
                 input.protocol(proto).is_configured(),
@@ -624,5 +691,57 @@ mod tests {
             input.protocol(Protocol::Acars).validation,
             ValidationMode::Enforce
         );
+    }
+
+    #[test]
+    fn xng_flags_parse() {
+        let input = Input::try_parse_from([
+            "acars_router",
+            "--listen-udp-xng",
+            "5559",
+            "--serve-zmq-xng",
+            "45559",
+        ])
+        .expect("flags parse");
+        let xng = input.protocol(Protocol::Xng);
+        assert_eq!(xng.listen_udp, vec![5559]);
+        assert_eq!(xng.serve_zmq, vec![45559]);
+        assert!(xng.is_configured());
+        assert!(!input.protocol(Protocol::Irdm).is_configured());
+    }
+
+    #[test]
+    fn disable_xng_flag_parses() {
+        let input =
+            Input::try_parse_from(["acars_router", "--disable-xng", "--listen-udp-xng", "5559"])
+                .expect("flags parse");
+        let xng = input.protocol(Protocol::Xng);
+        assert!(xng.disabled);
+        assert!(!xng.is_configured());
+        assert!(!input.protocol(Protocol::Acars).disabled);
+    }
+
+    #[test]
+    fn bypass_validation_xng_flag_parses() {
+        let input = Input::try_parse_from(["acars_router", "--bypass-validation-xng"])
+            .expect("flag parses");
+        for proto in Protocol::ALL {
+            let expected = if proto == Protocol::Xng {
+                ValidationMode::Bypass
+            } else {
+                ValidationMode::Enforce
+            };
+            assert_eq!(input.protocol(proto).validation, expected, "{proto}");
+        }
+    }
+
+    #[test]
+    fn protocol_discriminants_index_all() {
+        for (idx, proto) in Protocol::ALL.iter().enumerate() {
+            assert_eq!(*proto as usize, idx, "{proto}");
+        }
+        assert_eq!(Protocol::Xng.as_str(), "xng");
+        assert_eq!(Protocol::Xng.label(), "XNG");
+        assert_eq!(Protocol::Xng.env_token(), "XNG");
     }
 }
