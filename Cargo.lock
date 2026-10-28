@@ -43,8 +43,8 @@ dependencies = [
 
 [[package]]
 name = "acars_vdlm2_parser"
-version = "0.4.0"
-source = "git+https://github.com/fredclausen/acars_vdlm2_parser?rev=c651b87ae015573aa94e5626eb96940931721ac0#c651b87ae015573aa94e5626eb96940931721ac0"
+version = "0.5.0"
+source = "git+https://github.com/fredclausen/acars_vdlm2_parser?rev=225d01814a6b55c07ff7bbaed975a2cb29559297#225d01814a6b55c07ff7bbaed975a2cb29559297"
 dependencies = [
  "chrono",
  "log",
