@@ -23,7 +23,6 @@
 //! All loops cooperatively shut down on a [`CancellationToken`]. The
 //! fragment reassembly logic itself lives in [`crate::packet_handler`].
 
-use acars_vdlm2_parser::AcarsVdlm2Message;
 use sdre_stubborn_io::tokio::StubbornIo;
 use std::error::Error;
 use std::io;
@@ -40,7 +39,7 @@ use tracing::{debug, error, info, trace};
 
 use crate::cached_dns_tcp::{CachedDnsTcp, ConnectTarget};
 use crate::packet_handler::{PacketHandler, ProcessAssembly, split_concatenated_json};
-use crate::{SenderServer, dns, reconnect_options};
+use crate::{OutboundMessage, SenderServer, dns, reconnect_options};
 
 /// Accepts inbound TCP clients on a bound port and forwards every parsed
 /// message into a per-protocol mpsc input channel. Each accepted peer
@@ -269,12 +268,9 @@ impl SenderServer<StubbornIo<CachedDnsTcp>> {
                         continue;
                     }
                 };
-                match message.to_bytes_newline() {
-                    Err(encode_error) => error!("Error converting message: {}", encode_error),
-                    Ok(encoded_message) => match self.socket.write_all(&encoded_message).await {
-                        Ok(()) => trace!("sent message"),
-                        Err(e) => error!("Error sending message: {}", e),
-                    },
+                match self.socket.write_all(message.as_bytes()).await {
+                    Ok(()) => trace!("sent message"),
+                    Err(e) => error!("Error sending message: {}", e),
                 }
             }
         });
@@ -304,7 +300,7 @@ impl TCPServeServer {
     #[tracing::instrument(name = "tcp_serve", skip_all, fields(proto = %self.proto_name))]
     pub(crate) async fn watch_for_connections(
         self,
-        tx_processed: broadcast::Sender<AcarsVdlm2Message>,
+        tx_processed: broadcast::Sender<OutboundMessage>,
         shutdown: CancellationToken,
     ) {
         loop {
@@ -344,7 +340,7 @@ impl TCPServeServer {
 async fn forward_to_peer(
     stream: TcpStream,
     addr: SocketAddr,
-    rx: &mut broadcast::Receiver<AcarsVdlm2Message>,
+    rx: &mut broadcast::Receiver<OutboundMessage>,
     shutdown: CancellationToken,
 ) -> Result<(), Box<dyn Error>> {
     let mut stream = stream;
@@ -354,17 +350,12 @@ async fn forward_to_peer(
             r = rx.recv() => r,
         };
         match recv {
-            Ok(message) => match message.to_string_newline() {
-                Ok(payload) => {
-                    if let Err(e) = stream.write_all(payload.as_bytes()).await {
-                        return Err(e.into());
-                    }
-                    debug!("sent message to {addr}");
+            Ok(message) => {
+                if let Err(e) = stream.write_all(message.as_bytes()).await {
+                    return Err(e.into());
                 }
-                Err(e) => {
-                    error!("Failed to encode message for {addr}: {e}");
-                }
-            },
+                debug!("sent message to {addr}");
+            }
             Err(broadcast::error::RecvError::Closed) => return Ok(()),
             Err(broadcast::error::RecvError::Lagged(n)) => {
                 error!(

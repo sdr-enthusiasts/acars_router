@@ -19,9 +19,9 @@
 //!   `sendto()` failure** so the next message re-resolves. See
 //!   [`crate::dns`] for the shared hickory-backed resolver.
 
+use crate::OutboundMessage;
 use crate::dns;
 use crate::packet_handler::{PacketHandler, ProcessAssembly, split_concatenated_json};
-use acars_vdlm2_parser::AcarsVdlm2Message;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -56,7 +56,7 @@ pub(crate) struct UDPSenderServer {
     pub(crate) proto_name: String,
     pub(crate) socket: UdpSocket,
     pub(crate) max_udp_packet_size: usize,
-    pub(crate) channel: broadcast::Receiver<AcarsVdlm2Message>,
+    pub(crate) channel: broadcast::Receiver<OutboundMessage>,
     resolved_addrs: Vec<ResolvedAddr>,
     dns_cache_duration: Duration,
     resolver: Arc<dns::Resolver>,
@@ -131,7 +131,7 @@ impl UDPSenderServer {
         socket: UdpSocket,
         max_udp_packet_size: usize,
         dns_cache_seconds: f64,
-        rx_processed: broadcast::Receiver<AcarsVdlm2Message>,
+        rx_processed: broadcast::Receiver<OutboundMessage>,
         resolver: Arc<dns::Resolver>,
     ) -> Self {
         let mut resolved_addrs: Vec<ResolvedAddr> = Vec::new();
@@ -168,12 +168,7 @@ impl UDPSenderServer {
                     continue;
                 }
             };
-            match message.to_bytes_newline() {
-                Err(bytes_error) => error!("Failed to encode to bytes: {}", bytes_error),
-                Ok(message_as_bytes) => {
-                    self.send_bytes(&message_as_bytes[..]).await;
-                }
-            }
+            self.send_bytes(message.as_bytes()).await;
         }
     }
 

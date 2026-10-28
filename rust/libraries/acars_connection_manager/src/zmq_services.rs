@@ -18,8 +18,7 @@
 //! * `impl SenderServer<Publish>` — `PUB` socket fan-out for processed
 //!   messages.
 
-use crate::SenderServer;
-use acars_vdlm2_parser::AcarsVdlm2Message;
+use crate::{OutboundMessage, SenderServer};
 use futures::SinkExt;
 use futures::StreamExt;
 use tmq::publish::Publish;
@@ -156,7 +155,7 @@ impl SenderServer<Publish> {
         server_address: &str,
         name: &str,
         socket: Publish,
-        channel: tokio::sync::broadcast::Receiver<AcarsVdlm2Message>,
+        channel: tokio::sync::broadcast::Receiver<OutboundMessage>,
     ) -> Self {
         Self {
             host: server_address.to_string(),
@@ -176,22 +175,14 @@ impl SenderServer<Publish> {
                         continue;
                     }
                 };
-                match message.to_string_newline() {
-                    Err(decode_error) => {
-                        error!(": Error parsing message to string: {decode_error}");
-                    }
-                    // For some Subscribers it appears that a "blank" topic causes it to never receive the message
-                    // This needs more investigation...
-                    // Right now it seems that any Sub who listens to the blank topic gets all of the messages, even
-                    // if they aren't sub'd to the topic we're broadcasting on. This should fix the issue with moronic (hello node)
-                    // zmq implementations not getting the message if the topic is blank.
-                    // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
-                    Ok(payload) => match self.socket.send(vec![&payload]).await {
-                        Ok(()) => (),
-                        Err(e) => {
-                            error!(": Error sending message on 'acars' topic: {e:?}");
-                        }
-                    },
+                // For some Subscribers it appears that a "blank" topic causes it to never receive the message
+                // This needs more investigation...
+                // Right now it seems that any Sub who listens to the blank topic gets all of the messages, even
+                // if they aren't sub'd to the topic we're broadcasting on. This should fix the issue with moronic (hello node)
+                // zmq implementations not getting the message if the topic is blank.
+                // TODO: verify this doesn't break other kinds of zmq implementations....Like perhaps acars_router itself?
+                if let Err(e) = self.socket.send(vec![&*message]).await {
+                    error!(": Error sending message on 'acars' topic: {e:?}");
                 }
             }
         });

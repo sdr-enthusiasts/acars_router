@@ -22,6 +22,7 @@
 //! `.await` is ever held across a guard in this file; sync mutexes are
 //! materially cheaper for these short critical sections.
 
+use crate::OutboundMessage;
 use acars_config::Input;
 use acars_vdlm2_parser::{AcarsVdlm2Message, DecodeMessage, MessageResult};
 use std::collections::HashMap;
@@ -112,7 +113,7 @@ impl MessageHandlerConfig {
     pub(crate) async fn watch_message_queue(
         self,
         mut input_queue: Receiver<String>,
-        output_queue: broadcast::Sender<AcarsVdlm2Message>,
+        output_queue: broadcast::Sender<OutboundMessage>,
         shutdown: CancellationToken,
     ) {
         let total_messages_processed = Arc::new(AtomicU64::new(0));
@@ -259,7 +260,15 @@ impl MessageHandlerConfig {
             debug!("SENDING: {message:?}");
             trace!("Hashed value: {hashed_value}");
 
-            if let Ok(n) = output_queue.send(message) {
+            let line = match message.to_string_newline() {
+                Ok(line) => line,
+                Err(e) => {
+                    error!("Failed to serialize message: {e}");
+                    continue;
+                }
+            };
+
+            if let Ok(n) = output_queue.send(OutboundMessage::from(line)) {
                 debug!("Message sent to {n} sender(s)");
             } else {
                 // `Err` only when no receivers are subscribed; common
@@ -595,7 +604,9 @@ mod corpus_tests {
     }
 
     /// Drive `watch_message_queue` with `lines` repeated `repeats` times.
-    /// Returns (`input_count`, `emitted_count`).
+    /// Returns (`input_count`, `emitted_count`). Every emitted payload is
+    /// checked to be a newline-terminated line that decodes back into an
+    /// [`AcarsVdlm2Message`].
     async fn drive_pipeline(
         cfg: MessageHandlerConfig,
         corpus: &str,
@@ -607,10 +618,28 @@ mod corpus_tests {
             .filter(|l| !l.trim().is_empty())
             .map(|l| rewrite_timestamp(l, timestamp))
             .collect();
+        let (input_count, emitted) = drive_lines(cfg, &lines, repeats).await;
+        for payload in &emitted {
+            assert!(
+                payload.ends_with('\n'),
+                "broadcast payload must be newline-terminated"
+            );
+            let _: AcarsVdlm2Message = payload.decode_message().expect("broadcast payload decodes");
+        }
+        (input_count, emitted.len())
+    }
+
+    /// Feed the already-prepared `lines` (repeated `repeats` times) through
+    /// `watch_message_queue` and collect every broadcast payload.
+    async fn drive_lines(
+        cfg: MessageHandlerConfig,
+        lines: &[String],
+        repeats: usize,
+    ) -> (usize, Vec<OutboundMessage>) {
         let input_count = lines.len() * repeats;
 
         let (tx_in, rx_in) = mpsc::channel::<String>(64);
-        let (tx_out, mut rx_out) = bcast::channel::<AcarsVdlm2Message>(input_count.max(1));
+        let (tx_out, mut rx_out) = bcast::channel::<OutboundMessage>(input_count.max(1));
         let shutdown = CancellationToken::new();
 
         let handler_shutdown = shutdown.clone();
@@ -622,17 +651,17 @@ mod corpus_tests {
         // Feed corpus. Dropping `tx_in` closes the channel and the
         // handler loop returns naturally; no need to cancel for this.
         for _ in 0..repeats {
-            for line in &lines {
+            for line in lines {
                 tx_in.send(line.clone()).await.expect("input send");
             }
         }
         drop(tx_in);
         handler.await.expect("handler task");
 
-        let mut received = 0;
+        let mut received = Vec::new();
         loop {
             match rx_out.try_recv() {
-                Ok(_) => received += 1,
+                Ok(payload) => received.push(payload),
                 Err(bcast::error::TryRecvError::Empty | bcast::error::TryRecvError::Closed) => {
                     break;
                 }
@@ -681,6 +710,61 @@ mod corpus_tests {
         let (sent, got) = drive_pipeline(config("acars", false), ACARS, 1, stale).await;
         assert!(sent > 0);
         assert_eq!(got, 0, "stale corpus must be rejected by the skew check");
+    }
+
+    #[tokio::test]
+    async fn broadcast_payload_matches_legacy_per_sender_serialization() {
+        // The handler now serializes once; the payload on the channel must
+        // be byte-identical to what each sender used to produce by calling
+        // `to_string_newline()` on the processed message itself.
+        let now = now_secs();
+        let version = env!("CARGO_PKG_VERSION");
+        for (label, corpus) in [("acars", ACARS), ("vdlm2", VDLM2)] {
+            let line = rewrite_timestamp(
+                corpus
+                    .lines()
+                    .find(|l| !l.trim().is_empty())
+                    .expect("non-empty corpus"),
+                now,
+            );
+            // Station override only: fully deterministic, so the expected
+            // bytes can be built independently of the handler.
+            let mut cfg = config(label, false);
+            cfg.station_name_override = Some("TEST-STATION".to_string());
+
+            let (_, emitted) = drive_lines(cfg, std::slice::from_ref(&line), 1).await;
+            assert_eq!(emitted.len(), 1, "{label}: exactly one payload expected");
+
+            let mut decoded: AcarsVdlm2Message = line.decode_message().expect("decode");
+            decoded.set_station_name("TEST-STATION");
+            let expected = decoded.to_string_newline().expect("serialize");
+
+            assert_eq!(
+                &*emitted[0], expected,
+                "{label}: broadcast payload must match legacy serialization"
+            );
+
+            // With proxy details the parser stamps a fresh random UUID, so
+            // instead assert the payload is exactly the serialization of the
+            // message it carries.
+            let mut cfg = config(label, false);
+            cfg.station_name_override = Some("TEST-STATION".to_string());
+            cfg.add_proxy_id = true;
+
+            let (_, emitted) = drive_lines(cfg, std::slice::from_ref(&line), 1).await;
+            assert_eq!(emitted.len(), 1, "{label}: exactly one payload expected");
+
+            let carried: AcarsVdlm2Message = emitted[0].decode_message().expect("decode payload");
+            assert_eq!(
+                &*emitted[0],
+                carried.to_string_newline().expect("serialize"),
+                "{label}: proxied payload must match legacy serialization"
+            );
+            assert!(
+                emitted[0].contains(&format!("\"acars_router_version\":\"{version}\"")),
+                "{label}: proxy details must be present"
+            );
+        }
     }
 
     #[test]
