@@ -50,7 +50,7 @@ impl Input {
 
 /// Bound ports must be unique within their address family. UDP and
 /// (TCP ∪ ZMQ ∪ serve-TCP ∪ serve-ZMQ) form two independent name spaces.
-fn check_no_duplicate_ports(protos: &[ProtocolIo; 5]) -> usize {
+fn check_no_duplicate_ports(protos: &[ProtocolIo; Protocol::ALL.len()]) -> usize {
     let mut errs = 0;
 
     let mut udp_ports = Vec::new();
@@ -76,7 +76,7 @@ fn check_no_duplicate_ports(protos: &[ProtocolIo; 5]) -> usize {
 
 /// Host:port endpoints must be globally unique across every receive/send
 /// field.
-fn check_no_duplicate_hosts(protos: &[ProtocolIo; 5]) -> usize {
+fn check_no_duplicate_hosts(protos: &[ProtocolIo; Protocol::ALL.len()]) -> usize {
     let mut all_hosts = Vec::new();
     for io in protos {
         all_hosts.extend(io.receive_tcp.iter().cloned());
@@ -341,6 +341,45 @@ mod test {
             ..Input::default()
         };
         assert_eq!(check_no_duplicate_ports(&no_collisions.protocols()), 0);
+    }
+
+    #[test]
+    fn test_check_no_duplicate_ports_xng() {
+        // XNG serve_zmq collides with ACARS listen_tcp.
+        let xng_acars_tcp = Input {
+            listen_tcp_acars: Some(vec![5559]),
+            serve_zmq_xng: Some(vec![5559]),
+            ..Input::default()
+        };
+        assert_eq!(check_no_duplicate_ports(&xng_acars_tcp.protocols()), 1);
+
+        // XNG listen_udp collides with IRDM listen_udp.
+        let xng_irdm_udp = Input {
+            listen_udp_irdm: Some(vec![5559]),
+            listen_udp_xng: Some(vec![5559]),
+            ..Input::default()
+        };
+        assert_eq!(check_no_duplicate_ports(&xng_irdm_udp.protocols()), 1);
+
+        // Distinct XNG ports pass.
+        let no_collisions = Input {
+            listen_udp_irdm: Some(vec![5558]),
+            listen_udp_xng: Some(vec![5559]),
+            listen_tcp_xng: Some(vec![5559]),
+            serve_zmq_xng: Some(vec![45559]),
+            ..Input::default()
+        };
+        assert_eq!(check_no_duplicate_ports(&no_collisions.protocols()), 0);
+    }
+
+    #[test]
+    fn test_check_no_duplicate_hosts_xng() {
+        let hosts = Input {
+            send_udp_vdlm2: Some(vec!["test.com:5559".to_string()]),
+            send_tcp_xng: Some(vec!["test.com:5559".to_string()]),
+            ..Input::default()
+        };
+        assert_eq!(check_no_duplicate_hosts(&hosts.protocols()), 1);
     }
 
     #[test]

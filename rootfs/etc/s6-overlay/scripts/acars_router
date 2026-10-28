@@ -113,6 +113,28 @@ if [[ -n $AR_RECV_ZMQ_IRDM ]]; then
     AR_COMMAND+=("--receive-zmq-irdm" "$AR_RECV_ZMQ_IRDM")
 fi
 
+# XNG input
+
+if [[ -n $AR_LISTEN_UDP_XNG ]]; then
+    AR_COMMAND+=("--listen-udp-xng" "$AR_LISTEN_UDP_XNG")
+fi
+
+if [[ -n $AR_LISTEN_TCP_XNG ]]; then
+    AR_COMMAND+=("--listen-tcp-xng" "$AR_LISTEN_TCP_XNG")
+fi
+
+if [[ -n $AR_LISTEN_ZMQ_XNG ]]; then
+    AR_COMMAND+=("--listen-zmq-xng" "$AR_LISTEN_ZMQ_XNG")
+fi
+
+if [[ -n $AR_RECV_TCP_XNG ]]; then
+    AR_COMMAND+=("--receive-tcp-xng" "$AR_RECV_TCP_XNG")
+fi
+
+if [[ -n $AR_RECV_ZMQ_XNG ]]; then
+    AR_COMMAND+=("--receive-zmq-xng" "$AR_RECV_ZMQ_XNG")
+fi
+
 # ACARS Output
 
 if [[ -n $AR_SEND_UDP_ACARS ]]; then
@@ -201,6 +223,24 @@ fi
 
 if [[ -n $AR_SERVE_ZMQ_IRDM ]]; then
     AR_COMMAND+=("--serve-zmq-irdm" "$AR_SERVE_ZMQ_IRDM")
+fi
+
+# XNG Output
+
+if [[ -n $AR_SEND_UDP_XNG ]]; then
+    AR_COMMAND+=("--send-udp-xng" "$AR_SEND_UDP_XNG")
+fi
+
+if [[ -n $AR_SEND_TCP_XNG ]]; then
+    AR_COMMAND+=("--send-tcp-xng" "$AR_SEND_TCP_XNG")
+fi
+
+if [[ -n $AR_SERVE_TCP_XNG ]]; then
+    AR_COMMAND+=("--serve-tcp-xng" "$AR_SERVE_TCP_XNG")
+fi
+
+if [[ -n $AR_SERVE_ZMQ_XNG ]]; then
+    AR_COMMAND+=("--serve-zmq-xng" "$AR_SERVE_ZMQ_XNG")
 fi
 
 /opt/acars_router "${AR_COMMAND[@]}"

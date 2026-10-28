@@ -349,6 +349,7 @@ fn message_frequency(message: &AcarsVdlm2Message) -> Option<String> {
         AcarsVdlm2Message::HfdlMessage(m) => Some(m.hfdl.freq.to_string()),
         AcarsVdlm2Message::ImslMessage(m) => m.freq.clone(),
         AcarsVdlm2Message::IrdmMessage(m) => m.freq.as_ref().map(ToString::to_string),
+        AcarsVdlm2Message::XngMessage(m) => Some(m.frequency_hz.to_string()),
     }
 }
 
@@ -611,6 +612,7 @@ mod corpus_tests {
 
     const ACARS: &str = include_str!("../tests/fixtures/acars.jsonl");
     const VDLM2: &str = include_str!("../tests/fixtures/vdlm2.jsonl");
+    const XNG: &str = include_str!("../tests/fixtures/xng.jsonl");
 
     /// Default-ish skew window (matches the CLI default of 5s). Tests
     /// exercise the real freshness check rather than disabling it.
@@ -637,13 +639,24 @@ mod corpus_tests {
     }
 
     /// Rewrite the recorded timestamp in `line` to `target` (unix seconds
-    /// as f64). Handles both the flat ACARS shape (`"timestamp": f64`)
-    /// and the nested VDLM2 shape (`"vdl2": { "t": { "sec", "usec" } }`).
-    /// Other variants (hfdl/imsl/irdm) are not present in the active
-    /// corpus fixtures; extend here when those land.
+    /// as f64). Handles the flat ACARS shape (`"timestamp": f64`), the
+    /// nested VDLM2 shape (`"vdl2": { "t": { "sec", "usec" } }`) and the
+    /// xng envelope shape (`"timestamp": "<RFC3339>"` alongside an object
+    /// `body` and a numeric `frequency_hz`). Other variants
+    /// (hfdl/imsl/irdm) are not present in the active corpus fixtures;
+    /// extend here when those land.
     fn rewrite_timestamp(line: &str, target: f64) -> String {
         let mut v: Value = serde_json::from_str(line).expect("corpus line is valid JSON");
-        if v.get("timestamp").is_some() {
+        let is_xng = v.get("timestamp").is_some_and(Value::is_string)
+            && v.get("body").is_some_and(Value::is_object)
+            && v.get("frequency_hz").is_some_and(Value::is_number);
+        if is_xng {
+            #[allow(clippy::cast_possible_truncation)]
+            let nanos = (target * 1e9).round() as i64;
+            let stamp = chrono::DateTime::from_timestamp_nanos(nanos)
+                .to_rfc3339_opts(chrono::SecondsFormat::Nanos, true);
+            v["timestamp"] = serde_json::json!(stamp);
+        } else if v.get("timestamp").is_some() {
             v["timestamp"] = serde_json::json!(target);
         }
         if let Some(t) = v.get_mut("vdl2").and_then(|v| v.get_mut("t")) {
@@ -825,6 +838,89 @@ mod corpus_tests {
                 "{label}: proxy details must be present"
             );
         }
+    }
+
+    fn xng_lines(timestamp: f64) -> Vec<String> {
+        XNG.lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| rewrite_timestamp(l, timestamp))
+            .collect()
+    }
+
+    #[test]
+    fn xng_fixture_decodes_as_xng_variant() {
+        let lines = xng_lines(now_secs());
+        assert_eq!(lines.len(), 20);
+        for line in &lines {
+            let msg: AcarsVdlm2Message = line.decode_message().expect("xng line decodes");
+            assert!(
+                matches!(msg, AcarsVdlm2Message::XngMessage(_)),
+                "expected XngMessage variant, got {msg:?}"
+            );
+            assert!(
+                message_frequency(&msg).is_some(),
+                "xng carries frequency_hz"
+            );
+        }
+    }
+
+    #[test]
+    fn rewrite_timestamp_sets_rfc3339_for_xng() {
+        let target = 1_700_000_000.25;
+        let line = xng_lines(target).remove(0);
+        let msg: AcarsVdlm2Message = line.decode_message().expect("decode");
+        let got = msg.get_time().expect("xng timestamp parses");
+        assert!((got - target).abs() < 1e-6, "got {got}, want {target}");
+    }
+
+    #[tokio::test]
+    async fn xng_corpus_passes_through_without_dedupe() {
+        let (sent, got) = drive_pipeline(config("xng", false), XNG, 1, now_secs()).await;
+        assert_eq!(sent, 20);
+        assert_eq!(sent, got, "every xng corpus line should emerge");
+    }
+
+    #[tokio::test]
+    async fn xng_dedupe_collapses_immediate_duplicate() {
+        let line = xng_lines(now_secs()).remove(0);
+        let (_, emitted) = drive_lines(config("xng", true), &[line.clone(), line], 1).await;
+        assert_eq!(emitted.len(), 1, "duplicate xng message must be dropped");
+    }
+
+    #[tokio::test]
+    async fn xng_stale_messages_are_rejected_by_skew_window() {
+        let stale = now_secs() - f64::from(u32::try_from(SKEW).unwrap()) - 30.0;
+        let (sent, got) = drive_pipeline(config("xng", false), XNG, 1, stale).await;
+        assert!(sent > 0);
+        assert_eq!(
+            got, 0,
+            "stale xng corpus must be rejected by the skew check"
+        );
+    }
+
+    #[tokio::test]
+    async fn xng_proxy_id_and_station_override_are_applied() {
+        let version = env!("CARGO_PKG_VERSION");
+        let line = xng_lines(now_secs()).remove(0);
+        let mut cfg = config("xng", false);
+        cfg.add_proxy_id = true;
+        cfg.station_name_override = Some("TEST-STATION".to_string());
+
+        let (_, emitted) = drive_lines(cfg, std::slice::from_ref(&line), 1).await;
+        assert_eq!(emitted.len(), 1);
+
+        let payload: Value = serde_json::from_str(&emitted[0]).expect("payload is JSON");
+        assert_eq!(
+            payload["source"]["app"]["acars_router_version"],
+            Value::from(version)
+        );
+        assert_eq!(
+            payload["source"]["station"]["ident"],
+            Value::from("TEST-STATION")
+        );
+
+        let carried: AcarsVdlm2Message = emitted[0].decode_message().expect("decode payload");
+        assert!(matches!(carried, AcarsVdlm2Message::XngMessage(_)));
     }
 
     fn bypass_config(queue_type: &str, dedupe: bool) -> MessageHandlerConfig {
