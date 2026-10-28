@@ -10,7 +10,6 @@ pub mod udp_services;
 pub mod zmq_services;
 
 use acars_config::Protocol;
-use acars_vdlm2_parser::AcarsVdlm2Message;
 use sdre_stubborn_io::ReconnectOptions;
 use std::time::Duration;
 use tokio::sync::broadcast;
@@ -22,6 +21,10 @@ pub type Tx = mpsc::UnboundedSender<String>;
 
 /// Shorthand for the receive half of the input message channel.
 pub type Rx = mpsc::UnboundedReceiver<String>;
+
+/// One outbound message: a complete, newline-terminated JSON line, serialized
+/// once by the message handler and shared by every sender.
+pub(crate) type OutboundMessage = std::sync::Arc<str>;
 
 pub type DurationIterator = Box<dyn Iterator<Item = Duration> + Send + Sync>;
 
@@ -41,7 +44,7 @@ pub(crate) struct SenderServer<T> {
     pub(crate) host: String,
     pub(crate) proto_name: String,
     pub(crate) socket: T,
-    pub(crate) channel: broadcast::Receiver<AcarsVdlm2Message>,
+    pub(crate) channel: broadcast::Receiver<OutboundMessage>,
 }
 
 #[derive(Debug, Clone, Default)]

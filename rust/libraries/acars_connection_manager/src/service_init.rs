@@ -11,11 +11,10 @@ use crate::tcp_services::{TCPListenerServer, TCPReceiverServer, TCPServeServer};
 use crate::udp_services::{UDPListenerServer, UDPSenderServer};
 use crate::zmq_services::{ZMQListenerServer, ZMQReceiverServer};
 use crate::{
-    BROADCAST_CAPACITY, OutputServerConfig, SenderServer, SenderServerConfig, dns,
+    BROADCAST_CAPACITY, OutboundMessage, OutputServerConfig, SenderServer, SenderServerConfig, dns,
     reconnect_options,
 };
 use acars_config::{Input, Protocol, ProtocolIo};
-use acars_vdlm2_parser::AcarsVdlm2Message;
 use sdre_stubborn_io::tokio::StubbornIo;
 use std::io;
 use std::sync::Arc;
@@ -109,7 +108,7 @@ fn spawn_protocol_pipeline(
     let (tx_receivers, rx_receivers) = mpsc::channel(32);
     // Per-protocol fan-out from message handler to every configured sender.
     // Each sender calls `.subscribe()` on this in `start_senders`.
-    let (tx_processed, _initial_rx) = broadcast::channel(BROADCAST_CAPACITY);
+    let (tx_processed, _initial_rx) = broadcast::channel::<OutboundMessage>(BROADCAST_CAPACITY);
 
     info!("Starting {proto} input servers");
     let input_config =
@@ -380,7 +379,7 @@ impl SenderServerConfig {
 
     async fn start_senders(
         self,
-        tx_processed: broadcast::Sender<AcarsVdlm2Message>,
+        tx_processed: broadcast::Sender<OutboundMessage>,
         server_type: &str,
         shutdown: CancellationToken,
     ) {
@@ -487,7 +486,7 @@ async fn start_tcp_sender(
     socket_type: &str,
     host: &str,
     resolver: Arc<dns::Resolver>,
-    rx: broadcast::Receiver<AcarsVdlm2Message>,
+    rx: broadcast::Receiver<OutboundMessage>,
 ) {
     let target = ConnectTarget {
         host: Arc::from(host),
