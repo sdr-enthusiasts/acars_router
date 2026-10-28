@@ -22,10 +22,44 @@ use crate::{OutboundMessage, SenderServer};
 use futures::SinkExt;
 use futures::StreamExt;
 use tmq::publish::Publish;
-use tmq::{Context, Result, subscribe};
+use tmq::{Context, Multipart, Result, subscribe};
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
+
+/// Extract the payload from a (possibly multipart) ZMQ message.
+///
+/// Returns the LAST frame as UTF-8 text with one trailing `"\r\n"` or
+/// `"\n"` stripped, or `None` if there are no frames or the last frame
+/// is not valid UTF-8.
+///
+/// Single-frame publishers (dumpvdl2, acarsdec, `acars_router`'s own
+/// `serve_zmq`) are unaffected since the last frame is also the first.
+/// xng publishes every message as `[topic, json]`, so taking the last
+/// frame drops the topic and keeps the JSON payload.
+fn payload_frame(message: &Multipart) -> Option<&str> {
+    let text = message.0.back()?.as_str()?;
+    Some(
+        text.strip_suffix("\r\n")
+            .or_else(|| text.strip_suffix('\n'))
+            .unwrap_or(text),
+    )
+}
+
+/// Forward the payload frame of `message` onto `channel`, dropping
+/// messages with no usable (non-empty, UTF-8) payload. Empty payloads
+/// are never forwarded.
+async fn forward_payload(message: &Multipart, channel: &Sender<String>) {
+    let Some(text) = payload_frame(message).filter(|text| !text.is_empty()) else {
+        warn!("Dropping ZMQ message with no usable payload frame");
+        return;
+    };
+    trace!("Received: {}", text);
+    match channel.send(text.to_string()).await {
+        Ok(()) => trace!("Message sent to channel"),
+        Err(e) => error!("Error sending message to channel: {}", e),
+    }
+}
 
 /// Outbound-connecting ZMQ subscriber: `connect()`s to a remote `PUB`
 /// socket and pushes each message into the per-protocol mpsc input
@@ -67,21 +101,7 @@ impl ZMQReceiverServer {
                 }
             };
 
-            let composed_message = message
-                .iter()
-                .map(|item| item.as_str().unwrap_or("invalid text"))
-                .collect::<Vec<&str>>()
-                .join(" ");
-            trace!("Received: {}", composed_message);
-            let stripped = composed_message
-                .strip_suffix("\r\n")
-                .or_else(|| composed_message.strip_suffix('\n'))
-                .unwrap_or(&composed_message);
-
-            match channel.send(stripped.to_string()).await {
-                Ok(()) => trace!("Message sent to channel"),
-                Err(e) => error!("Error sending message to channel: {}", e),
-            }
+            forward_payload(&message, &channel).await;
         }
     }
 }
@@ -127,20 +147,7 @@ impl ZMQListenerServer {
                 },
             };
             match msg {
-                Ok(message) => {
-                    for item in message {
-                        let item_text = item.as_str().unwrap_or("invalid text");
-                        let composed_message = item_text
-                            .strip_suffix("\r\n")
-                            .or_else(|| item_text.strip_suffix('\n'))
-                            .unwrap_or(item_text);
-                        trace!("Received: {}", composed_message);
-                        match channel.send(composed_message.to_string()).await {
-                            Ok(()) => trace!("Message sent to channel"),
-                            Err(e) => error!("Error sending message to channel: {}", e),
-                        }
-                    }
-                }
+                Ok(message) => forward_payload(&message, &channel).await,
                 Err(e) => error!("Error: {:?}", e),
             }
         }
@@ -186,5 +193,55 @@ impl SenderServer<Publish> {
                 }
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::payload_frame;
+    use tmq::Multipart;
+
+    fn multipart(frames: Vec<Vec<u8>>) -> Multipart {
+        frames.into()
+    }
+
+    #[test]
+    fn single_frame_strips_trailing_newline() {
+        let msg = multipart(vec![b"{\"a\":1}\n".to_vec()]);
+        assert_eq!(payload_frame(&msg), Some("{\"a\":1}"));
+    }
+
+    #[test]
+    fn single_frame_strips_trailing_crlf() {
+        let msg = multipart(vec![b"{\"a\":1}\r\n".to_vec()]);
+        assert_eq!(payload_frame(&msg), Some("{\"a\":1}"));
+    }
+
+    #[test]
+    fn two_frames_topic_and_json_returns_json() {
+        let msg = multipart(vec![b"acars".to_vec(), b"{\"a\":1}".to_vec()]);
+        assert_eq!(payload_frame(&msg), Some("{\"a\":1}"));
+    }
+
+    #[test]
+    fn three_frames_returns_last() {
+        let msg = multipart(vec![
+            b"first".to_vec(),
+            b"second".to_vec(),
+            b"{\"last\":true}\n".to_vec(),
+        ]);
+        assert_eq!(payload_frame(&msg), Some("{\"last\":true}"));
+    }
+
+    #[test]
+    fn empty_multipart_returns_none() {
+        let msg = multipart(Vec::new());
+        assert_eq!(payload_frame(&msg), None);
+    }
+
+    #[test]
+    fn invalid_utf8_last_frame_returns_none() {
+        let msg = multipart(vec![b"acars".to_vec(), vec![0xff, 0xfe]]);
+        assert_eq!(payload_frame(&msg), None);
     }
 }
