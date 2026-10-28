@@ -347,7 +347,7 @@ fn message_frequency(message: &AcarsVdlm2Message) -> Option<String> {
         AcarsVdlm2Message::Vdlm2Message(m) => Some(m.vdl2.freq.to_string()),
         AcarsVdlm2Message::AcarsMessage(m) => Some(m.freq.to_string()),
         AcarsVdlm2Message::HfdlMessage(m) => Some(m.hfdl.freq.to_string()),
-        AcarsVdlm2Message::ImslMessage(m) => m.freq.clone(),
+        AcarsVdlm2Message::ImslMessage(m) => m.freq_string(),
         AcarsVdlm2Message::IrdmMessage(m) => m.freq.as_ref().map(ToString::to_string),
         AcarsVdlm2Message::XngMessage(m) => Some(m.frequency_hz.to_string()),
     }
@@ -642,15 +642,34 @@ mod corpus_tests {
     /// as f64). Handles the flat ACARS shape (`"timestamp": f64`), the
     /// nested VDLM2 shape (`"vdl2": { "t": { "sec", "usec" } }`) and the
     /// xng envelope shape (`"timestamp": "<RFC3339>"` alongside an object
-    /// `body` and a numeric `frequency_hz`). Other variants
-    /// (hfdl/imsl/irdm) are not present in the active corpus fixtures;
-    /// extend here when those land.
+    /// `body` and a numeric `frequency_hz`), the IMSL shape (integer
+    /// `"timestamp"` alongside `msg_name`) and the IRDM shape
+    /// (`"acars": { "timestamp": "<RFC3339>" }`). hfdl is not present in
+    /// the active corpus fixtures; extend here when it lands.
     fn rewrite_timestamp(line: &str, target: f64) -> String {
         let mut v: Value = serde_json::from_str(line).expect("corpus line is valid JSON");
         let is_xng = v.get("timestamp").is_some_and(Value::is_string)
             && v.get("body").is_some_and(Value::is_object)
             && v.get("frequency_hz").is_some_and(Value::is_number);
-        if is_xng {
+        let is_imsl = v.get("timestamp").is_some_and(Value::is_number)
+            && v.get("msg_name").is_some_and(Value::is_string);
+        if let Some(ts) = v
+            .get_mut("acars")
+            .and_then(|a| a.get_mut("timestamp"))
+            .filter(|t| t.is_string())
+        {
+            #[allow(clippy::cast_possible_truncation)]
+            let secs = target.trunc() as i64;
+            let stamp = chrono::DateTime::from_timestamp(secs, 0)
+                .expect("target is a valid unix time")
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+            *ts = serde_json::json!(stamp);
+        }
+        if is_imsl {
+            #[allow(clippy::cast_possible_truncation)]
+            let secs = target.trunc() as i64;
+            v["timestamp"] = serde_json::json!(secs);
+        } else if is_xng {
             #[allow(clippy::cast_possible_truncation)]
             let nanos = (target * 1e9).round() as i64;
             let stamp = chrono::DateTime::from_timestamp_nanos(nanos)
@@ -921,6 +940,187 @@ mod corpus_tests {
 
         let carried: AcarsVdlm2Message = emitted[0].decode_message().expect("decode payload");
         assert!(matches!(carried, AcarsVdlm2Message::XngMessage(_)));
+    }
+
+    const IMSL: &str = include_str!("../tests/fixtures/imsl.jsonl");
+    const IRDM: &str = include_str!("../tests/fixtures/irdm.jsonl");
+
+    fn corpus_lines(corpus: &str, timestamp: f64) -> Vec<String> {
+        corpus
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| rewrite_timestamp(l, timestamp))
+            .collect()
+    }
+
+    /// Return `line` with each `(pointer, value)` pair written into it.
+    fn with_fields(line: &str, fields: &[(&str, Value)]) -> String {
+        let mut v: Value = serde_json::from_str(line).expect("line is valid JSON");
+        for (pointer, value) in fields {
+            *v.pointer_mut(pointer).expect("field exists") = value.clone();
+        }
+        v.to_string()
+    }
+
+    #[test]
+    fn imsl_fixture_decodes_as_imsl_variant() {
+        let lines = corpus_lines(IMSL, now_secs());
+        assert_eq!(lines.len(), 15);
+        for line in &lines {
+            let msg: AcarsVdlm2Message = line.decode_message().expect("imsl line decodes");
+            assert!(
+                matches!(msg, AcarsVdlm2Message::ImslMessage(_)),
+                "expected ImslMessage variant, got {msg:?}"
+            );
+            assert!(message_frequency(&msg).is_some(), "imsl carries freq");
+        }
+    }
+
+    #[test]
+    fn irdm_fixture_decodes_as_irdm_variant() {
+        let lines = corpus_lines(IRDM, now_secs());
+        assert_eq!(lines.len(), 7);
+        for line in &lines {
+            let msg: AcarsVdlm2Message = line.decode_message().expect("irdm line decodes");
+            assert!(
+                matches!(msg, AcarsVdlm2Message::IrdmMessage(_)),
+                "expected IrdmMessage variant, got {msg:?}"
+            );
+            assert!(message_frequency(&msg).is_some(), "irdm carries freq");
+        }
+    }
+
+    #[test]
+    fn rewrite_timestamp_sets_integer_seconds_for_imsl_and_rfc3339_for_irdm() {
+        let target = 1_700_000_000.75;
+        let imsl: Value =
+            serde_json::from_str(&corpus_lines(IMSL, target).remove(0)).expect("JSON");
+        assert_eq!(imsl["timestamp"], Value::from(1_700_000_000_i64));
+        let irdm: Value =
+            serde_json::from_str(&corpus_lines(IRDM, target).remove(0)).expect("JSON");
+        assert_eq!(
+            irdm["acars"]["timestamp"],
+            Value::from("2023-11-14T22:13:20Z")
+        );
+        for corpus in [IMSL, IRDM] {
+            let msg: AcarsVdlm2Message = corpus_lines(corpus, target)
+                .remove(0)
+                .decode_message()
+                .expect("decode");
+            assert_eq!(msg.get_time(), Some(1_700_000_000.0));
+        }
+    }
+
+    #[tokio::test]
+    async fn imsl_corpus_passes_through_without_dedupe() {
+        let (sent, got) = drive_pipeline(config("imsl", false), IMSL, 1, now_secs()).await;
+        assert_eq!(sent, 15);
+        assert_eq!(sent, got, "every imsl corpus line should emerge");
+    }
+
+    #[tokio::test]
+    async fn irdm_corpus_passes_through_without_dedupe() {
+        let (sent, got) = drive_pipeline(config("irdm", false), IRDM, 1, now_secs()).await;
+        assert_eq!(sent, 7);
+        assert_eq!(sent, got, "every irdm corpus line should emerge");
+    }
+
+    #[tokio::test]
+    async fn imsl_and_irdm_stale_messages_are_rejected_by_skew_window() {
+        let stale = now_secs() - f64::from(u32::try_from(SKEW).unwrap()) - 30.0;
+        for (label, corpus) in [("imsl", IMSL), ("irdm", IRDM)] {
+            let (sent, got) = drive_pipeline(config(label, false), corpus, 1, stale).await;
+            assert!(sent > 0);
+            assert_eq!(got, 0, "{label}: stale corpus must be rejected by skew");
+        }
+    }
+
+    #[tokio::test]
+    async fn imsl_and_irdm_dedupe_collapses_immediate_duplicate() {
+        for (label, corpus) in [("imsl", IMSL), ("irdm", IRDM)] {
+            let line = corpus_lines(corpus, now_secs()).remove(0);
+            let (_, emitted) = drive_lines(config(label, true), &[line.clone(), line], 1).await;
+            assert_eq!(emitted.len(), 1, "{label}: duplicate must be dropped");
+        }
+    }
+
+    #[tokio::test]
+    async fn imsl_dedupe_collapses_copies_from_different_stations() {
+        let line = corpus_lines(IMSL, now_secs()).remove(0);
+        let other = with_fields(
+            &line,
+            &[
+                ("/source/station_id", Value::from("OTHER-STATION")),
+                ("/level", Value::from("-22.5")),
+            ],
+        );
+        assert_ne!(line, other);
+        let (_, emitted) = drive_lines(config("imsl", true), &[line, other], 1).await;
+        assert_eq!(emitted.len(), 1, "cross-station imsl copy must be dropped");
+    }
+
+    #[tokio::test]
+    async fn irdm_dedupe_collapses_copies_from_different_stations() {
+        let line = corpus_lines(IRDM, now_secs()).remove(0);
+        let other = with_fields(
+            &line,
+            &[
+                ("/source/station_id", Value::from("OTHER-STATION")),
+                ("/level", Value::from(-12.5)),
+                ("/freq", Value::from(1_625_712_000.5)),
+                ("/acars/errors", Value::from(2)),
+            ],
+        );
+        assert_ne!(line, other);
+        let (_, emitted) = drive_lines(config("irdm", true), &[line, other], 1).await;
+        assert_eq!(emitted.len(), 1, "cross-station irdm copy must be dropped");
+    }
+
+    #[tokio::test]
+    async fn imsl_and_irdm_proxy_id_and_station_override_are_applied() {
+        let version = env!("CARGO_PKG_VERSION");
+        for (label, corpus, app_pointer) in [
+            ("imsl", IMSL, "/source/app/acars_router_version"),
+            ("irdm", IRDM, "/app/acars_router_version"),
+        ] {
+            let line = corpus_lines(corpus, now_secs()).remove(0);
+            let mut cfg = config(label, false);
+            cfg.add_proxy_id = true;
+            cfg.station_name_override = Some("TEST-STATION".to_string());
+
+            let (_, emitted) = drive_lines(cfg, std::slice::from_ref(&line), 1).await;
+            assert_eq!(emitted.len(), 1, "{label}: exactly one payload expected");
+
+            let payload: Value = serde_json::from_str(&emitted[0]).expect("payload is JSON");
+            assert_eq!(
+                payload.pointer(app_pointer),
+                Some(&Value::from(version)),
+                "{label}: proxy details must be present"
+            );
+            assert_eq!(
+                payload["source"]["station_id"],
+                Value::from("TEST-STATION"),
+                "{label}: station override must be applied"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn imsl_unknown_fields_survive_routing() {
+        let line = corpus_lines(IMSL, now_secs())
+            .into_iter()
+            .find(|l| l.contains("\"libacars\""))
+            .expect("imsl fixture has a libacars line");
+        let input: Value = serde_json::from_str(&line).expect("JSON");
+
+        let (_, emitted) = drive_lines(config("imsl", false), std::slice::from_ref(&line), 1).await;
+        assert_eq!(emitted.len(), 1);
+
+        let payload: Value = serde_json::from_str(&emitted[0]).expect("payload is JSON");
+        for field in ["level", "libacars"] {
+            assert!(input.get(field).is_some(), "fixture line has {field}");
+            assert_eq!(payload.get(field), input.get(field), "{field} must survive");
+        }
     }
 
     fn bypass_config(queue_type: &str, dedupe: bool) -> MessageHandlerConfig {
