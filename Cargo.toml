@@ -22,7 +22,7 @@ keywords = ["acars", "vdlm2", "hfdl", "aviation", "sdr"]
 categories = ["command-line-utilities", "network-programming"]
 
 [workspace.dependencies]
-acars_vdlm2_parser = { git = "https://github.com/fredclausen/acars_vdlm2_parser", rev = "225d01814a6b55c07ff7bbaed975a2cb29559297" }
+acars_vdlm2_parser = { git = "https://github.com/fredclausen/acars_vdlm2_parser", rev = "dec75ad07d1a0fd20a7d1a606915a7b5ea40154d" }
 chrono = "0.4.45"
 clap = { version = "4.6.7", features = ["derive", "env"] }
 futures = "0.3.34"
